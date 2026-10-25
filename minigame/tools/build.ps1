@@ -17,8 +17,9 @@ if ($Platform -eq 'wechatgame') {
   $PreviewConfig = Get-Content -LiteralPath $WechatProject -Raw -Encoding UTF8 | ConvertFrom-Json
   $OnlineConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'assets\resources\online.json') -Raw -Encoding UTF8 | ConvertFrom-Json
   $LoopbackApi = $false
-  if ($OnlineConfig.apiBaseUrl) {
-    $ApiUri = [Uri]$OnlineConfig.apiBaseUrl
+  $LocalApi = if ($OnlineConfig.environments) { $OnlineConfig.environments.local.apiBaseUrl } else { $OnlineConfig.apiBaseUrl }
+  if ($LocalApi) {
+    $ApiUri = [Uri]$LocalApi
     $LoopbackApi = $ApiUri.IsLoopback
   }
   # Local developer-tool requests use loopback HTTP. A non-local build restores validation.

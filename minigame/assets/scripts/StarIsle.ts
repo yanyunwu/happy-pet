@@ -55,6 +55,11 @@ import { ModalPresenter } from './ui/ModalPresenter';
 import { WoodlandAudio } from './ui/WoodlandAudio';
 import { LeafTransition } from './ui/LeafTransition';
 import { OnlineClient, OnlineError, CloudAssets, CloudSession, EntryId } from './core/OnlineClient';
+import {
+  resolveApiConfiguration,
+  ApiEnvironment,
+  WechatEnvironmentAPI,
+} from './core/ApiEnvironment';
 
 const { ccclass, property } = _decorator;
 const C = P.PALETTE;
@@ -68,13 +73,13 @@ const TOOL_INFO: { id: ToolId; name: string; icon: number; detail: string }[] = 
 ];
 declare const wx:
   | undefined
-  | {
+  | (WechatEnvironmentAPI & {
       openCustomerServiceConversation?: (options: {
         sessionFrom: string;
         showMessageCard: boolean;
         fail: () => void;
       }) => void;
-    };
+    });
 
 @ccclass('StarIsle')
 export class StarIsle extends Component {
@@ -122,6 +127,8 @@ export class StarIsle extends Component {
   private practice = true;
   private networkBusy = false;
   private onlineReady = false;
+  private onlineConfigError = false;
+  private apiEnvironment: ApiEnvironment = 'local';
   private rewardCoins = 0;
   private reconciling = false;
 
@@ -167,13 +174,17 @@ export class StarIsle extends Component {
     });
     this.home();
     resources.load('online', JsonAsset, (error, asset) => {
-      const address =
-        !error && typeof asset?.json?.apiBaseUrl === 'string'
-          ? asset.json.apiBaseUrl.replace(/\/$/, '')
-          : '';
+      if (!this.isValid) return;
       this.onlineReady = true;
-      if (address) {
-        this.online = new OnlineClient(address, sys.localStorage);
+      try {
+        if (error) throw error;
+        const selected = resolveApiConfiguration(
+          asset?.json,
+          typeof wx === 'undefined' ? undefined : wx,
+        );
+        this.apiEnvironment = selected.environment;
+        console.info(`[pet-online] ${selected.environment}: ${selected.apiBaseUrl}`);
+        this.online = new OnlineClient(selected.apiBaseUrl, sys.localStorage);
         this.online.onAssets = (value) => this.receiveAssets(value);
         if (typeof wx !== 'undefined') {
           this.practice = false;
@@ -185,6 +196,9 @@ export class StarIsle extends Component {
               if (this.isValid) this.toast('连接暂未完成，开始闯关时将重试');
             });
         }
+      } catch (failure) {
+        this.onlineConfigError = true;
+        console.warn('[pet-online] 无法读取当前环境的接口配置', failure);
       }
     });
   }
@@ -332,6 +346,10 @@ export class StarIsle extends Component {
   }
   private beginMode(mode: string, entry: EntryId): void {
     if (this.networkBusy || !MODES.some((m) => m.id === mode)) return;
+    if (typeof wx !== 'undefined' && this.onlineConfigError) {
+      this.toast('服务暂未准备好，请稍后再试');
+      return;
+    }
     if (!this.onlineReady) {
       this.toast('正在准备冒险，请稍等一下');
       return;

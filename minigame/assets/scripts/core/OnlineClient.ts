@@ -56,7 +56,7 @@ export interface CloudFinish {
   assets: CloudAssets;
 }
 interface Storage {
-  getItem(key: string): string | null;
+  getItem(key: string): string | null | undefined;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
@@ -80,6 +80,7 @@ interface WxAPI {
 }
 declare const wx: WxAPI | undefined;
 const QUEUE_KEY = 'happy-pet-upload-v1';
+const LEGACY_LOCAL_API = 'http://127.0.0.1:8080/api/v1';
 const requestID = () =>
   `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
 export class OnlineError extends Error {
@@ -106,13 +107,16 @@ export class OnlineClient {
   private finishResults = new Map<string, CloudFinish>();
   private stateResults = new Map<string, CloudState>();
   private loginTask: Promise<void> | null = null;
+  private readonly storageScope: string;
   onAssets: (assets: CloudAssets) => void = () => {};
   constructor(
     public readonly baseURL: string,
     private storage: Storage,
   ) {
+    this.baseURL = baseURL.replace(/\/+$/, '');
+    this.storageScope = `happy-pet-api:${encodeURIComponent(this.baseURL)}:`;
     try {
-      const saved = JSON.parse(storage.getItem(QUEUE_KEY) || '[]');
+      const saved = JSON.parse(this.readStored(QUEUE_KEY) || '[]');
       this.queue = Array.isArray(saved)
         ? saved.filter(
             (p) =>
@@ -126,6 +130,23 @@ export class OnlineClient {
       this.queue = [];
     }
   }
+  private readStored(key: string): string | null {
+    const scoped = this.storage.getItem(this.storageScope + key);
+    // WeChat's adapter can return ''/undefined for a missing key instead of null.
+    if (typeof scoped === 'string' && scoped.length > 0) return scoped;
+    if (this.baseURL !== LEGACY_LOCAL_API) return null;
+    // The old shipped configuration used this exact loopback endpoint. Never
+    // guess that endpoint-less legacy records belong to a newly configured API.
+    const legacy = this.storage.getItem(key);
+    if (typeof legacy !== 'string' || legacy.length === 0) return null;
+    try {
+      this.storage.setItem(this.storageScope + key, legacy);
+      this.storage.removeItem(key);
+    } catch {
+      /* Keep the old copy if local persistence is unavailable. */
+    }
+    return legacy;
+  }
   get active(): CloudSession | null {
     return this.session;
   }
@@ -133,7 +154,7 @@ export class OnlineClient {
     return this.queue.some((p) => p.userId === this.userId && (p.events.length > 0 || !!p.outcome));
   }
   private save(): void {
-    this.storage.setItem(QUEUE_KEY, JSON.stringify(this.queue));
+    this.storage.setItem(this.storageScope + QUEUE_KEY, JSON.stringify(this.queue));
   }
   async request<T>(path: string, method = 'GET', data?: unknown): Promise<T> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -231,10 +252,10 @@ export class OnlineClient {
     if (generation !== this.startGeneration)
       throw new OnlineError('本次关卡请求已取消', 0, 'START_CANCELLED');
     const keyName = `happy-pet-start-${this.userId}-${entry}-${mode}-${previousSessionId}`;
-    let key = this.storage.getItem(keyName);
+    let key = this.readStored(keyName);
     if (!key) {
       key = requestID();
-      this.storage.setItem(keyName, key);
+      this.storage.setItem(this.storageScope + keyName, key);
     }
     const session = await this.request<CloudSession>('/user/sessions', 'POST', {
       entry,
@@ -244,7 +265,7 @@ export class OnlineClient {
     });
     if (generation !== this.startGeneration)
       throw new OnlineError('本次关卡请求已取消', 0, 'START_CANCELLED');
-    this.storage.removeItem(keyName);
+    this.storage.removeItem(this.storageScope + keyName);
     this.session = session;
     this.sequence = session.lastSeq;
     this.startedAt = Date.now();

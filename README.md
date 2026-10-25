@@ -44,13 +44,27 @@ make build-wechat
 
 1. 在 `backend/.env.local` 填写该小游戏的 `WECHAT_APP_SECRET`，密钥只在服务端保存。
 2. 部署 API 到 HTTPS 域名，在微信后台配置相应的 request 合法域名。
-3. 运行 `make configure-game API_URL=https://你的域名/api/v1`，然后重新构建小游戏。
+3. 在微信后台将对应 API 域名配置为 request 合法域名；当前预览与正式接口均为 `https://hp.autora.cn/api/v1`。需要调整时运行 `make configure-game API_ENV=production API_URL=https://你的域名/api/v1`，然后重新构建小游戏。
 
 小游戏使用 `wx.login` 得到临时 code，服务端调用微信 `jscode2session`，按 OpenID 自动创建或更新同一用户。客户端不能提交 OpenID 或自己的余额，服务端也不接受模拟微信身份。没有 AppSecret 时真实微信登录返回明确的未配置提示。
 
-`minigame/assets/resources/online.json` 当前使用 `http://127.0.0.1:8080/api/v1`，供同一台电脑上的微信开发者工具联调。微信会自动登录、同步资产并读取已发布关卡；普通网页没有 `wx.login`，首页三种玩法仍可离线练习。离线存档与联网资产分开，离线获得的金币不会写入服务器。手机上的 `127.0.0.1` 指向手机自身，真机联调需改用手机可访问的服务地址。自动化测试使用隔离测试 API 模拟微信 code 交换，不代表真实微信登录已验证。
+`minigame/assets/resources/online.json` 保存三组地址，由启动时的微信运行信息自动选择：
 
-使用 `make build-wechat` 构建时，若接口为本机回环地址，会在生成的开发者工具项目中关闭本地域名校验；换成非本机地址并重新构建时会恢复校验。该设置不改变微信正式运行环境的域名要求。
+| 配置         | 运行场景                                     | 当前 API                       |
+| ------------ | -------------------------------------------- | ------------------------------ |
+| `local`      | 浏览器、开发者工具模拟器、`develop` 开发版   | `http://127.0.0.1:8080/api/v1` |
+| `preview`    | `trial` 体验版                               | `https://hp.autora.cn/api/v1`  |
+| `production` | `release` 正式版，或无法识别版本的微信客户端 | `https://hp.autora.cn/api/v1`  |
+
+模拟器使用 `getDeviceInfo().platform` 判断，旧基础库回退到 `getSystemInfoSync()`；版本使用 `getAccountInfoSync().miniProgram.envVersion`。地址由构建时的环境变量或资源 JSON 配置，运行时不读取 Node 的 `process.env`。同一个包自动选取环境；更改地址后需重新构建。[微信官方 API 定义](https://github.com/wechat-miniprogram/minigame-api-typings/blob/master/types/wx/lib.wx.api.d.ts)
+
+可以单独设置 `API_ENV=local|preview|production` 和 `API_URL`，或一次传入 `API_LOCAL_URL`、`API_PREVIEW_URL`、`API_PRODUCTION_URL`。未指定 `API_ENV` 时，`API_URL` 只更新正式地址；其他环境配置保留。预览、正式地址要求非本机 HTTPS，避免手机连接到本机回环。
+
+微信会自动登录、同步资产并读取已发布关卡；普通网页没有 `wx.login`，首页三种玩法仍可离线练习。离线存档与联网资产分开，离线金币不写入服务器。**手机扫码预览通常也是 `develop`；手机上的 `127.0.0.1` 指向手机自身。真机开发需要把 `local` 改成手机可访问的电脑服务或 HTTPS 测试域名。** 官方定义还说明提交审核默认使用开发版，提交前应确保开发版地址对审核设备可访问。
+
+待上传操作和开局重试标识按 API 地址隔离；预览与正式共用相同地址时共享该接口的待上传队列。旧版未标注地址的记录仅在原本机接口自动迁入，其他地址不会猜测其归属或发送它们。自动化验证使用隔离测试 API 或模拟传输，不代表真实微信登录已验证。
+
+使用 `make build-wechat` 构建时，若 `local` 接口为本机回环地址，会在生成的开发者工具项目中关闭本地域名校验；换成非本机地址并重新构建时会恢复校验。该设置不改变微信正式运行环境的域名要求。
 
 ## 当前功能
 

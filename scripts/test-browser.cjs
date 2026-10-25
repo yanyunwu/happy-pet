@@ -66,7 +66,12 @@ const server = http.createServer((req, res) => {
   let body = fs.readFileSync(file);
   if (isGame && file.endsWith('.json'))
     body = Buffer.from(
-      body.toString().replace(/"apiBaseUrl"\s*:\s*"(?:\\.|[^"\\])*"/g, '"apiBaseUrl":"/api/v1"'),
+      body
+        .toString()
+        .replace(
+          /"apiBaseUrl"\s*:\s*"(?:\\.|[^"\\])*"/g,
+          '"apiBaseUrl":' + JSON.stringify(`http://127.0.0.1:${server.address().port}/api/v1`),
+        ),
     );
   res.setHeader('Content-Type', mime[path.extname(file)] || 'application/octet-stream');
   res.end(body);
@@ -117,6 +122,8 @@ const server = http.createServer((req, res) => {
     game.on('pageerror', (e) => errors.push('game: ' + e.message));
     await game.addInitScript(() => {
       window.wx = {
+        getDeviceInfo: () => ({ platform: 'devtools' }),
+        getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop' } }),
         login: (options) => options.success({ code: 'qa-browser-player' }),
         request: (options) =>
           fetch(options.url, {

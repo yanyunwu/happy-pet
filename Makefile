@@ -17,7 +17,7 @@ EXE :=
 endif
 
 .PHONY: help env-init setup install db-up db-down db-init migration-status dev dev-api dev-admin sqlc sqlc-check test test-api test-game typecheck build-admin build-api build-game build-wechat verify
-.PHONY: configure-game test-browser test-startup test-audio preview-game test-ui format format-check lint tools go-version ci-check typecheck-admin build-services test-api-race verify-services images image-backend image-admin image-gateway images-push registry-login
+.PHONY: configure-game test-browser test-startup test-audio test-environments preview-game test-ui format format-check lint tools go-version ci-check typecheck-admin build-services test-api-race verify-services images image-backend image-admin image-gateway images-push registry-login
 ## make setup          安装依赖并初始化独立开发数据库
 ## make dev            同时启动 API :8080、后台 :5173
 ## make dev-api        启动 API
@@ -27,7 +27,7 @@ endif
 ## make build-wechat   构建微信小游戏（minigame 目录）
 ## make build-game     构建网页游戏
 ## make verify         检查 SQL、类型、规则、接口和后台构建
-## make configure-game API_URL=https://域名/api/v1  配置小游戏接口地址
+## make configure-game API_ENV=production API_URL=https://域名/api/v1  配置指定环境接口
 ## make images         构建三个生产镜像，可指定 IMAGE_PREFIX 和 IMAGE_TAG
 ## make images-push    推送指定版本的三个镜像
 ## make registry-login 登录镜像仓库，由 Docker 提示输入凭据
@@ -35,8 +35,9 @@ help:
 	@sed -n 's/^## //p' Makefile
 env-init:
 	node scripts/env-init.mjs
+export API_ENV API_URL API_LOCAL_URL API_PREVIEW_URL API_PRODUCTION_URL
 configure-game:
-	API_URL="$(API_URL)" node scripts/configure-game.mjs
+	node scripts/configure-game.mjs
 install:
 	pnpm install --frozen-lockfile
 	go -C backend mod download
@@ -97,6 +98,10 @@ test-startup:
 test-audio:
 	node minigame/tools/test-audio-assets.cjs
 	node minigame/tools/test-soundscape.cjs
+test-environments:
+	node minigame/tools/test-api-environments.cjs
+	node minigame/tools/test-api-storage.cjs
+	node scripts/test-configure-game.cjs
 preview-game:
 	node minigame/tools/serve.cjs
 test-ui:

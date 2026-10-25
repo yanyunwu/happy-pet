@@ -118,6 +118,10 @@ node tools/generate-audio.cjs
 
 ## 构建
 
+接口在 `assets/resources/online.json` 的 `environments` 中统一配置。浏览器、模拟器和 `develop` 开发版使用 `local`（默认 `http://127.0.0.1:8080/api/v1`）；`trial` 体验版使用 `preview`，`release` 正式版使用 `production`，目前两者均为 `https://hp.autora.cn/api/v1`。`core/ApiEnvironment.ts` 读取微信官方设备/版本信息；无法识别的微信版本使用正式配置，配置错误不会回退到其他环境。
+
+从仓库根目录运行 `make configure-game API_ENV=preview API_URL=https://域名/api/v1` 可单独更新一组地址；也可一次传入 `API_LOCAL_URL`、`API_PREVIEW_URL` 和 `API_PRODUCTION_URL`。改地址后重新构建即可。手机开发版的本地地址需要可从手机访问，`127.0.0.1` 只指向运行设备自身；提交审核默认使用开发版时也应使用可访问地址。
+
 ```powershell
 .\tools\build.ps1 -Platform web-mobile
 .\tools\build.ps1 -Platform wechatgame
@@ -133,6 +137,9 @@ node tools/generate-audio.cjs
 node tools/test-game.cjs
 node tools/test-modes.cjs
 node tools/test-custom-rules.cjs
+node tools/test-api-environments.cjs
+node tools/test-api-storage.cjs
+node tools/test-api-environment-browser.cjs
 node tools/test-modals.cjs
 node tools/test-level-transition.cjs
 node tools/test-ui-skins.cjs

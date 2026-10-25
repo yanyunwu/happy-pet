@@ -16,6 +16,8 @@ function load(name) {
 }
 const { MatchGame } = load('MatchGame'),
   { OnlineClient, OnlineError } = load('OnlineClient');
+const queueKey =
+  'happy-pet-api:' + encodeURIComponent('https://test.invalid/api/v1') + ':happy-pet-upload-v1';
 const fixtures = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../artifacts/rule-fixtures.json'), 'utf8'),
 );
@@ -119,7 +121,7 @@ for (const fixture of fixtures) {
   await client.start('classic');
   client.record('pick', 4);
   await assert.rejects(client.flush());
-  assert(store.get('happy-pet-upload-v1').includes('tileId'));
+  assert(store.get(queueKey).includes('tileId'));
   const recovered = new OnlineClient('https://test.invalid/api/v1', storage);
   await recovered.recover();
   assert.deepEqual(seen[0], seen[1]);
@@ -142,7 +144,7 @@ for (const fixture of fixtures) {
     return originalRequest(options);
   };
   storage.setItem(
-    'happy-pet-upload-v1',
+    queueKey,
     JSON.stringify([
       {
         userId: 'player1',
@@ -192,7 +194,7 @@ for (const fixture of fixtures) {
   );
   assert(cancelled instanceof OnlineError && cancelled.code === 'START_CANCELLED');
   racing.record('pick', 0);
-  assert.equal(JSON.parse(raceStorage.getItem('happy-pet-upload-v1'))[0].sessionId, 'new-quartet');
+  assert.equal(JSON.parse(raceStorage.getItem(queueKey))[0].sessionId, 'new-quartet');
   delete global.wx;
   console.log(
     JSON.stringify({

@@ -68,11 +68,13 @@ crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan/happy-pe
 小游戏构建机仍使用以下命令配置正式接口并导出微信包：
 
 ```sh
-make configure-game API_URL=https://你的域名/api/v1
+make configure-game API_PREVIEW_URL=https://hp.autora.cn/api/v1 API_PRODUCTION_URL=https://hp.autora.cn/api/v1
 make build-wechat
 ```
 
 微信后台配置对应 request 合法域名，微信开发者工具导入 `minigame/build/wechatgame` 完成真机预览和发布。
+
+小游戏按运行环境选择接口：浏览器、模拟器与 `develop` 使用 `local`；`trial` 使用 `preview`；`release` 使用 `production`。微信版本未知时选择正式配置。开发版和扫码预览使用本地地址，手机与审核设备无法访问开发电脑的 `127.0.0.1`，相应调试或提审包需要将 `API_LOCAL_URL` 配置为可访问的 HTTPS 服务地址。三个地址分别配置，普通切换版本不必修改代码。
 
 ## CI 验证
 
