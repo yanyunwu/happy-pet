@@ -1448,7 +1448,7 @@ export class StarIsle extends Component {
     const noteY = compact ? 1055 : 952;
     [
       '点击亮色萌宠，放入收纳槽参与消除',
-      '组合不要求相邻；加号两侧必须是不同种类',
+      '组合不要求相邻；组内相同，组间也可相同',
       '清空棋盘与槽位通关，满槽无法消除则失败',
     ].forEach((line, i) => P.text(m, 'RuleLine' + i, line, 360, noteY + i * 39, 21, C.ink, 540));
     P.button(
@@ -1474,14 +1474,13 @@ export class StarIsle extends Component {
     );
   }
   private showSignIn(): void {
-    const m = this.dialog('SignIn', '7日签到', 1280);
+    const m = this.dialog('SignIn', '7日签到', 1000);
     this.signInDialog = m;
     const claimed = this.save.signedOn >= localDateKey();
     const count = this.save.signInCount;
     const day = (count - (claimed && count > 0 ? 1 : 0)) % 7;
     const claimButton = paintSignIn(
       m,
-      this.save,
       day,
       claimed,
       TOOL_INFO,

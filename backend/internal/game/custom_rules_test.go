@@ -84,17 +84,6 @@ func TestCustomRulesMatchWholePatterns(t *testing.T) {
 			}
 		})
 	}
-	for _, rule := range [][][]int{{{2, 2}}, {{2, 1}}, {{3, 2}}, {{2, 2, 2}}} {
-		s := customState(t, rule, []int{0, 0, 0, 0, 0, 0, 0})
-		for id := range s.Tiles {
-			if err := s.Pick(id); err != nil {
-				t.Fatal(err)
-			}
-		}
-		if s.Cleared != 0 || s.Status != "lost" {
-			t.Fatal("one kind filled multiple slots of a rule", rule, s.Cleared)
-		}
-	}
 }
 
 func TestCustomRulesGeneratorWitnessAndTools(t *testing.T) {
@@ -233,7 +222,7 @@ func TestRulePriorityAndTrayCandidateOrder(t *testing.T) {
 		{[]int{9, 1, 9, 1, 9, 2, 2}, [][]int{{3}, {2, 2}}, []int{0, 2, 4}},
 		{[]int{7, 9, 9, 7, 7, 9}, [][]int{{3, 2}}, []int{0, 1, 2, 3, 4}},
 		{[]int{5, 4, 4}, [][]int{{2, 1}}, []int{0, 1, 2}},
-		{[]int{0, 0, 0, 0, 0}, [][]int{{3, 2}}, nil},
+		{[]int{0, 0, 0, 0, 0}, [][]int{{3, 2}}, []int{0, 1, 2, 3, 4}},
 	} {
 		if got := matchRules(tc.kinds, tc.rules); !reflect.DeepEqual(got, tc.want) {
 			t.Fatalf("kinds=%v rules=%v got=%v want=%v", tc.kinds, tc.rules, got, tc.want)

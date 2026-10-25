@@ -16,12 +16,15 @@ func TestAnnouncementBrowserIntegration(t *testing.T) {
 	runBrowserIntegration(t, "scripts/test-settings-browser.cjs")
 }
 
-func runBrowserIntegration(t *testing.T, script string) {
+func runBrowserIntegration(t *testing.T, script string, prepare ...func(*harness)) {
 	t.Helper()
 	if os.Getenv("BROWSER_QA") != "1" {
 		t.Skip("run make test-browser for built admin + Cocos integration")
 	}
 	h := setup(t)
+	for _, seed := range prepare {
+		seed(h)
+	}
 	server := httptest.NewServer(h.router)
 	defer server.Close()
 	root, e := filepath.Abs("../../..")

@@ -62,7 +62,7 @@ export default function RuleEditor({
     <fieldset disabled={disabled} className="rule-editor">
       <Typography.Title level={5}>消除规则</Typography.Title>
       <Typography.Paragraph type="secondary">
-        每关只能选择一种组合。数字表示同种萌宠数量，加号两侧是不同种类。
+        每关只能选择一种组合。数字表示一组同种萌宠的数量，不同组可以使用同一种萌宠。
       </Typography.Paragraph>
       <Radio.Group
         aria-label="消除规则"
@@ -92,8 +92,8 @@ export default function RuleEditor({
         />
       )}
       <Typography.Paragraph className="rule-help" type="secondary">
-        3 = 三个相同 · 4 = 四个相同 · 2+2 = 两种各两个。其他可填 3+2、2+2+2 等单个组合，合计 2–7
-        个。所属入口只决定首页按钮，不会改变这里选择的规则。
+        3 = 三个相同 · 4 = 四个相同 · 2+2 = 两对或四个相同。其他可填 1+3、3+2、2+2+2 等组合，合计
+        2–7 个。所属入口只决定首页按钮，不会改变这里选择的规则。
       </Typography.Paragraph>
       {issue && (
         <Alert

@@ -6,6 +6,8 @@ import {
   Card,
   Col,
   Drawer,
+  Dropdown,
+  Grid,
   Input,
   InputNumber,
   Modal,
@@ -18,7 +20,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { EllipsisOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { errorMessage } from '../api';
 import {
   gameApi,
@@ -38,6 +40,7 @@ import {
 import Board, { petImage } from '../components/Board';
 import LayoutEditor from '../components/LayoutEditor';
 import RuleEditor, { ruleIssue } from '../components/RuleEditor';
+import LevelAnalytics from '../components/LevelAnalytics';
 const copy = <T,>(v: T): T => structuredClone(v);
 function fresh(entry: Entry, mode: Mode, ordinal: number): Level {
   const count = mode === 'classic' ? 3 : 4;
@@ -72,7 +75,9 @@ function fresh(entry: Entry, mode: Mode, ordinal: number): Level {
 }
 export default function Levels() {
   const { message, modal } = App.useApp();
+  const compact = Grid.useBreakpoint().md === false;
   const [levels, setLevels] = useState<Level[]>([]),
+    [analyzing, setAnalyzing] = useState<Level | null>(null),
     [loading, setLoading] = useState(true),
     [editing, setEditing] = useState<Level | null>(null),
     [entry, setEntry] = useState<Entry>('standard'),
@@ -128,6 +133,20 @@ export default function Levels() {
   const visibleLevels = levels.filter(
     (level) => level.entry === entry && (!filter || level.mode === filter),
   );
+  const toggleEnabled = (l: Level) =>
+    modal.confirm({
+      title: l.enabled ? '下架这个关卡？' : '上架已发布版本？',
+      content: '新对局将使用更新后的关卡列表，已有对局和回放保留。',
+      onOk: async () => {
+        try {
+          await gameApi.enabled(l.id, !l.enabled);
+          await reload();
+        } catch (e) {
+          message.error(errorMessage(e));
+          throw e;
+        }
+      },
+    });
   const update = (fn: (c: Config) => void) =>
     setEditing((old) => {
       if (!old) return old;
@@ -230,6 +249,7 @@ export default function Levels() {
           columns={[
             {
               title: '关卡',
+              width: compact ? 144 : 190,
               render: (_, l: Level) => (
                 <>
                   <strong>{l.title}</strong>
@@ -267,40 +287,67 @@ export default function Levels() {
             {
               title: '操作',
               fixed: 'right',
-              width: 235,
+              width: compact ? 136 : 310,
               render: (_, l: Level) => (
                 <Space size={0}>
-                  <Button type="link" onClick={() => edit(l)}>
-                    编辑
-                  </Button>
                   <Button
                     type="link"
-                    disabled={!!ruleIssue(l.config.rules || defaultRules(l.mode))}
-                    onClick={() => publish(l)}
+                    size={compact ? 'small' : 'middle'}
+                    onClick={() => setAnalyzing(l)}
                   >
-                    发布
+                    数据分析
                   </Button>
-                  {l.revisionId && (
-                    <Button
-                      type="link"
-                      onClick={() =>
-                        modal.confirm({
-                          title: l.enabled ? '下架这个关卡？' : '上架已发布版本？',
-                          content: '新对局将使用更新后的关卡列表，已有对局和回放保留。',
-                          onOk: async () => {
-                            try {
-                              await gameApi.enabled(l.id, !l.enabled);
-                              await reload();
-                            } catch (e) {
-                              message.error(errorMessage(e));
-                              throw e;
-                            }
+                  {compact ? (
+                    <Dropdown
+                      trigger={['click']}
+                      menu={{
+                        items: [
+                          { key: 'edit', label: '编辑', onClick: () => edit(l) },
+                          {
+                            key: 'publish',
+                            label: '发布',
+                            disabled: !!ruleIssue(l.config.rules || defaultRules(l.mode)),
+                            onClick: () => publish(l),
                           },
-                        })
-                      }
+                          ...(l.revisionId
+                            ? [
+                                {
+                                  key: 'enabled',
+                                  label: l.enabled ? '下架' : '上架',
+                                  onClick: () => {
+                                    toggleEnabled(l);
+                                  },
+                                },
+                              ]
+                            : []),
+                        ],
+                      }}
                     >
-                      {l.enabled ? '下架' : '上架'}
-                    </Button>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EllipsisOutlined />}
+                        aria-label={`${l.title}的更多操作`}
+                      />
+                    </Dropdown>
+                  ) : (
+                    <>
+                      <Button type="link" onClick={() => edit(l)}>
+                        编辑
+                      </Button>
+                      <Button
+                        type="link"
+                        disabled={!!ruleIssue(l.config.rules || defaultRules(l.mode))}
+                        onClick={() => publish(l)}
+                      >
+                        发布
+                      </Button>
+                      {l.revisionId && (
+                        <Button type="link" onClick={() => toggleEnabled(l)}>
+                          {l.enabled ? '下架' : '上架'}
+                        </Button>
+                      )}
+                    </>
                   )}
                 </Space>
               ),
@@ -308,6 +355,9 @@ export default function Levels() {
           ]}
         />
       </Card>
+      {analyzing && (
+        <LevelAnalytics key={analyzing.id} level={analyzing} onClose={() => setAnalyzing(null)} />
+      )}
       <Drawer
         title={`${editing ? entryNames[editing.entry] : ''} · ${editing?.id ? '编辑关卡草稿' : '新增关卡'}`}
         size={1160}

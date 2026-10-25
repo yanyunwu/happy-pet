@@ -5,7 +5,7 @@ description: 使用快乐萌宠消 HTTP API 管理独立管理员账号、玩家
 
 # 快乐萌宠消 API 完整使用指南
 
-这份文件既是可供人阅读的接口手册，也是调用本项目 API 的技能说明。所有字段、流程和接口都在本文件中，不依赖外部说明文件。版本与当前仓库后端路由对应，包含 **55 个 HTTP 操作**。机器可读描述：`GET /api/v1/openapi.json`；管理端交互页面：`/admin/api-docs`；本文公开访问路径：`/admin/SKILL.md`。
+这份文件既是可供人阅读的接口手册，也是调用本项目 API 的技能说明。所有字段、流程和接口都在本文件中，不依赖外部说明文件。版本与当前仓库后端路由对应，包含 **56 个 HTTP 操作**。机器可读描述：`GET /api/v1/openapi.json`；管理端交互页面：`/admin/api-docs`；本文公开访问路径：`/admin/SKILL.md`。
 
 ## 使用本技能
 
@@ -170,15 +170,17 @@ curl -sS "$BASE/api/v1/user/assets" \
 
 新草稿、预览、发布都要求每关 **恰好一个消除组合**，`rules` 外层仍为数组。例如：
 
-| rules       | 消除条件                            |
-| ----------- | ----------------------------------- |
-| `[[3]]`     | 同一种宠物 3 只，经典默认。         |
-| `[[4]]`     | 同一种宠物 4 只，四消默认。         |
-| `[[2,2]]`   | 两种不同宠物各 2 只，当前趣味默认。 |
-| `[[3,2]]`   | 两种不同宠物分别 3 只、2 只。       |
-| `[[1,1,1]]` | 三种互不相同的宠物各 1 只。         |
+| rules       | 消除条件                                               |
+| ----------- | ------------------------------------------------------ |
+| `[[3]]`     | 同一种宠物 3 只，经典默认。                            |
+| `[[4]]`     | 同一种宠物 4 只，四消默认。                            |
+| `[[2,2]]`   | 两种宠物各 2 只或同种 4 只，当前趣味默认；不接受 3+1。 |
+| `[[3,2]]`   | 两种宠物分别 3 只、2 只，或同种 5 只。                 |
+| `[[3,1]]`   | 两种宠物分别 3 只、1 只，或同种 4 只；不接受 2+2。     |
+| `[[2,2,2]]` | 三种各 2 只、两种分别 4 只和 2 只，或同种 6 只。       |
+| `[[1,1,1]]` | 任意 3 只，三个组可以是相同或不同宠物种类。            |
 
-每个计数为 1..7 的正整数，组合总数为 2..7。组内按降序规范化，互不相同的组项代表不同宠物种类。`[[3],[2,2]]` 是两条组合，**不能用于新的写入**。不要用 mode 名称推测具体匹配逻辑，应读取 rules。
+每个计数为 1..7 的正整数，组合总数为 2..7，按降序规范化。每个组内部必须同种，不同组可以同种；每个方块只能分配到一个组。先匹配不同种类的原组合，再尝试同种组的合并形式；仍按原有规则数组顺序优先匹配。`[[3],[2,2]]` 是两条组合，**不能用于新的写入**。不要用 mode 名称推测具体匹配逻辑，应读取 rules。
 
 当前推荐 `rulesVersion="pet-rules-2"`，并明确提交 rules。历史快照允许 pet-rules-1，旧快照省略 rules 时保持旧语义（旧 fun 可能同时为三同与双对）；历史多规则按原有优先顺序回放。这是兼容读取能力，不表示新作者接口可保存多规则。不要改写旧对局的 rulesVersion、seed 或规则快照。
 
@@ -187,7 +189,7 @@ curl -sS "$BASE/api/v1/user/assets" \
 - columns=1..6，rows=1..8，layers=1..8；层号 z=0..7 唯一；每层至少一格，总格数 3..192。
 - cell.x=0..2*(columns-1)，cell.y=0..2*(rows-1)，整数半格单位。同层两格如果同时 `abs(dx)<2 && abs(dy)<2` 则重叠，不能发布。
 - counts 必须恰好 15 个非负整数（索引 0..14 对应 kind），每项不超过 192，总和等于总格数且为 3..192。种类未使用时填 0，不能省掉尾部的零。
-- 所有计数必须能被当前组合全部消除。`[[3]]` 各计数为 3 的倍数；`[[4]]` 为 4 的倍数；`[[2,2]]` 各计数为偶数、总数为 4 的倍数，任何一种数量不超过总数一半。
+- 所有计数必须能被当前组合全部消除。`[[3]]` 各计数为 3 的倍数；`[[4]]` 为 4 的倍数；`[[2,2]]` 各计数为偶数、总数为 4 的倍数，允许单一种类或某种类占多数。
 - 其他组合由服务端有界搜索校验；过于复杂或不能完全消除返回 INVALID_INPUT。发布还验证三个种子的实际通关路径，不仅检查数学可分组。
 - 配置 capacity 固定为 7。四个 freeTools 键 undo/shovel/hint/shuffle 必须全部存在，各 0..9。rewardCoins=0..10000。
 - 草稿保存只立即校验目录、标题、规则与结构上限，允许未配平数量或未完成布局。预览和发布才验证上述全部条件。保存草稿成功不代表可发布。
@@ -2816,7 +2818,7 @@ PATCH 仍需提交完整 nickname 和 status。remark 省略等同空字符串�
 
 ### Rule
 
-单个消除组合。组内计数按降序规范化，总和 2–7；各项匹配互不相同的宠物种类。如 [2,2] 表示两个不同种类各两只。
+单个消除组合。各组数量按降序规范化，总和 2–7；每组内部必须同种，不同组允许同种，每个方块只能计一次。如 [2,2] 接受两种各两只或同种四只，不接受三只加一只；[3,1] 接受三只加一只或同种四只。
 
 类型：array&lt;integer&gt;。最少项数 1；最多项数 7。
 
@@ -3169,6 +3171,185 @@ nickname、status、remark 部分更新；缺省字段保留，至少提供一�
 | `nickname` | string                             | 否   | 去首尾空白后 1–32 个 Unicode 字符，不允许控制字符。；最短字符数 1；最长字符数 32 |
 | `status`   | string = `"active"` / `"disabled"` | 否   | 正常或禁用；软删除由 deletedAt 表示。                                            |
 | `remark`   | string                             | 否   | 管理员备注，最多 500 个 Unicode 字符。；最长字符数 500                           |
+
+## 单个关卡数据分析
+
+### GET /api/v1/admin/levels/{id}/analytics
+
+`GET /api/v1/admin/levels/{id}/analytics`
+
+使用管理员 Cookie 或 `Authorization: Bearer <ACCESS_TOKEN>`，不需要 `X-User-ID`。玩家 JWT 不能访问。本接口只读，不创建对局、结算或修改历史记录。
+
+| 参数       | 位置  | 说明                                                         |
+| ---------- | ----- | ------------------------------------------------------------ |
+| id         | path  | 关卡 ID；草稿、下架关卡也可查询。                            |
+| range      | query | `7d`、`30d`（缺省/空值）、`90d`、`all`。                     |
+| revisionId | query | 可省略/为空，表示全部发布版本；非空须是此关卡的发布版本 ID。 |
+
+```sh
+curl --get "$BASE/api/v1/admin/levels/$LEVEL_ID/analytics" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-urlencode 'range=7d'
+```
+
+需要比较历史版本时，加上 `--data-urlencode "revisionId=$REVISION_ID"`。返回中的 `revisions` 提供可选版本，按版本号倒序；`current` 标记当前发布版本，列表不受日期/版本筛选影响。
+
+**时间与分母：** `7d/30d/90d` 以北京时间的自然日计，含今天与之前 N−1 天；从首日00:00开始，至请求时刻（不含）。筛选字段为对局开局时间，跨日结束仍计入开局日。`all` 的汇总为全部历史，趋势只显示最近90天。`daily` 按日期升序并补齐零值天。统计中只包含上传至服务器的真实对局，离线练习不计入。
+
+- `summary.attempts` 为开局对局数；同一玩家重复开局分别计数，`players` 是去重玩家数。
+- `won/lost/abandoned/unfinished` 分别对应通关、失败、主动退出、未结束，合计等于 attempts。未结束可能包含断线或未上报结果，绝不视为失败。
+- `winRate = won / attempts × 100`；`finishedWinRate = won / (won + lost + abandoned) × 100`。分母为0时返回 null，不是假设0%。
+- `avgWinDurationSeconds` 只取通关且 `ended_at >= started_at` 的有效服务端开始/结束时差，包含切后台/闲置时间；`winDurationSamples` 为有效样本数，无样本均值为null。
+- `avgWinMoves` 为通关对局最终 `state.moves` 的平均值，仅点选计数、撤回会回退；不等于包含道具的全部事件数。
+- `tools` 恒含 `undo/shovel/hint/shuffle/unlock_slot` 五类，`uses` 是接受的事件次数，`sessions` 是使用过的对局数。包括免费/背包道具；重复上报同一序号不会重复统计。`unlock_slot` 仅代表解锁行为，不能推断广告实际播放完成。
+- `from/to/generatedAt` 为RFC3339，`from=null` 表示全部历史；`to` 是不包含的上界。`trendFrom` 为趋势首日，`timezone` 固定 `Asia/Shanghai`。多个统计查询在同一个只读可重复读快照内完成。
+
+成功返回示例：
+
+```json
+{
+  "level": {
+    "id": "example-level-id",
+    "title": "森林小径",
+    "entry": "standard",
+    "mode": "classic",
+    "ordinal": 1,
+    "publishedRevisionId": "example-revision-2"
+  },
+  "range": "7d",
+  "revisionId": "",
+  "from": "2026-10-19T00:00:00+08:00",
+  "to": "2026-10-25T10:00:00+08:00",
+  "trendFrom": "2026-10-19",
+  "timezone": "Asia/Shanghai",
+  "generatedAt": "2026-10-25T10:00:00+08:00",
+  "summary": {
+    "attempts": 5,
+    "players": 2,
+    "won": 2,
+    "lost": 1,
+    "abandoned": 1,
+    "unfinished": 1,
+    "winRate": 40,
+    "finishedWinRate": 50,
+    "avgWinDurationSeconds": 90,
+    "winDurationSamples": 2,
+    "avgWinMoves": 12
+  },
+  "daily": [
+    {
+      "date": "2026-10-19",
+      "attempts": 0,
+      "won": 0,
+      "lost": 0,
+      "abandoned": 0,
+      "unfinished": 0,
+      "winRate": null
+    },
+    {
+      "date": "2026-10-20",
+      "attempts": 0,
+      "won": 0,
+      "lost": 0,
+      "abandoned": 0,
+      "unfinished": 0,
+      "winRate": null
+    },
+    {
+      "date": "2026-10-21",
+      "attempts": 0,
+      "won": 0,
+      "lost": 0,
+      "abandoned": 0,
+      "unfinished": 0,
+      "winRate": null
+    },
+    {
+      "date": "2026-10-22",
+      "attempts": 0,
+      "won": 0,
+      "lost": 0,
+      "abandoned": 0,
+      "unfinished": 0,
+      "winRate": null
+    },
+    {
+      "date": "2026-10-23",
+      "attempts": 0,
+      "won": 0,
+      "lost": 0,
+      "abandoned": 0,
+      "unfinished": 0,
+      "winRate": null
+    },
+    {
+      "date": "2026-10-24",
+      "attempts": 2,
+      "won": 1,
+      "lost": 1,
+      "abandoned": 0,
+      "unfinished": 0,
+      "winRate": 50
+    },
+    {
+      "date": "2026-10-25",
+      "attempts": 3,
+      "won": 1,
+      "lost": 0,
+      "abandoned": 1,
+      "unfinished": 1,
+      "winRate": 33.333333333333336
+    }
+  ],
+  "revisions": [
+    {
+      "id": "example-revision-2",
+      "version": 2,
+      "title": "森林小径",
+      "publishedAt": "2026-10-18T10:00:00+08:00",
+      "current": true
+    },
+    {
+      "id": "example-revision-1",
+      "version": 1,
+      "title": "森林小径",
+      "publishedAt": "2026-10-01T10:00:00+08:00",
+      "current": false
+    }
+  ],
+  "tools": [
+    {
+      "type": "undo",
+      "uses": 0,
+      "sessions": 0
+    },
+    {
+      "type": "shovel",
+      "uses": 0,
+      "sessions": 0
+    },
+    {
+      "type": "hint",
+      "uses": 3,
+      "sessions": 2
+    },
+    {
+      "type": "shuffle",
+      "uses": 0,
+      "sessions": 0
+    },
+    {
+      "type": "unlock_slot",
+      "uses": 0,
+      "sessions": 0
+    }
+  ]
+}
+```
+
+返回顶层字段：`level`（id/title/entry/mode/ordinal/publishedRevisionId）、`range`、`revisionId`、`from`、`to`、`trendFrom`、`timezone`、`generatedAt`、`summary`、`daily`、`revisions`、`tools`。`daily` 每项字段为 date/attempts/won/lost/abandoned/unfinished/winRate；版本项为 id/version/title/publishedAt/current；道具项为 type/uses/sessions。未发布草稿 publishedRevisionId 为空，revisions 为 []。没有样本时计数为0，比率和平均值为null，工具和每日列表仍保持完整。
+
+错误：400 `INVALID_INPUT`（非法range、未知或其他关卡版本）；401 `UNAUTHORIZED`（无有效管理员凭证或玩家JWT）；404 `NOT_FOUND`（关卡不存在）；500 `INTERNAL_ERROR`（统计查询失败）。后台入口：关卡管理每行的“数据分析”。机器可读字段和约束见 OpenAPI `LevelAnalytics`、`LevelAnalyticsSummary`、`LevelAnalyticsDay`、`LevelAnalyticsRevision`、`LevelAnalyticsTool`。
 
 ## 维护与验证
 

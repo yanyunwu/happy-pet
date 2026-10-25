@@ -69,6 +69,7 @@ test-api-race:
 	go -C backend test -race -count=1 -timeout=15m $(GO_TEST_FLAGS) ./...
 test-game:
 	node minigame/tools/test-single-rule.cjs
+	node minigame/tools/test-win-probability.cjs
 	node minigame/tools/test-tool-policy.cjs
 	node minigame/tools/test-rewarded-ad.cjs
 	node minigame/tools/test-extra-slot-controller.cjs
@@ -92,6 +93,10 @@ test-announcement-browser:
 test-admin-identity-browser:
 	node --experimental-transform-types admin/tests/api-auth.mjs
 	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestAdminIdentityBrowserIntegration -v -count=1 -timeout=3m
+.PHONY: test-level-analytics-browser
+test-level-analytics-browser:
+	node admin/tests/level-analytics.cjs
+	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestLevelAnalyticsBrowserIntegration -v -count=1 -timeout=3m
 typecheck:
 	@$(MAKE) --no-print-directory typecheck-admin
 	node scripts/check-game.cjs
@@ -124,6 +129,7 @@ test-environments:
 preview-game:
 	node minigame/tools/serve.cjs
 test-ui:
+	cd minigame && node tools/test-shared-kind-ui.cjs
 	cd minigame && node tools/test-tool-policy-ui.cjs
 	cd minigame && node tools/test-extra-slot-ui.cjs
 	cd minigame && node tools/test-announcement-ui.cjs

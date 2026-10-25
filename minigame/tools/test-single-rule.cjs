@@ -36,10 +36,11 @@ function cloud(kinds, rules, version = 'pet-rules-2') {
   };
 }
 
-test('new fun levels use only two distinct pairs, never three or four identical pets', () => {
+test('fun levels accept two pairs of different or identical pets, but not three plus one', () => {
   assert.deepEqual(defaultRules('fun'), [[2, 2]]);
   assert.deepEqual(matchIndices([0, 0, 0], 'fun'), []);
-  assert.deepEqual(matchIndices([0, 0, 0, 0], 'fun'), []);
+  assert.deepEqual(matchIndices([0, 0, 0, 0], 'fun'), [0, 1, 2, 3]);
+  assert.deepEqual(matchIndices([0, 0, 0, 1], 'fun'), []);
   assert.deepEqual(matchIndices([0, 1, 0, 1], 'fun'), [0, 1, 2, 3]);
 });
 
@@ -117,7 +118,7 @@ test('legacy fun snapshots retain their original triple-or-pairs behavior', () =
   }
 });
 
-test('pair hints do not recommend a visible match that strands one remaining species', () => {
+test('pair hints can finish visible pairs and then clear four identical remaining pets', () => {
   const session = cloud([1, 1, 2, 2, 0, 0, 0, 0], [[2, 2]]);
   const positions = [
     [0, 0],
@@ -134,7 +135,7 @@ test('pair hints do not recommend a visible match that strands one remaining spe
   });
   const g = MatchGame.fromCloud(session);
   [0, 1, 2].forEach((id) => assert(g.pick(id)));
-  assert.deepEqual(g.hint(), [4], 'expose the other pair before completing the visible pair');
-  [4, 5, 3, 6, 7].forEach((id) => assert(g.pick(id)));
+  assert.deepEqual(g.hint(), [3], 'four remaining identical pets are now a valid group');
+  [3, 4, 5, 6, 7].forEach((id) => assert(g.pick(id)));
   assert.equal(g.status, 'won');
 });

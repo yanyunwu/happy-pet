@@ -15,7 +15,23 @@ const { MatchGame, matchIndices } = moduleFile.exports;
 assert.deepEqual(matchIndices([0, 0, 0], [[4]]), []);
 assert.deepEqual(matchIndices([0, 0, 0, 0], [[4]]), [0, 1, 2, 3]);
 assert.deepEqual(matchIndices([0, 1, 0, 2, 1], [[2, 2]]), [0, 1, 2, 4]);
-assert.deepEqual(matchIndices([0, 0, 0, 0], [[2, 2]]), []);
+assert.deepEqual(matchIndices([0, 0, 0, 0], [[2, 2]]), [0, 1, 2, 3]);
+assert.deepEqual(matchIndices([0, 0, 0, 0], [[1, 3]]), [0, 1, 2, 3]);
+assert.deepEqual(matchIndices([0, 0, 0, 1], [[2, 2]]), []);
+assert.deepEqual(matchIndices([0, 0, 1, 1], [[1, 3]]), []);
+assert.deepEqual(matchIndices([0, 0, 0], [[2, 2]]), [], 'one tile cannot fill two groups');
+assert.deepEqual(
+  matchIndices([0, 0, 0, 0, 1, 1], [[2, 2]]),
+  [0, 1, 4, 5],
+  'original distinct-kind matches retain priority',
+);
+assert.deepEqual(matchIndices([0, 0, 0, 0, 1, 1], [[2, 2, 2]]), [0, 1, 2, 3, 4, 5]);
+assert.deepEqual(matchIndices([0, 0, 0, 0, 1, 1], [[3, 3]]), []);
+assert.deepEqual(
+  matchIndices([0, 0, 0, 0], [[2, 2], [3]]),
+  [0, 1, 2, 3],
+  'merging retains configured rule priority',
+);
 assert.deepEqual(matchIndices([0, 1, 0, 1, 0], [[3, 2]]), [0, 1, 2, 3, 4]);
 assert.deepEqual(matchIndices([0, 1, 2, 0, 1, 2], [[2, 2, 2]]), [0, 1, 2, 3, 4, 5]);
 assert.deepEqual(matchIndices([3, 1, 3], [[2, 1]]), [0, 1, 2]);
@@ -91,6 +107,32 @@ game = MatchGame.fromCloud(cloud([0, 0, 0], undefined, 'pet-rules-1'));
 for (let i = 0; i < 3; i++) game.pick(i);
 assert.equal(game.status, 'won');
 assert.throws(() => MatchGame.fromCloud(cloud([0, 0, 0], undefined)), /规则/);
+for (const [rules, counts] of [
+  [[[2, 2]], [4]],
+  [[[2, 2]], [6, 2]],
+  [[[1, 3]], [4]],
+  [[[1, 3]], [3, 1]],
+  [[[2, 2, 2]], [4, 2]],
+  [[[2, 2, 2]], [6]],
+  [[[2, 1, 1]], [3, 1]],
+  [[[3, 2, 2]], [4, 3]],
+  [[[1, 1, 1, 1, 1, 1, 1]], [7]],
+]) {
+  const kinds = counts.flatMap((n, kind) => Array(n).fill(kind));
+  game = MatchGame.fromCloud(cloud(kinds, rules));
+  assert(game.reshuffle(), `merged-pattern shuffle ${JSON.stringify({ rules, counts })}`);
+  assert.deepEqual(game.tiles.map((t) => t.kind).sort(), kinds.slice().sort());
+  for (const id of game.solution) assert(game.pick(id));
+  assert.equal(game.status, 'won');
+  game = MatchGame.fromCloud(cloud(kinds, rules));
+  game.hintLeft = 20;
+  for (let step = 0; step < kinds.length && game.status === 'playing'; step++) {
+    const hint = game.hint();
+    assert(hint.length > 0, `merged-pattern hint ${JSON.stringify({ rules, counts })}`);
+    for (const id of hint) assert(game.pick(id));
+  }
+  assert.equal(game.status, 'won', 'hints complete merged groups without consuming tiles twice');
+}
 // Independent exhaustive play on small multisets checks the bounded generator,
 // including priorities where a larger rule can fire before a smaller one.
 const patterns = [];

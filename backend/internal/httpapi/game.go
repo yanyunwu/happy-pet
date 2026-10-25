@@ -79,6 +79,10 @@ func (s *Server) registerGame(router *gin.Engine, admin, user *gin.RouterGroup) 
 		s.result(c, v, e)
 	})
 	admin.GET("/levels", func(c *gin.Context) { v, e := service.Levels(c.Request.Context(), false); s.result(c, v, e) })
+	admin.GET("/levels/:id/analytics", func(c *gin.Context) {
+		v, e := service.LevelAnalytics(c.Request.Context(), c.Param("id"), c.Query("range"), c.Query("revisionId"))
+		s.result(c, v, e)
+	})
 	admin.GET("/level-templates", func(c *gin.Context) { v, e := service.Templates(c.Request.Context()); s.result(c, v, e) })
 	saveTemplate := func(c *gin.Context) {
 		var in game.TemplateInput

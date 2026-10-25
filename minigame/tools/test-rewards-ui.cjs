@@ -195,7 +195,9 @@ fs.mkdirSync(output, { recursive: true });
         window.rewardApp.modal.getComponentsInChildren('cc.Label').map((l) => l.string),
       );
     let words = await labels();
-    assert(words.includes('今日奖励'));
+    assert(!words.includes('今日奖励'));
+    assert(!words.includes('每天一份森林好礼'));
+    assert(words.includes('七日补给'));
     assert(words.includes('+20'));
     assert(words.some((word) => word.includes('第7天')));
     await capture('signin-ready.png');

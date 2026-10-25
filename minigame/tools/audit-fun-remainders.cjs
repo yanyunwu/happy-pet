@@ -49,7 +49,7 @@ fs.writeFileSync(
   JSON.stringify(
     {
       definition:
-        'Tests whether all remaining counts can be partitioned into triples or distinct pairs. An impossible count partition proves the current remainder cannot clear without reverting a previous match. A possible partition does not prove the covered board is solvable.',
+        'Tests whether all remaining counts can be partitioned into pairs, allowing both pairs to share a species. An impossible count partition proves the current remainder cannot clear without reverting a previous match. A possible partition does not prove the covered board is solvable.',
       results: output,
     },
     null,

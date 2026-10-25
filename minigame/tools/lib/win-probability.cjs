@@ -1,11 +1,42 @@
 /**
  * Exact DP / Monte Carlo for uniformly random drawing WITHOUT replacement.
  * All remaining tiles are selectable; no cover geometry, tools or player skill.
- * A rule such as [2,2] uses two DISTINCT kinds. Rules are tried in supplied order.
+ * A rule such as [2,2] may use the same kind in both groups. Rules retain priority.
  * Generic custom ties use input-kind order (largest multiplicity assigned first).
  */
 const PRESETS = { classic: [[3]], quartet: [[4]], fun: [[2, 2]] };
 class StateBudgetExceeded extends Error {}
+function expandedPatterns(rules) {
+  const result = [],
+    seen = new Set();
+  for (const rule of rules) {
+    const groups = [];
+    function visit(slot) {
+      if (slot === rule.length) {
+        const pattern = groups.slice().sort((a, b) => b - a),
+          key = pattern.join(',');
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(pattern);
+        }
+        return;
+      }
+      groups.push(rule[slot]);
+      visit(slot + 1);
+      groups.pop();
+      const sums = new Set();
+      for (let group = 0; group < groups.length; group++) {
+        if (sums.has(groups[group])) continue;
+        sums.add(groups[group]);
+        groups[group] += rule[slot];
+        visit(slot + 1);
+        groups[group] -= rule[slot];
+      }
+    }
+    visit(0);
+  }
+  return result;
+}
 function normalize(spec) {
   const entries = Array.isArray(spec.counts)
     ? spec.counts.map((n, i) => ['type' + (i + 1), n])
@@ -30,6 +61,13 @@ function normalize(spec) {
       'rules must be positive-integer multiplicity patterns, for example [[3],[2,2]].',
     );
   const rules = raw.map((pattern) => pattern.slice().sort((a, b) => b - a));
+  if (
+    rules.some((pattern) => {
+      const total = pattern.reduce((sum, count) => sum + count, 0);
+      return total < 2 || total > 7;
+    })
+  )
+    throw new Error('Each rule must total 2–7 tiles, matching the game rules.');
   // These families have an unambiguous matching kind/group in every reachable
   // stable tray. Only then may interchangeable kind states be canonicalized.
   const symmetric =
@@ -44,11 +82,15 @@ function normalize(spec) {
     total,
     capacity,
     rules,
+    effectiveRules: expandedPatterns(rules),
     symmetric,
     minContribution: Math.min(...rules.flat()),
   };
 }
 function settle(held, rules) {
+  return settlePatterns(held, expandedPatterns(rules));
+}
+function settlePatterns(held, rules) {
   for (;;) {
     let matched = false;
     for (const pattern of rules) {
@@ -150,7 +192,7 @@ function exact(model, { maxStates = 250000, maxMs = 3000 } = {}) {
           h = held.slice();
         r[i]--;
         h[i]++;
-        settle(h, model.rules);
+        settlePatterns(h, model.effectiveRules);
         winningOrders += BigInt(remaining[i] * multiplicity) * visit(r, h);
       }
       i += multiplicity;
@@ -203,7 +245,7 @@ function monteCarlo(model, { trials = 100000, seed = 20261025 } = {}) {
       r[i]--;
       left--;
       h[i]++;
-      settle(h, model.rules);
+      settlePatterns(h, model.effectiveRules);
       used = sum(h);
     }
     if (!left && !used) wins++;
@@ -234,7 +276,7 @@ function calculate(spec, options = {}) {
     'All remaining tiles selectable; no cover geometry or tools.',
     'Matching happens before checking whether the tray is full.',
     'Winning requires every tile to be removed and the tray to be empty.',
-    'Rules use distinct kinds within each multiplicity pattern; custom match ties follow input-kind order.',
+    'Each group uses identical tiles; groups may share a kind. Original distinct-kind patterns are tried before merged groups, with input-kind order breaking ties.',
   ];
   let result;
   if (

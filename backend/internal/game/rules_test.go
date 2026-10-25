@@ -108,6 +108,12 @@ func TestParityFixtures(t *testing.T) {
 		{"custom-seven", [][]int{{7}}, []int{7, 7}},
 		{"custom-five-before-pairs", [][]int{{3, 2}, {2, 2}}, []int{3, 2}},
 		{"custom-five-before-triples", [][]int{{3, 2}, {3}}, []int{3, 2}},
+		{"shared-two-pairs", [][]int{{2, 2}}, []int{8}},
+		{"shared-three-plus-one", [][]int{{3, 1}}, []int{7, 1}},
+		{"shared-three-pairs-partial", [][]int{{2, 2, 2}}, []int{4, 2}},
+		{"shared-three-pairs-all", [][]int{{2, 2, 2}}, []int{6}},
+		{"shared-three-two-one", [][]int{{3, 2, 1}}, []int{4, 2}},
+		{"shared-seven", [][]int{{3, 2, 2}}, []int{7}},
 	} {
 		cases = append(cases, fixtureCase{name: custom.name, mode: "classic", stage: i + 3, config: customConfig(t, custom.rules, custom.counts), shuffle: true})
 	}

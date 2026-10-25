@@ -10,6 +10,11 @@ const triple = exact([3, 3, 3, 3], [[3]]);
 assert.deepEqual(triple.fraction, { numerator: '13', denominator: '22' });
 const quartet = exact([4, 4, 4], [[4]]);
 assert.deepEqual(quartet.fraction, { numerator: '7', denominator: '33' });
+assert.equal(exact([4], [[2, 2]]).probability, 1);
+assert.equal(exact([4], [[1, 3]]).probability, 1);
+assert.equal(exact([4, 2], [[2, 2, 2]]).probability, 1);
+assert.equal(exact([3, 1], [[2, 2]]).probability, 0);
+assert.equal(exact([2, 2], [[1, 3]]).probability, 0);
 const fun = exact([3, 2, 2], [[3], [2, 2]]);
 assert.deepEqual(fun.fraction, { numerator: '13', denominator: '35' });
 assert.equal(calculate({ mode: 'fun', counts: [3, 2, 2] }).probability, 0);
@@ -77,6 +82,7 @@ assert.equal(fallback.method, 'monte-carlo');
 assert.ok(fallback.fallbackReason);
 assert.throws(() => calculate({ counts: [-1, 3] }));
 assert.throws(() => calculate({ counts: [3], rules: [[0]] }));
+assert.throws(() => calculate({ counts: [8], rules: [Array(8).fill(1)] }), /2–7/);
 console.log(
   JSON.stringify(
     {

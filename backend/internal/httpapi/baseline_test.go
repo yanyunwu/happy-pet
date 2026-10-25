@@ -19,8 +19,8 @@ func TestFirstDeploymentBaselineAndGenericInitialization(t *testing.T) {
 	if err := h.db.QueryRowContext(ctx, "SELECT string_agg(version::text,',' ORDER BY version) FROM schema_migrations").Scan(&versions); err != nil {
 		t.Fatal(err)
 	}
-	if versions != "0,1,2,3,4" {
-		t.Fatalf("first deployment must include the profile, settings and admin migrations, got %s", versions)
+	if versions != "0,1,2,3,4,5" {
+		t.Fatalf("first deployment must include the profile, settings, admin and analytics migrations, got %s", versions)
 	}
 	var tables int
 	if err := h.db.QueryRowContext(ctx, "SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE'").Scan(&tables); err != nil || tables != 13 {
@@ -60,7 +60,7 @@ func TestAdoptPopulatedFirstDeploymentBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := runner.Apply(ctx, db, nil)
-	if err != nil || !result.Adopted || result.Fresh || result.Version != 4 || len(result.Applied) != 3 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" || result.Applied[2] != "004_admin_accounts.sql" {
+	if err != nil || !result.Adopted || result.Fresh || result.Version != 5 || len(result.Applied) != 4 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" || result.Applied[2] != "004_admin_accounts.sql" || result.Applied[3] != "005_level_analytics_index.sql" {
 		t.Fatal("baseline adoption did not apply the expected upgrades", result, err)
 	}
 	if err := game.Seed(ctx, db); err != nil {
@@ -88,7 +88,7 @@ func TestProfileMigrationUpgradesTrackedBaselineOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := runner.Apply(ctx, db, nil)
-	if err != nil || result.Adopted || result.Fresh || result.Version != 4 || len(result.Applied) != 3 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" || result.Applied[2] != "004_admin_accounts.sql" {
+	if err != nil || result.Adopted || result.Fresh || result.Version != 5 || len(result.Applied) != 4 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" || result.Applied[2] != "004_admin_accounts.sql" || result.Applied[3] != "005_level_analytics_index.sql" {
 		t.Fatal("tracked baseline did not upgrade exactly once", result, err)
 	}
 	assertLegacyProfileRetained(t, db)
@@ -100,7 +100,7 @@ func TestProfileMigrationUpgradesTrackedBaselineOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err = runner.Apply(ctx, db, nil)
-	if err != nil || len(result.Applied) != 0 || result.Version != 4 {
+	if err != nil || len(result.Applied) != 0 || result.Version != 5 {
 		t.Fatal("repeated startup replayed migrations", result, err)
 	}
 	var avatar string

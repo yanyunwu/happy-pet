@@ -27,8 +27,8 @@ export const MODES: Mode[] = [
   {
     id: 'fun',
     title: '趣味规则消',
-    rule: '两种不同萌宠各两个才能消除',
-    shortRule: '两种萌宠各两个',
+    rule: '两对萌宠即可消除，也可以四个相同',
+    shortRule: '两对或四个相同',
     matchSize: 4,
   },
 ];
@@ -65,8 +65,8 @@ function presetRuleMode(rules: number[][]): ModeId | 'legacy-fun' | null {
 }
 export function ruleDescription(pattern: number[]): string {
   if (pattern.length === 1) return `${pattern[0]} 个相同萌宠`;
-  if (pattern.every((n) => n === pattern[0])) return `${pattern.length} 种萌宠各 ${pattern[0]} 个`;
-  return `${pattern.join(' + ')} · 每组是不同种类`;
+  if (pattern.length === 2 && pattern.every((n) => n === 2)) return '两对萌宠，或四个相同';
+  return `${pattern.join(' + ')} · 组内相同，组间可相同`;
 }
 export interface Tile {
   id: number;
@@ -167,11 +167,48 @@ function removalOrder(tiles: Tile[], rng: () => number): number[] {
   }
   return result;
 }
+/** Groups may share a kind. Try the original pattern before its merged forms. */
+function expandedPatterns(rules: number[][]): number[][] {
+  const result: number[][] = [],
+    seen = new Set<string>();
+  for (const rule of rules) {
+    const groups: number[] = [];
+    const visit = (slot: number): void => {
+      if (slot === rule.length) {
+        const pattern = groups.slice().sort((a, b) => b - a),
+          key = pattern.join(',');
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(pattern);
+        }
+        return;
+      }
+      groups.push(rule[slot]);
+      visit(slot + 1);
+      groups.pop();
+      const sums = new Set<number>();
+      for (let group = 0; group < groups.length; group++) {
+        if (sums.has(groups[group])) continue;
+        sums.add(groups[group]);
+        groups[group] += rule[slot];
+        visit(slot + 1);
+        groups[group] -= rule[slot];
+      }
+    };
+    visit(0);
+  }
+  return result;
+}
 /** The same matcher drives real picks, dealing, hints and difficulty simulation. */
 export function matchIndices(kinds: number[], rule: ModeId | number[][]): number[] {
+  return matchExpandedIndices(
+    kinds,
+    expandedPatterns(typeof rule === 'string' ? defaultRules(rule) : rule),
+  );
+}
+function matchExpandedIndices(kinds: number[], rules: number[][]): number[] {
   const groups = new Map<number, number[]>();
   kinds.forEach((kind, index) => groups.set(kind, [...(groups.get(kind) || []), index]));
-  const rules = typeof rule === 'string' ? defaultRules(rule) : rule;
   const buckets = Array.from(groups.values());
   for (const pattern of rules) {
     const used = new Set<number>(),
@@ -251,12 +288,7 @@ function groupsForCounts(
 
 function pairGroups(counts: number[]): number[][] | null {
   const total = counts.reduce((sum, count) => sum + count, 0);
-  if (
-    counts.some((count) => count < 0 || count % 2 !== 0) ||
-    total % 4 !== 0 ||
-    Math.max(0, ...counts) * 2 > total
-  )
-    return null;
+  if (counts.some((count) => count < 0 || count % 2 !== 0) || total % 4 !== 0) return null;
   const pairs = counts.map((count) => count / 2),
     result: number[][] = [];
   while (pairs.some((count) => count > 0)) {
@@ -265,7 +297,7 @@ function pairGroups(counts: number[]): number[][] | null {
       .filter((item) => item.count > 0)
       .sort((a, b) => b.count - a.count);
     const a = largest[0].kind,
-      b = largest[1].kind;
+      b = largest[1]?.kind ?? a;
     result.push([a, a, b, b]);
     pairs[a]--;
     pairs[b]--;
@@ -274,13 +306,14 @@ function pairGroups(counts: number[]): number[][] | null {
 }
 
 function triggerablePatterns(rules: number[][]): { pattern: number[]; order: number[] }[] {
-  return rules.flatMap((pattern) => {
+  const patterns = expandedPatterns(rules);
+  return patterns.flatMap((pattern) => {
     const used = pattern.map(() => 0),
       order: number[] = [],
       bad = new Set<string>();
     const total = pattern.reduce((sum, n) => sum + n, 0);
     const search = (): boolean => {
-      const matched = matchIndices(order, rules);
+      const matched = matchExpandedIndices(order, patterns);
       if (order.length === total) return matched.length === total;
       if (matched.length) return false;
       const key = used.join(',');
@@ -748,6 +781,8 @@ export class MatchGame {
     if (preset === 'fun' || preset === 'legacy-fun')
       for (let a = 0; a < this.level.kinds; a++)
         for (let b = a + 1; b < this.level.kinds; b++) candidates.push([a, a, b, b]);
+    if (preset === 'fun')
+      for (let kind = 0; kind < this.level.kinds; kind++) candidates.push(Array(4).fill(kind));
     for (const group of candidates) {
       const rest = counts.slice();
       group.forEach((k) => rest[k]--);

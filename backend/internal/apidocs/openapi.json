@@ -5945,6 +5945,242 @@
           }
         }
       }
+    },
+    "/api/v1/admin/levels/{id}/analytics": {
+      "get": {
+        "tags": ["关卡配置"],
+        "summary": "分析单个关卡的通过率和对局表现",
+        "operationId": "getLevelAnalytics",
+        "description": "管理员Cookie或access_token访问。按关卡ID、会话开始时间及可选发布版本统计现有服务端对局；不统计离线练习。7d/30d/90d含北京时间今天及之前N−1天，从首日00:00起至请求时刻（不含）；缺省或空range为30d。all汇总全部历史，但daily只返回含今天的最近90天。按开始日期归属，跨日结算仍归属开始日；终局状态变化可改变之前日期的结果。未结束对局不推断为失败。返回当前关卡全部发布版本（不受筛选范围影响），daily零值补齐，tools恒有5类。所有统计在同一只读可重复读快照内完成。",
+        "security": [
+          {
+            "AdminToken": []
+          },
+          {
+            "AdminCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "关卡ID；草稿和下架关卡也可查询。"
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "allowEmptyValue": true,
+            "schema": {
+              "type": "string",
+              "enum": ["7d", "30d", "90d", "all"],
+              "default": "30d"
+            },
+            "description": "统计时间范围。"
+          },
+          {
+            "name": "revisionId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "可省略或空字符串表示全部版本；非空必须属于当前关卡。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "关卡分析结果；没有样本仍返回200，计数为0、没有定义的比率/均值为null。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LevelAnalytics"
+                },
+                "example": {
+                  "level": {
+                    "id": "example-level-id",
+                    "title": "森林小径",
+                    "entry": "standard",
+                    "mode": "classic",
+                    "ordinal": 1,
+                    "publishedRevisionId": "example-revision-2"
+                  },
+                  "range": "7d",
+                  "revisionId": "",
+                  "from": "2026-10-19T00:00:00+08:00",
+                  "to": "2026-10-25T10:00:00+08:00",
+                  "trendFrom": "2026-10-19",
+                  "timezone": "Asia/Shanghai",
+                  "generatedAt": "2026-10-25T10:00:00+08:00",
+                  "summary": {
+                    "attempts": 5,
+                    "players": 2,
+                    "won": 2,
+                    "lost": 1,
+                    "abandoned": 1,
+                    "unfinished": 1,
+                    "winRate": 40,
+                    "finishedWinRate": 50,
+                    "avgWinDurationSeconds": 90,
+                    "winDurationSamples": 2,
+                    "avgWinMoves": 12
+                  },
+                  "daily": [
+                    {
+                      "date": "2026-10-19",
+                      "attempts": 0,
+                      "won": 0,
+                      "lost": 0,
+                      "abandoned": 0,
+                      "unfinished": 0,
+                      "winRate": null
+                    },
+                    {
+                      "date": "2026-10-20",
+                      "attempts": 0,
+                      "won": 0,
+                      "lost": 0,
+                      "abandoned": 0,
+                      "unfinished": 0,
+                      "winRate": null
+                    },
+                    {
+                      "date": "2026-10-21",
+                      "attempts": 0,
+                      "won": 0,
+                      "lost": 0,
+                      "abandoned": 0,
+                      "unfinished": 0,
+                      "winRate": null
+                    },
+                    {
+                      "date": "2026-10-22",
+                      "attempts": 0,
+                      "won": 0,
+                      "lost": 0,
+                      "abandoned": 0,
+                      "unfinished": 0,
+                      "winRate": null
+                    },
+                    {
+                      "date": "2026-10-23",
+                      "attempts": 0,
+                      "won": 0,
+                      "lost": 0,
+                      "abandoned": 0,
+                      "unfinished": 0,
+                      "winRate": null
+                    },
+                    {
+                      "date": "2026-10-24",
+                      "attempts": 2,
+                      "won": 1,
+                      "lost": 1,
+                      "abandoned": 0,
+                      "unfinished": 0,
+                      "winRate": 50
+                    },
+                    {
+                      "date": "2026-10-25",
+                      "attempts": 3,
+                      "won": 1,
+                      "lost": 0,
+                      "abandoned": 1,
+                      "unfinished": 1,
+                      "winRate": 33.333333333333336
+                    }
+                  ],
+                  "revisions": [
+                    {
+                      "id": "example-revision-2",
+                      "version": 2,
+                      "title": "森林小径",
+                      "publishedAt": "2026-10-18T10:00:00+08:00",
+                      "current": true
+                    },
+                    {
+                      "id": "example-revision-1",
+                      "version": 1,
+                      "title": "森林小径",
+                      "publishedAt": "2026-10-01T10:00:00+08:00",
+                      "current": false
+                    }
+                  ],
+                  "tools": [
+                    {
+                      "type": "undo",
+                      "uses": 0,
+                      "sessions": 0
+                    },
+                    {
+                      "type": "shovel",
+                      "uses": 0,
+                      "sessions": 0
+                    },
+                    {
+                      "type": "hint",
+                      "uses": 3,
+                      "sessions": 2
+                    },
+                    {
+                      "type": "shuffle",
+                      "uses": 0,
+                      "sessions": 0
+                    },
+                    {
+                      "type": "unlock_slot",
+                      "uses": 0,
+                      "sessions": 0
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT：无效range，或revisionId不存在/不属于此关卡。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED：无有效管理员凭证；玩家JWT不可访问。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND：关卡不存在。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR：查询失败。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6774,7 +7010,7 @@
           "minimum": 1,
           "maximum": 7
         },
-        "description": "单个消除组合。组内计数按降序规范化，总和 2–7；各项匹配互不相同的宠物种类。如 [2,2] 表示两个不同种类各两只。",
+        "description": "单个消除组合。各组数量按降序规范化，总和 2–7；每组内部必须同种，不同组允许同种，每个方块只能计一次。如 [2,2] 接受两种各两只或同种四只，不接受三只加一只；[3,1] 接受三只加一只或同种四只。",
         "minItems": 1,
         "maxItems": 7
       },
@@ -8633,6 +8869,306 @@
             "description": "管理员备注，最多 500 个 Unicode 字符。",
             "maxLength": 500,
             "example": "接口演示账号"
+          }
+        }
+      },
+      "LevelAnalyticsSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempts",
+          "players",
+          "won",
+          "lost",
+          "abandoned",
+          "unfinished",
+          "winRate",
+          "finishedWinRate",
+          "avgWinDurationSeconds",
+          "winDurationSamples",
+          "avgWinMoves"
+        ],
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "所选时间与版本的开局对局数，按对局ID计数。"
+          },
+          "players": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "所选对局中去重玩家数，不排除后来被禁用或软删除的玩家。"
+          },
+          "won": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "通关对局数，status=won。"
+          },
+          "lost": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "失败对局数，status=lost。"
+          },
+          "abandoned": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "主动退出对局数，status=abandoned。"
+          },
+          "unfinished": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "未结束对局数，status=playing，可能包含未上报结果，不能视为失败。"
+          },
+          "winRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100,
+            "description": "won / attempts × 100，分母为0时null。"
+          },
+          "finishedWinRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100,
+            "description": "won / (won+lost+abandoned) × 100，分母为0时null。"
+          },
+          "avgWinDurationSeconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "description": "有合法ended_at>=started_at的通关对局，服务端结束减开始的平均秒数，包含后台/闲置时间；无有效样本时null。"
+          },
+          "winDurationSamples": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "平均通关耗时所用的有效样本数量。"
+          },
+          "avgWinMoves": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "description": "通关对局最终state.moves的平均值，仅点选计数、撤回会回退；不是包括道具在内的总事件数。缺失样本时null。"
+          }
+        }
+      },
+      "LevelAnalyticsDay": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "attempts", "won", "lost", "abandoned", "unfinished", "winRate"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Asia/Shanghai开局日期。"
+          },
+          "attempts": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "当天开局次数。"
+          },
+          "won": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "该日开局队列当前通关数。"
+          },
+          "lost": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "该日开局队列当前失败数。"
+          },
+          "abandoned": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "该日开局队列当前主动退出数。"
+          },
+          "unfinished": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "该日开局队列当前未结束数。"
+          },
+          "winRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100,
+            "description": "当天won / attempts × 100，无开局时null。"
+          }
+        }
+      },
+      "LevelAnalyticsRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "title", "publishedAt", "current"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "发布版本ID。"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "发布版本序号。"
+          },
+          "title": {
+            "type": "string",
+            "description": "该发布版本的标题快照。"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "版本创建/发布时间。"
+          },
+          "current": {
+            "type": "boolean",
+            "description": "是否是关卡当前published_revision，即使关卡下架也照常标记。"
+          }
+        }
+      },
+      "LevelAnalyticsTool": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "uses", "sessions"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["undo", "shovel", "hint", "shuffle", "unlock_slot"],
+            "description": "道具或额外槽位解锁；不能由unlock_slot推断广告实际播放完成。"
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "服务器接受并记录的该类事件总数。"
+          },
+          "sessions": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "至少使用过一次的去重对局数。"
+          }
+        }
+      },
+      "LevelAnalytics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "level",
+          "range",
+          "revisionId",
+          "from",
+          "to",
+          "trendFrom",
+          "timezone",
+          "generatedAt",
+          "summary",
+          "daily",
+          "revisions",
+          "tools"
+        ],
+        "properties": {
+          "level": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "entry", "mode", "ordinal", "publishedRevisionId"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "关卡ID。"
+              },
+              "title": {
+                "type": "string",
+                "description": "关卡当前标题。"
+              },
+              "entry": {
+                "type": "string",
+                "enum": ["standard", "campaign"]
+              },
+              "mode": {
+                "type": "string",
+                "enum": ["classic", "quartet", "fun"]
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "publishedRevisionId": {
+                "type": "string",
+                "description": "当前发布版本ID，未发布草稿为空字符串。"
+              }
+            }
+          },
+          "range": {
+            "type": "string",
+            "enum": ["7d", "30d", "90d", "all"]
+          },
+          "revisionId": {
+            "type": "string",
+            "description": "所选发布版本ID；空字符串为全部版本。"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "筛选开始时间，包含；all为null。"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "description": "请求时刻，同时为开局筛选上界（不包含）。"
+          },
+          "trendFrom": {
+            "type": "string",
+            "format": "date",
+            "description": "趋势首日。all时为含今天的最近90天；其他range与from同日。"
+          },
+          "timezone": {
+            "type": "string",
+            "enum": ["Asia/Shanghai"]
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "统计请求时刻。所有数据使用同一个只读可重复读快照。"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/LevelAnalyticsSummary"
+          },
+          "daily": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LevelAnalyticsDay"
+            }
+          },
+          "revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LevelAnalyticsRevision"
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LevelAnalyticsTool"
+            }
           }
         }
       }

@@ -38,12 +38,12 @@ func TestFunDefaultsUseOnlyTwoPairs(t *testing.T) {
 }
 
 func TestPurePairCountsAndReshuffleWitness(t *testing.T) {
-	for _, counts := range [][]int{{3, 3, 2}, {6, 2}, {2, 2, 2}, {8}} {
+	for _, counts := range [][]int{{3, 3, 2}, {3, 1}, {2, 2, 2}, {6}} {
 		if err := Validate(customConfig(t, [][]int{{2, 2}}, counts)); err == nil {
 			t.Fatal("unmatchable pure-pair counts accepted", counts)
 		}
 	}
-	for _, counts := range [][]int{{4, 2, 2}, {48, 48, 48, 48}, {96, 96}} {
+	for _, counts := range [][]int{{4, 2, 2}, {6, 2}, {8}, {48, 48, 48, 48}, {96, 96}, {192}} {
 		c := customConfig(t, [][]int{{2, 2}}, counts)
 		for seed := uint32(1); seed <= 20; seed++ {
 			s, route, err := NewBoard(c, seed)

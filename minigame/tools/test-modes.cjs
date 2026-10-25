@@ -122,7 +122,10 @@ check(pair.undo() && pair.cleared === 0 && pair.tray.length === 6, 'undo pair cl
 const triple = fixture([0, 0, 0, 1], 'fun');
 [0, 1, 2].forEach((id) => triple.pick(id));
 check(triple.cleared === 0 && triple.tray.length === 3, 'fun never clears triples');
-check(matchIndices([0, 0, 0, 1, 1], 'fun').length === 4, 'fun clears only two distinct pairs');
+check(
+  matchIndices([0, 0, 0, 1, 1], 'fun').length === 4,
+  'fun retains the two-distinct-pairs match',
+);
 check(matchIndices([0, 0, 1, 2], 'fun').length === 0, 'a single pair never clears');
 const stranded = fixture([0, 0, 1, 1, 0, 1], 'fun');
 [0, 1, 2, 3].forEach((id) => stranded.pick(id));

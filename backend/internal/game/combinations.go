@@ -109,9 +109,53 @@ func presetMode(rules [][]int) string {
 	return ""
 }
 
-// matchRules assigns distinct kinds in their first tray appearance order. Each
-// pattern slot takes the first N indices of its selected kind.
+// expandedPatterns includes every way that groups may share a kind. Separate
+// groups are tried first so the original pattern and rule priority stay intact.
+// Every result uses distinct kinds with summed counts, preventing tile reuse.
+func expandedPatterns(rules [][]int) [][]int {
+	patterns := [][]int{}
+	seen := map[string]bool{}
+	for _, rule := range rules {
+		groups := []int{}
+		var expand func(int)
+		expand = func(slot int) {
+			if slot == len(rule) {
+				pattern := append([]int{}, groups...)
+				sort.Sort(sort.Reverse(sort.IntSlice(pattern)))
+				key := fmt.Sprint(pattern)
+				if !seen[key] {
+					seen[key] = true
+					patterns = append(patterns, pattern)
+				}
+				return
+			}
+			amount := rule[slot]
+			groups = append(groups, amount)
+			expand(slot + 1)
+			groups = groups[:len(groups)-1]
+			seenSums := map[int]bool{}
+			for i, sum := range groups {
+				if seenSums[sum] {
+					continue
+				}
+				seenSums[sum] = true
+				groups[i] += amount
+				expand(slot + 1)
+				groups[i] -= amount
+			}
+		}
+		expand(0)
+	}
+	return patterns
+}
+
 func matchRules(kinds []int, rules [][]int) []int {
+	return matchPatterns(kinds, expandedPatterns(rules))
+}
+
+// matchPatterns assigns distinct kinds in their first tray appearance order.
+// Each effective pattern slot takes the first N indices of its selected kind.
+func matchPatterns(kinds []int, patterns [][]int) []int {
 	order := []int{}
 	indices := map[int][]int{}
 	for i, kind := range kinds {
@@ -120,7 +164,7 @@ func matchRules(kinds []int, rules [][]int) []int {
 		}
 		indices[kind] = append(indices[kind], i)
 	}
-	for _, rule := range rules {
+	for _, rule := range patterns {
 		used := map[int]bool{}
 		matched := []int{}
 		var assignKind func(int) bool
@@ -162,7 +206,8 @@ type triggerPattern struct {
 // states exist per pattern, because its total size is bounded by seven.
 func triggerablePatterns(rules [][]int) []triggerPattern {
 	patterns := []triggerPattern{}
-	for _, pattern := range rules {
+	effective := expandedPatterns(rules)
+	for _, pattern := range effective {
 		total := 0
 		for _, n := range pattern {
 			total += n
@@ -176,7 +221,7 @@ func triggerablePatterns(rules [][]int) []triggerPattern {
 			if bad[key] {
 				return false
 			}
-			matched := matchRules(prefix, rules)
+			matched := matchPatterns(prefix, effective)
 			if len(matched) > 0 || len(prefix) == total {
 				if len(prefix) == total && len(matched) == total {
 					return true
@@ -220,20 +265,19 @@ func ruleGroups(counts []int, rules [][]int) ([][]int, error) {
 	return decomposePatterns(counts, rules, combinationBudget)
 }
 
-// Pairing the two largest remaining species is sufficient precisely when each
-// count is even and no species owns more than half the tiles.
+// Each count must be even and the total divisible by four. Prefer two distinct
+// species while possible; the last species can supply both pairs itself.
 func pairGroups(counts []int) ([][]int, error) {
 	pairs := make([]int, len(counts))
-	total, largest := 0, 0
+	total := 0
 	for kind, count := range counts {
 		if count < 0 || count%2 != 0 {
 			return nil, errUnmatchableCounts
 		}
 		pairs[kind] = count / 2
 		total += count
-		largest = max(largest, count)
 	}
-	if total%4 != 0 || largest > total/2 {
+	if total%4 != 0 {
 		return nil, errUnmatchableCounts
 	}
 	result := [][]int{}
@@ -245,7 +289,10 @@ func pairGroups(counts []int) ([][]int, error) {
 			}
 		}
 		sort.SliceStable(kinds, func(i, j int) bool { return pairs[kinds[i]] > pairs[kinds[j]] })
-		a, b := kinds[0], kinds[1]
+		a, b := kinds[0], kinds[0]
+		if len(kinds) > 1 {
+			b = kinds[1]
+		}
 		result = append(result, []int{a, a, b, b})
 		pairs[a]--
 		pairs[b]--

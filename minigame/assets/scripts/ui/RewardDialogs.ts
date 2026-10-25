@@ -48,57 +48,26 @@ function statusStamp(
 
 export function paintSignIn(
   parent: Node,
-  save: SaveData,
   day: number,
   claimed: boolean,
   tools: RewardTool[],
   art: RewardArt,
   onClaim: () => void,
 ): Node {
-  const reward = SIGN_IN_REWARDS[day];
-  const tool = tools.find((item) => item.id === reward.tool)!;
-  P.text(parent, 'Subtitle', '每天一份森林好礼', 253, 313, 25, C.deep, 310, true, 'left');
-  P.skin(parent, 'BalancePill', 'pill-dark', 550, 313, 148, 48);
-  P.sprite(parent, 'BalanceCoin', art.coin, 505, 312, 46, 46);
-  P.text(parent, 'Balance', String(save.coins), 561, 310, 25, '#FFE6A6', 100, true);
-
-  const hero = P.skin(parent, 'TodayReward', 'tile', 360, 444, 534, 208);
-  P.text(
-    hero,
-    'HeroTitle',
-    claimed ? '今日奖励已收好' : '今日奖励',
-    -115,
-    -73,
-    27,
-    C.deep,
-    250,
-    true,
-    'left',
-  );
-  P.text(hero, 'HeroDay', `第${day + 1}天`, 186, -72, 23, C.muted, 110, true);
-  P.sprite(hero, 'Coin', art.coin, -174, -9, 112, 112);
-  P.text(hero, 'Coins', `+${reward.coins}`, -53, -15, 49, '#A65D22', 150, true);
-  P.text(hero, 'CoinCaption', '萌宠金币', -53, 33, 21, C.muted, 150);
-  P.sprite(hero, 'Tool', art.tools[tool.icon], 87, -13, 77, 77);
-  P.text(hero, 'ToolName', tool.name, 182, -25, 28, C.deep, 115, true);
-  P.text(hero, 'ToolCount', `×${reward.count}`, 182, 17, 29, '#A65D22', 115, true);
-  P.leaf(hero, -233, 71, 14, '#91A760').angle = 18;
-  P.leaf(hero, 233, 69, 11, '#B2BE77').angle = -28;
-
-  P.text(parent, 'CalendarTitle', '七日补给', 189, 582, 27, C.deep, 190, true, 'left');
+  P.text(parent, 'CalendarTitle', '七日补给', 189, 442, 27, C.deep, 190, true, 'left');
   P.text(
     parent,
     'Progress',
     `已领 ${day + (claimed ? 1 : 0)} / 7 天`,
     522,
-    582,
+    442,
     23,
     C.muted,
     205,
     false,
     'right',
   );
-  P.line(parent, 98, 608, 622, 608, '#D5BD89', 2);
+  P.line(parent, 98, 468, 622, 468, '#D5BD89', 2);
   SIGN_IN_REWARDS.forEach((entry, index) => {
     const state =
       index < day || (claimed && index === day)
@@ -109,7 +78,7 @@ export function paintSignIn(
     const item = tools.find((candidate) => candidate.id === entry.tool)!;
     if (index < 6) {
       const x = 178 + (index % 3) * 182;
-      const y = 717 + Math.floor(index / 3) * 216;
+      const y = 577 + Math.floor(index / 3) * 216;
       if (state === 'today')
         P.rounded(parent, 'TodayOutline', x, y - 3, 178, 204, '#91A65F', 25, '#6B8546');
       const card = P.skin(parent, `Day${index + 1}`, 'tile', x, y, 166, 192);
@@ -120,7 +89,7 @@ export function paintSignIn(
       statusStamp(card, state, 0, 69);
       if (state === 'claimed') P.opacity(coin, 170);
     } else {
-      const gift = P.skin(parent, 'Day7', 'nav', 360, 1114, 532, 138);
+      const gift = P.skin(parent, 'Day7', 'nav', 360, 974, 532, 138);
       P.star(gift, -231, -39, 13, '#BB762D');
       P.text(gift, 'Day', '第7天 · 满签礼', -94, -40, 25, C.deep, 245, true, 'left');
       statusStamp(gift, state, 181, -39, 110);
@@ -135,7 +104,7 @@ export function paintSignIn(
     'SignInNote',
     '累计签到，断签不重置 · 满7天开启新一轮',
     360,
-    1218,
+    1078,
     21,
     C.muted,
     540,
@@ -145,7 +114,7 @@ export function paintSignIn(
     'ClaimSignIn',
     claimed ? '今日已领 · 明天再来' : '收下今日奖励',
     360,
-    1302,
+    1162,
     526,
     96,
     onClaim,
