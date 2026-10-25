@@ -1,6 +1,6 @@
 // Builds and exercises only an isolated Compose project. Production env files are never read.
 import assert from 'node:assert/strict';
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import {
   existsSync,
@@ -105,14 +105,88 @@ function compose(args, options) {
   assert.match(project, /^happy-pet-check-[a-f0-9]{10}$/);
   return docker(['compose', '-p', project, '-f', composeFile, ...args], options);
 }
-const shQuote = (s) => `'${s.replaceAll("'", `'"'"'`)}'`;
-function make(target, extra = [], options = {}) {
-  const command = `docker compose -p ${project} -f ${shQuote(composeFile.replaceAll('\\', '/'))}`;
-  return run(
-    'make',
-    ['--no-print-directory', target, `PROD_COMPOSE=${command}`, 'DEPLOY_WAIT=50', ...extra],
+async function startTestStack(options = {}) {
+  const ready = await compose(
+    [
+      'up',
+      '-d',
+      '--no-build',
+      '--pull',
+      'never',
+      '--wait',
+      '--wait-timeout',
+      '50',
+      '--remove-orphans',
+      'db',
+      'admin',
+      'backend',
+    ],
     options,
   );
+  if (ready.status !== 0) return ready;
+  return compose(
+    [
+      'up',
+      '-d',
+      '--no-build',
+      '--pull',
+      'never',
+      '--wait',
+      '--wait-timeout',
+      '50',
+      '--remove-orphans',
+      'gateway',
+    ],
+    options,
+  );
+}
+async function updateTestStack(options = {}) {
+  for (const args of [
+    ['stop', 'gateway', 'backend'],
+    ['up', '-d', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '50', 'db', 'admin'],
+    ['up', '-d', '--no-build', '--pull', 'never', '--no-deps', '--force-recreate', 'backend'],
+  ]) {
+    const result = await compose(args, options);
+    if (result.status !== 0) return result;
+  }
+  return startTestStack(options);
+}
+function dumpTestDatabase() {
+  assert.match(project, /^happy-pet-check-[a-f0-9]{10}$/);
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(
+      'docker',
+      [
+        'compose',
+        '-p',
+        project,
+        '-f',
+        composeFile,
+        'exec',
+        '-T',
+        'db',
+        'pg_dump',
+        '-U',
+        values.PGUSER,
+        '-d',
+        values.PGDATABASE,
+        '-Fc',
+        '--no-owner',
+        '--no-privileges',
+      ],
+      { cwd: root, env: environment, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    const chunks = [];
+    let error = '';
+    child.stdout.on('data', (chunk) => chunks.push(chunk));
+    child.stderr.on('data', (chunk) => {
+      error += chunk.toString('utf8');
+    });
+    child.on('error', reject);
+    child.on('close', (status) =>
+      status === 0 ? resolvePromise(Buffer.concat(chunks)) : reject(new Error(redact(error))),
+    );
+  });
 }
 async function sql(statement, database = values.PGDATABASE) {
   return (
@@ -273,21 +347,6 @@ try {
     'four-service production topology, private database/API, existing volume name and isolated test credentials',
   );
 
-  const envCopy = join(temporary, 'production-copy.env.local');
-  await run('make', ['prod-env', `PROD_ENV=${envCopy.replaceAll('\\', '/')}`]);
-  const initialCopy = readFileSync(envCopy, 'utf8');
-  assert(initialCopy.includes('ADMIN_ORIGIN='));
-  writeFileSync(envCopy, initialCopy + '\n# keep-this-existing-configuration\n');
-  await run('make', ['prod-env', `PROD_ENV=${envCopy.replaceAll('\\', '/')}`]);
-  assert(readFileSync(envCopy, 'utf8').includes('keep-this-existing-configuration'));
-  checks.push('prod-env never overwrites existing settings');
-  environment.COMPOSE_PROJECT_NAME = 'unrelated-project';
-  const dryStop = await run('make', ['--dry-run', 'prod-stop']);
-  assert.match(dryStop.out, /-p "happy-pet-production"/);
-  delete environment.COMPOSE_PROJECT_NAME;
-  checks.push(
-    'production Make commands pin their project instead of inheriting another project name',
-  );
   for (const [name, file] of [
     ['backend', 'Dockerfile'],
     ['admin', 'Dockerfile.admin'],
@@ -326,7 +385,7 @@ try {
     await sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"),
     '0',
   );
-  await make('prod-up');
+  await startTestStack();
   let base = await address();
   const versions = readdirSync(join(root, 'backend/sql/migrations'))
     .filter((n) => n.endsWith('.sql'))
@@ -381,7 +440,9 @@ try {
   const levels = await (
     await http(base, '/api/v1/admin/levels', 200, { headers: { Cookie: cookie } })
   ).json();
-  assert.equal(levels.length, 6);
+  assert.equal(levels.length, 12);
+  assert.equal(levels.filter((level) => level.entry === 'standard').length, 6);
+  assert.equal(levels.filter((level) => level.entry === 'campaign').length, 6);
   const probeCode = json({ code: 'no-wechat-secret-in-fixture' });
   for (let i = 1; i <= 31; i++)
     await http(base, '/api/v1/auth/wechat', 503, {
@@ -435,40 +496,37 @@ try {
   assert.equal(beforeReplay.events.length, 1);
   const preservedHash = await sql("SELECT password_hash FROM users WHERE role='admin'");
 
-  console.log('验证版本 002 的存量用户、资产和对局升级…');
-  const legacy = 'happy_pet_previous';
-  await sql(`CREATE DATABASE ${legacy}`);
-  let oldSchema = '';
-  for (const name of versions.filter((n) => parseInt(n, 10) <= 2)) {
-    const source = readFileSync(join(root, 'backend/sql/migrations', name), 'utf8').replaceAll(
-      '\r\n',
-      '\n',
-    );
-    oldSchema +=
-      source +
-      `\nINSERT INTO schema_migrations(version,name,checksum) VALUES(${parseInt(name, 10)},${quote(name)},${quote(createHash('sha256').update(source).digest('hex'))});\n`;
-  }
-  await sql(oldSchema, legacy);
+  console.log('验证已有首次部署基线重复启动时保留数据…');
+  const retained = 'happy_pet_existing_baseline';
+  await sql(`CREATE DATABASE ${retained}`);
+  await compose([
+    'exec',
+    '-T',
+    '-e',
+    `PGDATABASE=${retained}`,
+    'backend',
+    'happy-pet-api',
+    '-migrate-only',
+  ]);
+  const previousHash = await sql("SELECT password_hash FROM users WHERE role='admin'", retained);
+  const cfg = levels.find(
+    (level) => level.entry === 'campaign' && level.mode === 'classic' && level.ordinal === 1,
+  ).config;
   await sql(
-    `INSERT INTO users(id,username,password_hash,nickname,role) VALUES(${quote(randomBytes(16).toString('hex'))},${quote(values.ADMIN_USERNAME)},${quote(preservedHash)},'迁移测试管理员','admin');`,
-    legacy,
-  );
-  const previousHash = await sql("SELECT password_hash FROM users WHERE role='admin'", legacy);
-  const cfg = levels.find((l) => l.mode === 'classic' && l.ordinal === 1).config;
-  await sql(
-    `INSERT INTO users(id,wechat_openid,nickname) VALUES(${quote(player)},'qa-legacy','保留玩家');
+    `INSERT INTO users(id,wechat_openid,nickname) VALUES(${quote(player)},'qa-retained','保留玩家');
  INSERT INTO player_assets(user_id,coins,undo) VALUES(${quote(player)},42,3);
- INSERT INTO levels(id,mode,ordinal,title,draft) VALUES('legacy-level','classic',1,'原来的关卡',${quote(json(cfg))});
- INSERT INTO level_revisions(id,level_id,version,config,created_by) VALUES('legacy-revision','legacy-level',1,${quote(json(cfg))},'system');
- UPDATE levels SET published_revision='legacy-revision',enabled=true;
- INSERT INTO game_sessions(id,user_id,request_key,campaign_id,level_id,revision_id,mode,ordinal,seed,initial,state) VALUES('legacy-session',${quote(player)},'legacy-request','legacy-session','legacy-level','legacy-revision','classic',1,1,${quote(json(session.state))},${quote(json(session.state))});`,
-    legacy,
+ INSERT INTO levels(id,mode,ordinal,title,draft,entry) VALUES('retained-level','classic',3,'原来的关卡',${quote(json(cfg))},'campaign');
+ INSERT INTO level_revisions(id,level_id,version,config,created_by,title) VALUES('retained-revision','retained-level',1,${quote(json(cfg))},'system','原来的关卡');
+ UPDATE levels SET published_revision='retained-revision',enabled=true WHERE id='retained-level';
+ INSERT INTO game_sessions(id,user_id,request_key,campaign_id,level_id,revision_id,mode,ordinal,seed,initial,state,title,entry) VALUES('retained-session',${quote(player)},'retained-request','retained-session','retained-level','retained-revision','classic',3,1,${quote(json(session.state))},${quote(json(session.state))},'原来的关卡','campaign');
+ INSERT INTO system_initializations(init_key) VALUES('deployment_fixture:retained');`,
+    retained,
   );
   await compose([
     'exec',
     '-T',
     '-e',
-    `PGDATABASE=${legacy}`,
+    `PGDATABASE=${retained}`,
     '-e',
     'ADMIN_USERNAME=',
     '-e',
@@ -478,30 +536,37 @@ try {
     '-migrate-only',
   ]);
   assert.equal(
-    await sql(`SELECT coins||':'||undo FROM player_assets WHERE user_id=${quote(player)}`, legacy),
+    await sql(
+      `SELECT coins||':'||undo FROM player_assets WHERE user_id=${quote(player)}`,
+      retained,
+    ),
     '42:3',
   );
   assert.equal(
-    await sql("SELECT title FROM game_sessions WHERE id='legacy-session'", legacy),
+    await sql("SELECT title FROM game_sessions WHERE id='retained-session'", retained),
     '原来的关卡',
   );
-  assert.ok(
-    (await sql("SELECT password_hash FROM users WHERE role='admin'", legacy)) === previousHash,
+  assert.equal(
+    await sql("SELECT password_hash FROM users WHERE role='admin'", retained),
+    previousHash,
   );
-  assert.equal(await sql("SELECT count(*) FROM levels WHERE entry='campaign'", legacy), '1');
+  assert.equal(await sql("SELECT count(*) FROM levels WHERE entry='campaign'", retained), '7');
+  assert.equal(
+    await sql(
+      "SELECT count(*) FROM system_initializations WHERE init_key='deployment_fixture:retained'",
+      retained,
+    ),
+    '1',
+  );
   checks.push(
-    'version 002 upgrades to current schema without resetting account passwords, coins, tools or historical level titles',
+    'repeated baseline startup preserves passwords, assets, custom levels, replay records and generic initialization markers',
   );
 
-  console.log('验证备份命令和全量恢复到新的空数据库…');
+  console.log('验证数据库归档和全量恢复到新的空数据库…');
   const backup = join(temporary, 'game-backup.dump');
-  await make('prod-backup', [`BACKUP_FILE=${backup.replaceAll('\\', '/')}`]);
-  await make('prod-backup-check', [`BACKUP_FILE=${backup.replaceAll('\\', '/')}`]);
+  writeFileSync(backup, await dumpTestDatabase(), { flag: 'wx', mode: 0o600 });
+  await compose(['exec', '-T', 'db', 'pg_restore', '--list'], { input: readFileSync(backup) });
   assert.equal(readFileSync(backup).subarray(0, 5).toString(), 'PGDMP');
-  const overwrite = await make('prod-backup', [`BACKUP_FILE=${backup.replaceAll('\\', '/')}`], {
-    allowFailure: true,
-  });
-  assert.notEqual(overwrite.status, 0);
   const restored = 'happy_pet_restored';
   await sql(`CREATE DATABASE ${restored}`);
   await compose(
@@ -535,14 +600,12 @@ try {
   assert.ok(
     (await sql("SELECT password_hash FROM users WHERE role='admin'", restored)) === preservedHash,
   );
-  checks.push(
-    'binary pg_dump backup, overwrite refusal and complete pg_restore rehearsal into a fresh database',
-  );
+  checks.push('binary pg_dump archive and complete pg_restore rehearsal into a fresh database');
 
   console.log('验证迁移失败不开放入口，以及升级和重启后数据保留…');
   const originalChecksum = await sql('SELECT checksum FROM schema_migrations WHERE version=1');
   await sql(`UPDATE schema_migrations SET checksum=${quote('0'.repeat(64))} WHERE version=1`);
-  const blockedUpdate = await make('prod-update-local', [], { allowFailure: true });
+  const blockedUpdate = await updateTestStack({ allowFailure: true });
   assert.notEqual(blockedUpdate.status, 0);
   const failedLogs = await compose(['logs', '--tail=25', 'backend']);
   assert.match(
@@ -565,9 +628,9 @@ try {
   );
   // Restore only this deliberately corrupted test ledger, never a production ledger.
   await sql(`UPDATE schema_migrations SET checksum=${quote(originalChecksum)} WHERE version=1`);
-  await make('prod-up');
+  await startTestStack();
   base = await address();
-  await make('prod-update-local');
+  await updateTestStack();
   base = await address();
   const afterReplay = await (
     await http(base, `/api/v1/admin/sessions/${session.id}/replay`, 200, {
@@ -586,13 +649,13 @@ try {
     '-migrate-only',
   ]);
   assert.ok((await sql("SELECT password_hash FROM users WHERE role='admin'")) === preservedHash);
-  await make('prod-stop');
+  await compose(['stop']);
   assert.equal((await compose(['ps', '-q'])).out.trim(), '');
-  await make('prod-up');
+  await startTestStack();
   base = await address();
   await http(base, '/api/health');
   checks.push(
-    'real Makefile update, migration failure gating, password preservation, stop/start and replay persistence',
+    'isolated container update, migration failure gating, password preservation, stop/start and replay persistence',
   );
   completed = true;
 } finally {

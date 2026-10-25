@@ -53,7 +53,7 @@ s.component(canvas, 'cc.Widget', {
 const stage = s.node(canvas, 'Stage', -W / 2, -H / 2, W, H, [0, 1]);
 s.sprite(stage, 'Background', 360, 780, 720, 1560, 'assets/startup/poster.jpg');
 for (let i = 0; i < 3; i++)
-  s.label(stage, `Dot${i}`, '·', 330 + i * 30, 1205, 46, {
+  s.label(stage, `Dot${i}`, '•', 330 + i * 30, 1205, 22, {
     width: 36,
     tint: '#f7e3b3',
     outline: '#614328',

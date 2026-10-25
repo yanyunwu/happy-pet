@@ -14,6 +14,7 @@ import {
   Space,
   Spin,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from 'antd';
@@ -21,6 +22,8 @@ import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { errorMessage } from '../api';
 import {
   gameApi,
+  entryNames,
+  defaultRules,
   modeNames,
   petNames,
   toolNames,
@@ -29,35 +32,38 @@ import {
   type Level,
   type Mode,
   type BoardState,
+  type Entry,
+  type LayoutTemplate,
 } from '../game-api';
 import Board, { petImage } from '../components/Board';
+import LayoutEditor from '../components/LayoutEditor';
+import RuleEditor, { ruleIssue } from '../components/RuleEditor';
 const copy = <T,>(v: T): T => structuredClone(v);
-function fresh(): Level {
+function fresh(entry: Entry, mode: Mode, ordinal: number): Level {
+  const count = mode === 'quartet' ? 4 : 3;
   return {
     id: '',
-    mode: 'classic',
-    ordinal: 3,
+    entry,
+    mode,
+    ordinal,
     title: '新的萌宠冒险',
     draftVersion: 0,
     revisionId: '',
     enabled: false,
     updatedAt: '',
     config: {
-      rulesVersion: 'pet-rules-1',
-      mode: 'classic',
-      columns: 3,
+      rulesVersion: 'pet-rules-2',
+      rules: defaultRules(mode),
+      mode,
+      columns: count,
       rows: 1,
       layers: [
         {
           z: 0,
-          cells: [
-            { x: 0, y: 0 },
-            { x: 2, y: 0 },
-            { x: 4, y: 0 },
-          ],
+          cells: Array.from({ length: count }, (_, i) => ({ x: i * 2, y: 0 })),
         },
       ],
-      counts: [3, ...Array(14).fill(0)],
+      counts: [count, ...Array(14).fill(0)],
       capacity: 7,
       freeTools: { undo: 1, shovel: 1, hint: 3, shuffle: 1 },
       rewardCoins: 20,
@@ -69,7 +75,9 @@ export default function Levels() {
   const [levels, setLevels] = useState<Level[]>([]),
     [loading, setLoading] = useState(true),
     [editing, setEditing] = useState<Level | null>(null),
-    [z, setZ] = useState(0),
+    [entry, setEntry] = useState<Entry>('standard'),
+    [templates, setTemplates] = useState<LayoutTemplate[]>([]),
+    [selectedTemplate, setSelectedTemplate] = useState<string>(),
     [busy, setBusy] = useState(false),
     [preview, setPreview] = useState<BoardState | null>(null),
     [filter, setFilter] = useState<Mode | ''>('');
@@ -84,6 +92,14 @@ export default function Levels() {
   useEffect(() => {
     let active = true;
     gameApi
+      .templates()
+      .then((items) => {
+        if (active) setTemplates(items);
+      })
+      .catch((error) => {
+        if (active) message.error(errorMessage(error));
+      });
+    gameApi
       .levels()
       .then((v) => {
         if (active) setLevels(v);
@@ -97,10 +113,21 @@ export default function Levels() {
     };
   }, [message]);
   const edit = (l: Level) => {
-    setEditing(copy(l));
-    setZ(l.config.layers[0]?.z ?? 0);
+    const next = copy(l);
+    next.config.rules = next.config.rules || defaultRules(next.mode);
+    next.config.rulesVersion = 'pet-rules-2';
+    setEditing(next);
+    setSelectedTemplate(undefined);
     setPreview(null);
   };
+  const nextOrdinal = (catalog: Entry, rule: Mode) =>
+    1 +
+    levels
+      .filter((level) => level.entry === catalog && level.mode === rule)
+      .reduce((last, level) => Math.max(last, level.ordinal), 0);
+  const visibleLevels = levels.filter(
+    (level) => level.entry === entry && (!filter || level.mode === filter),
+  );
   const update = (fn: (c: Config) => void) =>
     setEditing((old) => {
       if (!old) return old;
@@ -111,7 +138,7 @@ export default function Levels() {
   const total = editing?.config.layers.reduce((n, l) => n + l.cells.length, 0) ?? 0,
     counts = editing?.config.counts.reduce((a, b) => a + b, 0) ?? 0;
   const save = async () => {
-    if (!editing) return;
+    if (!editing || ruleIssue(editing.config.rules || [])) return;
     setBusy(true);
     try {
       const next = await gameApi.save(editing);
@@ -146,42 +173,58 @@ export default function Levels() {
     <>
       <div className="page-heading">
         <div>
-          <Typography.Title level={2}>闯关关卡</Typography.Title>
+          <Typography.Title level={2}>关卡管理</Typography.Title>
           <Typography.Text type="secondary">
-            按模式连续闯关，逐层配置棋盘与萌宠数量。
+            同一套关卡系统，分别管理挑战与长期闯关。
           </Typography.Text>
         </div>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => void reload()} />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => edit(fresh())}>
+          <Button aria-label="刷新关卡" icon={<ReloadOutlined />} onClick={() => void reload()} />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() =>
+              edit(fresh(entry, filter || 'classic', nextOrdinal(entry, filter || 'classic')))
+            }
+          >
             新增关卡
           </Button>
         </Space>
       </div>
+      <Tabs
+        className="catalog-tabs"
+        activeKey={entry}
+        onChange={(key) => setEntry(key as Entry)}
+        items={Object.entries(entryNames).map(([key, label]) => ({ key, label }))}
+      />
       <Alert
         type="info"
         showIcon
-        title="三种模式独立排列关卡，玩家通过后自动进入下一关；失败重试从本模式第一关开始。"
+        title={
+          entry === 'standard'
+            ? '挑战模式：三种规则各有两关起步关卡，每轮从第 1 关开始；后续可新增关卡扩展。'
+            : '闯关模式：三种规则独立保存进度，重进或失败后继续当前未通关关卡；可持续发布后续关卡。'
+        }
         className="level-notice"
       />
       <Card className="users-card" styles={{ body: { padding: 0 } }}>
         <div className="table-toolbar">
           <Select
-            aria-label="关卡模式"
+            aria-label="玩法入口"
             value={filter}
             onChange={setFilter}
             style={{ width: 200 }}
             options={[
-              { value: '', label: '全部模式' },
+              { value: '', label: '全部入口' },
               ...Object.entries(modeNames).map(([value, label]) => ({ value, label })),
             ]}
           />
-          <Typography.Text type="secondary">共 {levels.length} 个关卡</Typography.Text>
+          <Typography.Text type="secondary">共 {visibleLevels.length} 个关卡</Typography.Text>
         </div>
         <Table
           rowKey="id"
           loading={loading}
-          dataSource={levels.filter((l) => !filter || l.mode === filter)}
+          dataSource={visibleLevels}
           pagination={{ pageSize: 12 }}
           scroll={{ x: 960 }}
           columns={[
@@ -194,7 +237,14 @@ export default function Levels() {
                 </>
               ),
             },
-            { title: '模式', dataIndex: 'mode', render: (m: Mode) => modeNames[m] },
+            { title: '入口', dataIndex: 'mode', render: (m: Mode) => modeNames[m] },
+            {
+              title: '消除规则',
+              render: (_, l: Level) =>
+                (l.config.rules || defaultRules(l.mode))
+                  .map((pattern) => pattern.join('+'))
+                  .join(' / '),
+            },
             {
               title: '棋盘',
               render: (_, l: Level) =>
@@ -255,15 +305,25 @@ export default function Levels() {
         />
       </Card>
       <Drawer
-        title={editing?.id ? '编辑关卡草稿' : '新增关卡'}
+        title={`${editing ? entryNames[editing.entry] : ''} · ${editing?.id ? '编辑关卡草稿' : '新增关卡'}`}
         size={1160}
         open={!!editing}
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          if (!busy) setEditing(null);
+        }}
+        closable={!busy}
         maskClosable={false}
         extra={
           <Space>
-            <Button onClick={() => setEditing(null)}>关闭</Button>
-            <Button type="primary" loading={busy} onClick={() => void save()}>
+            <Button disabled={busy} onClick={() => setEditing(null)}>
+              关闭
+            </Button>
+            <Button
+              type="primary"
+              loading={busy}
+              disabled={!!editing && !!ruleIssue(editing.config.rules || [])}
+              onClick={() => void save()}
+            >
               保存草稿
             </Button>
           </Space>
@@ -277,18 +337,44 @@ export default function Levels() {
                   <label>
                     关卡名称
                     <Input
+                      aria-label="关卡名称"
+                      disabled={busy}
                       value={editing.title}
                       maxLength={60}
                       onChange={(e) => setEditing({ ...editing, title: e.target.value })}
                     />
                   </label>
                   <label>
-                    模式
+                    模式类型
+                    <Select
+                      aria-label="模式类型"
+                      value={editing.entry}
+                      disabled={busy || !!editing.id}
+                      onChange={(catalog: Entry) =>
+                        setEditing({
+                          ...editing,
+                          entry: catalog,
+                          ordinal: nextOrdinal(catalog, editing.mode),
+                        })
+                      }
+                      options={Object.entries(entryNames).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
+                    />
+                  </label>
+                  <label>
+                    所属入口
                     <Select
                       value={editing.mode}
-                      disabled={!!editing.id}
+                      disabled={busy || !!editing.id}
                       onChange={(mode: Mode) =>
-                        setEditing({ ...editing, mode, config: { ...editing.config, mode } })
+                        setEditing({
+                          ...editing,
+                          mode,
+                          ordinal: nextOrdinal(editing.entry, mode),
+                          config: { ...editing.config, mode },
+                        })
                       }
                       options={Object.entries(modeNames).map(([value, label]) => ({
                         value,
@@ -300,29 +386,29 @@ export default function Levels() {
                     顺序
                     <InputNumber
                       min={1}
-                      max={9999}
+                      max={2147483647}
+                      precision={0}
                       value={editing.ordinal}
-                      disabled={!!editing.id}
+                      disabled={busy || !!editing.id}
                       onChange={(v) => setEditing({ ...editing, ordinal: v ?? 1 })}
                     />
                   </label>
                 </div>
+                <RuleEditor
+                  key={`${editing.id}-${editing.draftVersion}`}
+                  value={editing.config.rules || defaultRules(editing.mode)}
+                  disabled={busy}
+                  onChange={(rules) => {
+                    update((config) => {
+                      config.rules = rules;
+                      config.rulesVersion = 'pet-rules-2';
+                    });
+                    setPreview(null);
+                  }}
+                />
                 <Space wrap className="editor-actions">
-                  {[1, 2].map((n) => (
-                    <Button
-                      key={n}
-                      onClick={() => {
-                        const src = levels.find((l) => l.mode === editing.mode && l.ordinal === n);
-                        if (src) {
-                          update((c) => Object.assign(c, copy(src.config)));
-                          setZ(0);
-                        }
-                      }}
-                    >
-                      {n === 1 ? '使用入门模板' : '使用挑战模板'}
-                    </Button>
-                  ))}
                   <Button
+                    disabled={busy || !!ruleIssue(editing.config.rules || [])}
                     onClick={async () => {
                       setBusy(true);
                       try {
@@ -338,154 +424,60 @@ export default function Levels() {
                     校验并预览
                   </Button>
                 </Space>
-                <Space wrap>
-                  <label>
-                    列{' '}
-                    <InputNumber
-                      min={1}
-                      max={6}
-                      value={editing.config.columns}
-                      onChange={(v) =>
-                        update((c) => {
-                          c.columns = v ?? 1;
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    行{' '}
-                    <InputNumber
-                      min={1}
-                      max={8}
-                      value={editing.config.rows}
-                      onChange={(v) =>
-                        update((c) => {
-                          c.rows = v ?? 1;
-                        })
-                      }
-                    />
-                  </label>
+                <div className="template-import">
                   <Select
-                    aria-label="编辑层"
-                    value={z}
-                    onChange={setZ}
-                    options={editing.config.layers.map((l) => ({
-                      value: l.z,
-                      label: `第 ${l.z + 1} 层 · ${l.cells.length} 块`,
+                    aria-label="选择布局模板"
+                    disabled={busy}
+                    placeholder="选择布局模板"
+                    value={selectedTemplate}
+                    onChange={setSelectedTemplate}
+                    style={{ width: 240 }}
+                    showSearch
+                    optionFilterProp="label"
+                    options={templates.map((template) => ({
+                      value: template.id,
+                      label: template.name,
                     }))}
                   />
                   <Button
-                    disabled={editing.config.layers.length >= 8}
+                    disabled={busy || !selectedTemplate}
                     onClick={() => {
-                      const next = Array.from({ length: 8 }, (_, i) => i).find(
-                        (n) => !editing.config.layers.some((l) => l.z === n),
-                      )!;
-                      update((c) => c.layers.push({ z: next, cells: [] }));
-                      setZ(next);
-                    }}
-                  >
-                    添加一层
-                  </Button>
-                </Space>
-                <Typography.Paragraph type="secondary" className="grid-caption">
-                  点击网格放置或移除方块。小圆点间隔为半块，可做半格错位；同层不能重叠，高层覆盖低层。
-                </Typography.Paragraph>
-                <div className="grid-editor-scroll">
-                  <div
-                    className="grid-editor"
-                    style={{ width: editing.config.columns * 64, height: editing.config.rows * 64 }}
-                  >
-                    {editing.config.layers
-                      .filter((l) => l.z < z)
-                      .map((l) =>
-                        l.cells.map((p, i) => (
-                          <div
-                            className="grid-under"
-                            key={`${l.z}-${i}`}
-                            style={{ left: p.x * 32, top: p.y * 32 }}
-                          >
-                            {l.z + 1}
-                          </div>
-                        )),
-                      )}
-                    {Array.from({ length: editing.config.rows * 2 - 1 }, (_, y) =>
-                      Array.from({ length: editing.config.columns * 2 - 1 }, (_, x) => {
-                        const layer = editing.config.layers.find((l) => l.z === z);
-                        const selected = layer?.cells.some((p) => p.x === x && p.y === y);
-                        return (
-                          <button
-                            key={`${x}-${y}`}
-                            className={`grid-anchor ${selected ? 'selected' : ''}`}
-                            style={{ left: x * 32, top: y * 32 }}
-                            aria-label={`格子 ${x},${y}`}
-                            title={`列 ${x / 2 + 1}，行 ${y / 2 + 1}`}
-                            onClick={() => {
-                              if (!layer) return;
-                              if (
-                                !selected &&
-                                layer.cells.some(
-                                  (p) => Math.abs(p.x - x) < 2 && Math.abs(p.y - y) < 2,
-                                )
-                              ) {
-                                message.warning('同层方块不能重叠');
-                                return;
-                              }
-                              update((c) => {
-                                const l = c.layers.find((v) => v.z === z)!;
-                                l.cells = selected
-                                  ? l.cells.filter((p) => p.x !== x || p.y !== y)
-                                  : [...l.cells, { x, y }];
-                              });
-                            }}
-                          >
-                            {selected ? z + 1 : '·'}
-                          </button>
-                        );
-                      }),
-                    )}
-                  </div>
-                </div>
-                <Space wrap className="editor-actions">
-                  <Button
-                    onClick={() =>
-                      update((c) => {
-                        const l = c.layers.find((v) => v.z === z)!;
-                        l.cells = [];
-                        for (let y = 0; y < c.rows * 2; y += 2)
-                          for (let x = 0; x < c.columns * 2; x += 2) l.cells.push({ x, y });
-                      })
-                    }
-                  >
-                    填满本层
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      update((c) => {
-                        c.layers.find((v) => v.z === z)!.cells = [];
-                      })
-                    }
-                  >
-                    清空本层
-                  </Button>
-                  <Button
-                    disabled={editing.config.layers.length === 1}
-                    danger
-                    onClick={() => {
-                      const next = editing.config.layers.filter((l) => l.z !== z);
-                      update((c) => {
-                        c.layers = next;
+                      const template = templates.find((item) => item.id === selectedTemplate);
+                      if (!template) return;
+                      modal.confirm({
+                        title: '导入这个布局？',
+                        content: '会替换当前草稿的棋盘行列与格子；保留萌宠数量、规则、奖励和道具。',
+                        okText: '确认导入',
+                        cancelText: '取消',
+                        onOk: () => {
+                          update((config) => Object.assign(config, copy(template.layout)));
+                          setPreview(null);
+                        },
                       });
-                      setZ(next[0].z);
                     }}
                   >
-                    删除本层
+                    导入布局
                   </Button>
-                </Space>
+                  <Typography.Text type="secondary">导入为独立副本</Typography.Text>
+                </div>
+                <LayoutEditor
+                  disabled={busy}
+                  key={editing.id}
+                  value={{
+                    columns: editing.config.columns,
+                    rows: editing.config.rows,
+                    layers: editing.config.layers,
+                  }}
+                  onChange={(layout) => {
+                    update((config) => Object.assign(config, layout));
+                    setPreview(null);
+                  }}
+                />
                 <Alert
                   type={total === counts ? 'success' : 'warning'}
                   showIcon
                   title={`格子 ${total} 个 · 萌宠 ${counts} 块 · ${editing.config.counts.filter((n) => n > 0).length} 种`}
-                  description="发布时总数必须相等；三消每种数量为 3 的倍数，四消为 4 的倍数。趣味消会校验三同或两对的组合。"
+                  description="发布时总数必须相等，并按上方的自定义组合校验数量与真实通关路径。所属入口只决定首页按钮，不会覆盖消除规则。"
                 />
               </Col>
               <Col xs={24} lg={10}>
@@ -497,6 +489,7 @@ export default function Levels() {
                       <span>{name}</span>
                       <InputNumber
                         aria-label={`${name}数量`}
+                        disabled={busy}
                         min={0}
                         max={192}
                         precision={0}
@@ -516,6 +509,8 @@ export default function Levels() {
                     <label key={key}>
                       {name}
                       <InputNumber
+                        aria-label={`${name}免费次数`}
+                        disabled={busy}
                         min={0}
                         max={9}
                         precision={0}
@@ -532,6 +527,8 @@ export default function Levels() {
                 <label className="reward-input">
                   首次通关金币奖励
                   <InputNumber
+                    aria-label="首次通关金币奖励"
+                    disabled={busy}
                     min={0}
                     max={10000}
                     precision={0}

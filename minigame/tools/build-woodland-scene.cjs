@@ -9,6 +9,8 @@ const icon = (p, name, index, x, y, size = 90) =>
   s.sprite(p, name, x, y, size, size, `assets/resources/cartoon/icons/${index}.png`);
 const pet = (p, name, index, x, y, size = 82) =>
   s.sprite(p, name, x, y, size, size, `assets/resources/cartoon/pets/${index}.png`);
+// Same white-face bounds and nine-slice mapping as ui/Layout.tileFaceCenterY.
+const tileFaceCenterY = (height) => (4 + 26 + ((98 - 26) * (height - 52)) / 80 - height) / 2;
 const label = (p, name, value, x, y, size = 28, options = {}) =>
   s.label(p, name, value, x, y, size, {
     tint: '#51351F',
@@ -25,8 +27,8 @@ const entryIcon = (parent, petId) => {
   const n = s.node(parent, 'EntryIcon', -106, -5, 100, 104);
   tilt(n, 11);
   s.skin(n, 'PetTile', 0, 0, 91, 96, 'tile');
-  if (petId === null) icon(n, 'Mountain', 3, 0, -8, 83);
-  else pet(n, 'PetIcon', petId, 0, -8, 81);
+  if (petId === null) icon(n, 'Mountain', 3, 0, tileFaceCenterY(96), 83);
+  else pet(n, 'PetIcon', petId, 0, tileFaceCenterY(96), 81);
 };
 const root = s.node(s.scene, 'StarIsleGame');
 s.controller = root;
@@ -122,8 +124,8 @@ for (const [id, title, x, y, style, petId] of [
     outline: '#75502D',
     stroke: 2,
   });
-  label(b, 'Chevron', '›', 139, -8, 44, {
-    width: 24,
+  label(b, 'Chevron', '›', 129, -8, 50, {
+    width: 30,
     tint: '#FFF9E9',
     outline: '#75502D',
     stroke: 1,
@@ -147,8 +149,8 @@ label(campaign, 'Title', '闯关模式', 31, -7, 31, {
   outline: '#986525',
   stroke: 2,
 });
-label(campaign, 'Chevron', '›', 139, -8, 44, {
-  width: 24,
+label(campaign, 'Chevron', '›', 129, -8, 50, {
+  width: 30,
   tint: '#FFF9E9',
   outline: '#986525',
   stroke: 1,
@@ -185,7 +187,7 @@ for (let layer = 0; layer < 2; layer++)
       const x = 360 + (col - 1) * 176,
         y = 646 + (row - 1) * 210 + (layer ? 24 : -22);
       const tile = s.skin(boardPreview, `PreviewPet-${layer}-${row}-${col}`, x, y, 94, 98, 'tile');
-      pet(tile, 'Pet', (row + col + layer) % 3, 0, -8, 81);
+      pet(tile, 'Pet', (row + col + layer) % 3, 0, tileFaceCenterY(98), 81);
       if (!layer)
         s.sprite(tile, 'Covered', 0, -5, 94, 90, 'assets/resources/cartoon/ui/covered.png');
     }

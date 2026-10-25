@@ -9,6 +9,12 @@ export const TRAY_Y = 1244;
 export const TRAY_SCALE = 0.95;
 export const RESERVE_Y = 1115;
 export const RESERVE_SCALE = 0.78;
+/** White face is y=4..98 in the 132px tile; its 26px slice borders stay fixed. */
+export function tileFaceCenterY(height: number): number {
+  const faceTop = 4;
+  const faceBottom = 26 + ((98 - 26) * (height - 52)) / 80;
+  return (faceTop + faceBottom - height) / 2;
+}
 export const SKIN_NAMES = [
   'button-blue',
   'button-gold',

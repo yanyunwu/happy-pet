@@ -19,6 +19,7 @@ export interface CloudState {
   capacity: number;
   mode: ModeId;
   rulesVersion: string;
+  rules?: number[][];
   history?: {
     tiles: Tile[];
     tray: number[];
@@ -86,6 +87,7 @@ export class OnlineError extends Error {
   constructor(
     message: string,
     public status = 0,
+    public code = '',
   ) {
     super(message);
   }
@@ -98,6 +100,7 @@ export class OnlineClient {
   private pumping: Promise<void> | null = null;
   private session: CloudSession | null = null;
   private sequence = 0;
+  private startGeneration = 0;
   private startedAt = 0;
   private lastAt = 0;
   private finishResults = new Map<string, CloudFinish>();
@@ -138,7 +141,14 @@ export class OnlineClient {
     return new Promise<T>((resolve, reject) => {
       const receive = (status: number, body: any) => {
         if (status >= 200 && status < 300) resolve(body as T);
-        else reject(new OnlineError(body?.error?.message || '连接暂时不可用，请稍后重试', status));
+        else
+          reject(
+            new OnlineError(
+              body?.error?.message || '连接暂时不可用，请稍后重试',
+              status,
+              body?.error?.code || '',
+            ),
+          );
       };
       if (typeof wx !== 'undefined' && wx.request)
         wx.request({
@@ -216,7 +226,10 @@ export class OnlineClient {
     previousSessionId = '',
     entry: EntryId = 'campaign',
   ): Promise<CloudSession> {
+    const generation = ++this.startGeneration;
     await this.recover();
+    if (generation !== this.startGeneration)
+      throw new OnlineError('本次关卡请求已取消', 0, 'START_CANCELLED');
     const keyName = `happy-pet-start-${this.userId}-${entry}-${mode}-${previousSessionId}`;
     let key = this.storage.getItem(keyName);
     if (!key) {
@@ -229,6 +242,8 @@ export class OnlineClient {
       previousSessionId,
       requestId: key,
     });
+    if (generation !== this.startGeneration)
+      throw new OnlineError('本次关卡请求已取消', 0, 'START_CANCELLED');
     this.storage.removeItem(keyName);
     this.session = session;
     this.sequence = session.lastSeq;
@@ -359,6 +374,7 @@ export class OnlineClient {
     return current;
   }
   detach(): void {
+    this.startGeneration++;
     this.session = null;
   }
 }

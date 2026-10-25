@@ -224,7 +224,22 @@ class SceneWriter {
     return i;
   }
   skin(parent, name, x, y, w, h, asset, options = {}) {
-    return this.sprite(parent, name, x, y, w, h, `assets/resources/cartoon/ui/${asset}.png`, {
+    const file = `assets/resources/cartoon/ui/${asset}.png`;
+    const metadata = JSON.parse(fs.readFileSync(path.join(root, file + '.meta'), 'utf8'));
+    const { rawWidth, rawHeight } = metadata.subMetas.f9941.userData;
+    if (options.sliced !== false && h > 0 && rawWidth > rawHeight) {
+      // Match Paint.skin: keep artwork at its original height, stretch only
+      // horizontally, then scale uniformly inside a stable native hit area.
+      const host = this.node(parent, name, x, y, w, h);
+      const scale = h / rawHeight;
+      const graphic = this.sprite(host, 'SkinGraphic', 0, 0, w / scale, rawHeight, file, {
+        sliced: true,
+        ...options,
+      });
+      this.items[graphic]._lscale = vec(scale, scale, 1);
+      return host;
+    }
+    return this.sprite(parent, name, x, y, w, h, file, {
       sliced: true,
       ...options,
     });
@@ -281,8 +296,8 @@ class SceneWriter {
       clickEvents: [this.ref(event)],
       _interactable: true,
       _transition: 3,
-      _duration: 0.07,
-      _zoomScale: 0.95,
+      _duration: 0.09,
+      _zoomScale: 0.98,
       _target: this.ref(i),
       _normalColor: color('#FFFFFF'),
       _hoverColor: color('#FFFFFF'),

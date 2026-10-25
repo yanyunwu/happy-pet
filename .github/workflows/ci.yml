@@ -75,5 +75,5 @@ jobs:
         run: make test-api-race
       - name: 构建 API 与后台
         run: make build-services
-      - name: 构建并验证隔离生产部署
-        run: make test-deployment
+      - name: 构建并验证隔离容器
+        run: node scripts/test-deployment.mjs

@@ -47,7 +47,10 @@ export default function Navigation({
             key: 'content',
             icon: <AppstoreOutlined />,
             label: '内容管理',
-            children: [{ key: '/levels', icon: <FlagOutlined />, label: '闯关关卡' }],
+            children: [
+              { key: '/levels', icon: <FlagOutlined />, label: '关卡管理' },
+              { key: '/level-templates', icon: <AppstoreOutlined />, label: '关卡模板' },
+            ],
           },
           {
             key: 'records',

@@ -158,6 +158,29 @@ func (q *Queries) CreateLevel(ctx context.Context, arg CreateLevelParams) (Level
 	return i, err
 }
 
+const createLevelTemplate = `-- name: CreateLevelTemplate :one
+INSERT INTO level_templates(id,name,layout) VALUES($1,$2,$3) RETURNING id, name, layout, version, updated_at
+`
+
+type CreateLevelTemplateParams struct {
+	ID     string
+	Name   string
+	Layout json.RawMessage
+}
+
+func (q *Queries) CreateLevelTemplate(ctx context.Context, arg CreateLevelTemplateParams) (LevelTemplate, error) {
+	row := q.db.QueryRowContext(ctx, createLevelTemplate, arg.ID, arg.Name, arg.Layout)
+	var i LevelTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Layout,
+		&i.Version,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
 INSERT INTO game_sessions(id,user_id,request_key,campaign_id,level_id,revision_id,mode,ordinal,seed,initial,state,title,entry)
 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, user_id, request_key, campaign_id, level_id, revision_id, mode, ordinal, seed, initial, state, last_seq, status, settled, reward_coins, started_at, ended_at, title, entry
@@ -218,6 +241,23 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (G
 		&i.Entry,
 	)
 	return i, err
+}
+
+const deleteLevelTemplate = `-- name: DeleteLevelTemplate :execrows
+DELETE FROM level_templates WHERE id=$1 AND version=$2
+`
+
+type DeleteLevelTemplateParams struct {
+	ID      string
+	Version int32
+}
+
+func (q *Queries) DeleteLevelTemplate(ctx context.Context, arg DeleteLevelTemplateParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteLevelTemplate, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const enableLevel = `-- name: EnableLevel :exec
@@ -304,6 +344,23 @@ func (q *Queries) GetLevel(ctx context.Context, id string) (Level, error) {
 		&i.Enabled,
 		&i.UpdatedAt,
 		&i.Entry,
+	)
+	return i, err
+}
+
+const getLevelTemplate = `-- name: GetLevelTemplate :one
+SELECT id, name, layout, version, updated_at FROM level_templates WHERE id=$1
+`
+
+func (q *Queries) GetLevelTemplate(ctx context.Context, id string) (LevelTemplate, error) {
+	row := q.db.QueryRowContext(ctx, getLevelTemplate, id)
+	var i LevelTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Layout,
+		&i.Version,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -535,6 +592,39 @@ func (q *Queries) ListLedger(ctx context.Context, userID string) ([]AssetLedger,
 			&i.Reason,
 			&i.ActorID,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLevelTemplates = `-- name: ListLevelTemplates :many
+SELECT id, name, layout, version, updated_at FROM level_templates ORDER BY updated_at DESC,id
+`
+
+func (q *Queries) ListLevelTemplates(ctx context.Context) ([]LevelTemplate, error) {
+	rows, err := q.db.QueryContext(ctx, listLevelTemplates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LevelTemplate{}
+	for rows.Next() {
+		var i LevelTemplate
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Layout,
+			&i.Version,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -781,6 +871,46 @@ func (q *Queries) LockSession(ctx context.Context, id string) (GameSession, erro
 	return i, err
 }
 
+const nextPlayableLevel = `-- name: NextPlayableLevel :one
+SELECT l.id, l.mode, l.ordinal, l.title, l.draft, l.draft_version, l.published_revision, l.enabled, l.updated_at, l.entry FROM levels l
+WHERE l.entry=$1 AND l.mode=$2 AND l.enabled AND l.published_revision IS NOT NULL
+AND ((l.entry='standard' AND l.ordinal>$3::integer)
+ OR (l.entry='campaign' AND NOT EXISTS (
+  SELECT 1 FROM level_clears c WHERE c.user_id=$4 AND c.level_id=l.id
+ )))
+ORDER BY l.ordinal LIMIT 1
+`
+
+type NextPlayableLevelParams struct {
+	Entry        string
+	Mode         string
+	AfterOrdinal int32
+	UserID       string
+}
+
+func (q *Queries) NextPlayableLevel(ctx context.Context, arg NextPlayableLevelParams) (Level, error) {
+	row := q.db.QueryRowContext(ctx, nextPlayableLevel,
+		arg.Entry,
+		arg.Mode,
+		arg.AfterOrdinal,
+		arg.UserID,
+	)
+	var i Level
+	err := row.Scan(
+		&i.ID,
+		&i.Mode,
+		&i.Ordinal,
+		&i.Title,
+		&i.Draft,
+		&i.DraftVersion,
+		&i.PublishedRevision,
+		&i.Enabled,
+		&i.UpdatedAt,
+		&i.Entry,
+	)
+	return i, err
+}
+
 const publishLevel = `-- name: PublishLevel :exec
 UPDATE levels SET published_revision=$2,enabled=true,updated_at=now() WHERE id=$1
 `
@@ -889,6 +1019,36 @@ type SettleSessionParams struct {
 func (q *Queries) SettleSession(ctx context.Context, arg SettleSessionParams) error {
 	_, err := q.db.ExecContext(ctx, settleSession, arg.ID, arg.RewardCoins, arg.Status)
 	return err
+}
+
+const updateLevelTemplate = `-- name: UpdateLevelTemplate :one
+UPDATE level_templates SET name=$2,layout=$3,version=version+1,updated_at=now()
+WHERE id=$1 AND version=$4 RETURNING id, name, layout, version, updated_at
+`
+
+type UpdateLevelTemplateParams struct {
+	ID      string
+	Name    string
+	Layout  json.RawMessage
+	Version int32
+}
+
+func (q *Queries) UpdateLevelTemplate(ctx context.Context, arg UpdateLevelTemplateParams) (LevelTemplate, error) {
+	row := q.db.QueryRowContext(ctx, updateLevelTemplate,
+		arg.ID,
+		arg.Name,
+		arg.Layout,
+		arg.Version,
+	)
+	var i LevelTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Layout,
+		&i.Version,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateSession = `-- name: UpdateSession :exec

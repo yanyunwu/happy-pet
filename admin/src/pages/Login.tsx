@@ -25,7 +25,7 @@ export default function Login() {
         </div>
         <Typography.Title level={2}>欢迎回来</Typography.Title>
         <Typography.Paragraph type="secondary">
-          登录管理控制台，管理玩家、资产与闯关关卡。
+          登录管理控制台，管理玩家、资产、关卡与布局模板。
         </Typography.Paragraph>
         <Form
           layout="vertical"

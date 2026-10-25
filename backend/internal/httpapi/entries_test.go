@@ -26,8 +26,8 @@ func TestOriginalEntriesStaySeparateFromCampaign(t *testing.T) {
 		if l.ID == "classic-1" {
 			classic = l
 		}
-		if strings.HasPrefix(l.ID, "standard-") {
-			t.Fatal("fixed levels exposed as editable campaign")
+		if strings.HasPrefix(l.ID, "standard-") && l.Entry != "standard" {
+			t.Fatal("challenge level lost its entry")
 		}
 	}
 	draft, e := h.games.SaveLevel(ctx, classic.ID, game.DraftInput{Mode: "classic", Ordinal: 1, Title: "后台定制关卡", Config: cfg, DraftVersion: classic.DraftVersion})
@@ -44,7 +44,7 @@ func TestOriginalEntriesStaySeparateFromCampaign(t *testing.T) {
 	if _, e = h.games.Publish(ctx, third.ID, "test", third.DraftVersion); e != nil {
 		t.Fatal(e)
 	}
-	// Removing editable quartet levels must not remove the original quartet entry.
+	// Disabling campaign quartet levels must not disable challenge quartet levels.
 	for _, id := range []string{"quartet-1", "quartet-2"} {
 		if e = h.games.Enabled(ctx, id, false); e != nil {
 			t.Fatal(e)
@@ -85,7 +85,7 @@ func TestOriginalEntriesStaySeparateFromCampaign(t *testing.T) {
 				t.Fatal(e)
 			}
 			if result.HasNext != (stage == 1) {
-				t.Fatal("original entry must contain exactly two stages")
+				t.Fatal("seeded challenge round must advance through its two stages")
 			}
 			previous = session.ID
 		}
@@ -111,14 +111,14 @@ func TestOriginalEntriesStaySeparateFromCampaign(t *testing.T) {
 	}
 	for _, mode := range []string{"classic", "quartet", "fun"} {
 		id := "standard-" + mode + "-1"
-		if e = h.games.Enabled(ctx, id, false); e == nil {
-			t.Fatal("fixed level disabled")
+		if e = h.games.Enabled(ctx, id, false); e != nil {
+			t.Fatal(e)
 		}
-		if _, e = h.games.Publish(ctx, id, "test", 1); e == nil {
-			t.Fatal("fixed level published")
+		if _, e = h.games.Publish(ctx, id, "test", 1); e != nil {
+			t.Fatal(e)
 		}
-		if _, e = h.games.SaveLevel(ctx, id, game.DraftInput{Mode: mode, Ordinal: 1, Title: "篡改固定关卡", Config: game.DefaultConfig(mode, 1), DraftVersion: 1}); e == nil {
-			t.Fatal("fixed level edited")
+		if _, e = h.games.SaveLevel(ctx, id, game.DraftInput{Entry: "standard", Mode: mode, Ordinal: 1, Title: "更新挑战关卡", Config: game.DefaultConfig(mode, 1), DraftVersion: 1}); e != nil {
+			t.Fatal(e)
 		}
 	}
 	records := decode[map[string]any](t, h.call("GET", "/api/v1/admin/sessions?entry=standard", nil, "admin"), 200)

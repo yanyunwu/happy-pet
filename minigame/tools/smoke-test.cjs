@@ -24,11 +24,13 @@ fs.mkdirSync(output, { recursive: true });
     if (m.type() === 'error' && !m.text().includes('favicon')) errors.push(m.text());
   });
   const ready = () =>
-    page.waitForFunction(
-      () =>
-        window.cc?.director?.getScene()?.getChildByName('StarIsleGame')?.getComponent('StarIsle')
-          ?.frames?.length === 15,
-    );
+    page.waitForFunction(() => {
+      const app = window.cc?.director
+        ?.getScene()
+        ?.getChildByName('StarIsleGame')
+        ?.getComponent('StarIsle');
+      return app?.frames?.length === 15 && app.onlineReady;
+    });
   const state = () =>
     page.evaluate(() => {
       const a = window.cc.director
@@ -59,7 +61,20 @@ fs.mkdirSync(output, { recursive: true });
         },
       };
     });
-  const click = (x, y) => page.mouse.click(x * 0.6, y * 0.6);
+  const click = async (x, y) => {
+    await page.mouse.click(x * 0.6, y * 0.6);
+    await page.waitForFunction(() => {
+      const app = window.__qaApp,
+        m = app?.modal,
+        opacity = m?.getComponent('cc.UIOpacity');
+      const closing = Array.from(app?.modals?.motions || []).some(
+        (state) => state.node === m && state.closing,
+      );
+      return (
+        !m || (!closing && Math.abs(m.scale.x - 1) < 0.001 && (!opacity || opacity.opacity === 255))
+      );
+    });
+  };
   const homeClick = async (path) => {
     const p = await page.evaluate((path) => {
       const n = path

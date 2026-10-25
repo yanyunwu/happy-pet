@@ -24,11 +24,13 @@ import { ThemeToggle } from './theme';
 import Login from './pages/Login';
 import Users from './pages/Users';
 import Levels from './pages/Levels';
+import LevelTemplates from './pages/LevelTemplates';
 import Sessions from './pages/Sessions';
 import Navigation from './components/Navigation';
 const names: Record<string, string> = {
   users: '用户管理',
-  levels: '闯关关卡',
+  levels: '关卡管理',
+  'level-templates': '关卡模板',
   sessions: '对局记录',
 };
 function ConsoleLayout() {
@@ -123,6 +125,7 @@ function ConsoleLayout() {
           <Routes>
             <Route path="/users" element={<Users />} />
             <Route path="/levels" element={<Levels />} />
+            <Route path="/level-templates" element={<LevelTemplates />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="*" element={<Navigate to="/users" replace />} />
           </Routes>

@@ -15,7 +15,7 @@ function load(name) {
   return mod.exports;
 }
 const { MatchGame } = load('MatchGame'),
-  { OnlineClient } = load('OnlineClient');
+  { OnlineClient, OnlineError } = load('OnlineClient');
 const fixtures = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../artifacts/rule-fixtures.json'), 'utf8'),
 );
@@ -155,6 +155,44 @@ for (const fixture of fixtures) {
   await closed.recover();
   assert.equal(closed.pending, false);
   assert.equal(closedOutcome, 'abandoned');
+  // A request abandoned by navigation must never replace a newer active session.
+  const delayedStarts = [],
+    raceData = new Map();
+  const raceStorage = {
+    getItem: (key) => raceData.get(key) || null,
+    setItem: (key, value) => raceData.set(key, value),
+    removeItem: (key) => raceData.delete(key),
+  };
+  global.wx.request = (options) => {
+    if (options.url.endsWith('/sessions')) delayedStarts.push(options);
+    else originalRequest(options);
+  };
+  const racing = new OnlineClient('https://test.invalid/api/v1', raceStorage);
+  const oldStart = racing.start('classic', '', 'standard').catch((error) => error);
+  for (let i = 0; i < 100 && delayedStarts.length < 1; i++) await new Promise(setImmediate);
+  assert.equal(delayedStarts.length, 1);
+  racing.detach();
+  const newStart = racing.start('quartet', '', 'campaign');
+  for (let i = 0; i < 100 && delayedStarts.length < 2; i++) await new Promise(setImmediate);
+  assert.equal(delayedStarts.length, 2);
+  delayedStarts[1].success({
+    statusCode: 200,
+    data: { id: 'new-quartet', entry: 'campaign', lastSeq: 0, state: fixtures[0].initial },
+  });
+  await newStart;
+  delayedStarts[0].success({
+    statusCode: 200,
+    data: { id: 'cancelled-classic', entry: 'standard', lastSeq: 0, state: fixtures[0].initial },
+  });
+  const cancelled = await oldStart;
+  assert.equal(
+    racing.active.id,
+    'new-quartet',
+    'a late cancelled response must not replace the current session',
+  );
+  assert(cancelled instanceof OnlineError && cancelled.code === 'START_CANCELLED');
+  racing.record('pick', 0);
+  assert.equal(JSON.parse(raceStorage.getItem('happy-pet-upload-v1'))[0].sessionId, 'new-quartet');
   delete global.wx;
   console.log(
     JSON.stringify({

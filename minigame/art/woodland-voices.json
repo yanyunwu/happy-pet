@@ -1,0 +1,11 @@
+{
+  "preferredVoice": "Microsoft Yaoyao",
+  "language": "zh-CN",
+  "rate": 1,
+  "clips": [
+    { "name": "voice-start", "text": "准备好，出发啦！" },
+    { "name": "voice-next", "text": "继续加油！" },
+    { "name": "voice-win", "text": "真棒，闯关成功！" },
+    { "name": "voice-lose", "text": "慢慢来，再试一次吧。" }
+  ]
+}

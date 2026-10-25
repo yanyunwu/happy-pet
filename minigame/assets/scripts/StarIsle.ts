@@ -1,10 +1,7 @@
 import {
   _decorator,
-  AudioClip,
-  AudioSource,
   BlockInputEvents,
   Button,
-  Canvas,
   Component,
   Label,
   Node,
@@ -30,6 +27,7 @@ import {
   TILE_H,
   TILE_W,
   Tile,
+  ruleDescription,
 } from './core/MatchGame';
 import {
   claimSignIn,
@@ -50,12 +48,17 @@ import {
   TRAY_SCALE,
   RESERVE_Y,
   RESERVE_SCALE,
+  tileFaceCenterY,
 } from './ui/Layout';
 import * as P from './ui/Paint';
+import { ModalPresenter } from './ui/ModalPresenter';
+import { WoodlandAudio } from './ui/WoodlandAudio';
+import { LeafTransition } from './ui/LeafTransition';
 import { OnlineClient, OnlineError, CloudAssets, CloudSession, EntryId } from './core/OnlineClient';
 
 const { ccclass, property } = _decorator;
 const C = P.PALETTE;
+const MODAL_INSET = 44;
 const SAVE_KEY = 'star-isle-v1';
 const TOOL_INFO: { id: ToolId; name: string; icon: number; detail: string }[] = [
   { id: 'undo', name: '撤回', icon: 2, detail: '收回上一步，恢复消除前的萌宠' },
@@ -88,7 +91,10 @@ export class StarIsle extends Component {
   private board!: Node;
   private rack!: Node;
   private reserveRoot!: Node;
-  private modal: Node | null = null;
+  private modals!: ModalPresenter;
+  private get modal(): Node | null {
+    return this.modals?.current || null;
+  }
   private toastNode: Node | null = null;
   private tileNodes = new Map<number, Node>();
   private trayNodes = new Map<number, Node>();
@@ -99,9 +105,8 @@ export class StarIsle extends Component {
   private motionSerial = 0;
   private resultHandled = false;
   private frames: SpriteFrame[] = [];
-  private clips = new Map<string, AudioClip>();
-  private audio!: AudioSource;
-  private music!: AudioSource;
+  private soundscape!: WoodlandAudio;
+  private levelTransition!: LeafTransition;
   private game: MatchGame | null = null;
   private busy = false;
   private boardTransition = false;
@@ -142,13 +147,24 @@ export class StarIsle extends Component {
     }
     this.localSave = this.save;
     this.stage = this.stageRoot;
+    this.modals = new ModalPresenter(this.stage, (cue) => this.play(cue));
     this.frames = this.petFrames.slice();
     P.configureSkin(this.skinFrames);
-    this.audio = this.node.addComponent(AudioSource);
-    const cameraNode = this.stage.parent!.getComponent(Canvas)!.cameraComponent!.node;
-    this.music = cameraNode.addComponent(AudioSource);
-    this.music.loop = true;
-    this.music.volume = 0.2;
+    this.soundscape = this.node.addComponent(WoodlandAudio);
+    this.soundscape.configure(() => this.save.sound);
+    this.levelTransition = new LeafTransition(
+      this.stage,
+      this.gameRoot.getChildByName('Background')!.getComponent(Sprite)!.spriteFrame,
+    );
+    this.at(this.gameRoot, 'Instruction').on(Node.EventType.TOUCH_END, () => {
+      if (
+        this.game?.status === 'playing' &&
+        !this.modal &&
+        !this.networkBusy &&
+        !this.levelTransition.active
+      )
+        this.showRules(false);
+    });
     this.home();
     resources.load('online', JsonAsset, (error, asset) => {
       const address =
@@ -171,17 +187,14 @@ export class StarIsle extends Component {
         }
       }
     });
-    for (const name of ['tap', 'match', 'win', 'lose', 'music']) {
-      resources.load(`audio/${name}`, AudioClip, (error, clip) => {
-        if (!error && this.isValid) {
-          this.clips.set(name, clip);
-          if (name === 'music' && this.currentScreen === 'game') this.startMusic();
-        }
-      });
-    }
   }
   update(dt: number): void {
-    if (this.currentScreen === 'game' && this.game?.status === 'playing' && !this.modal)
+    if (
+      this.currentScreen === 'game' &&
+      this.game?.status === 'playing' &&
+      !this.modal &&
+      !this.levelTransition.active
+    )
       this.playTime += dt;
   }
   private at(root: Node, path: string): Node {
@@ -222,15 +235,10 @@ export class StarIsle extends Component {
     }
   }
   private play(name: string): void {
-    const clip = this.clips.get(name);
-    if (clip && this.save.sound) this.audio.playOneShot(clip, name === 'tap' ? 0.3 : 0.6);
+    this.soundscape?.play(name);
   }
   private startMusic(): void {
-    const clip = this.clips.get('music');
-    if (clip && this.save.sound && !this.music.playing) {
-      this.music.clip = clip;
-      this.music.play();
-    }
+    this.soundscape.setMode('game');
   }
   private disposeChildren(parent: Node): void {
     parent.children.slice().forEach((node) => {
@@ -268,10 +276,15 @@ export class StarIsle extends Component {
   private clearScreen(name: 'home' | 'game'): void {
     this.unscheduleAllCallbacks();
     this.clearHighlights();
-    this.closeModal();
+    this.modals.retire();
     this.resetTrayPresentation();
     this.stage.children.slice().forEach((n) => {
-      if (n !== this.homeRoot && n !== this.gameRoot) {
+      if (
+        n !== this.homeRoot &&
+        n !== this.gameRoot &&
+        !this.modals.owns(n) &&
+        !this.levelTransition.owns(n)
+      ) {
         n.active = false;
         n.destroy();
       }
@@ -286,6 +299,14 @@ export class StarIsle extends Component {
     this.effects = P.layer(this.stage, 'Effects');
   }
   private home(): void {
+    if (this.levelTransition.active) {
+      this.levelTransition.reset();
+      this.networkBusy = false;
+    }
+    if (this.modal) {
+      this.closeModal(() => this.home());
+      return;
+    }
     if (this.online?.active && !this.practice && this.game?.status === 'playing') {
       void this.online.finish('abandoned').catch(() => {
         if (this.isValid) this.toast('退出记录已暂存，联网后会继续同步');
@@ -293,6 +314,7 @@ export class StarIsle extends Component {
     }
     this.online?.detach();
     this.clearScreen('home');
+    this.soundscape.setMode('home');
     this.game = null;
     this.refreshHome();
     [...MODES.map((mode) => `Mode-${mode.id}`), 'CampaignButton'].forEach((name, index) =>
@@ -345,7 +367,7 @@ export class StarIsle extends Component {
     const g = this.game;
     if (!g || this.modal || this.networkBusy || g.status !== 'playing') return;
     if (this.busy && ['undo', 'shovel', 'shuffle', 'hint'].includes(action)) return;
-    this.play('tap');
+    if (action === 'pause' || action === 'settings') this.play('tap');
     if (action === 'pause') this.showPause();
     else if (action === 'settings') this.showSettings();
     else if (action === 'undo') this.undo();
@@ -361,10 +383,17 @@ export class StarIsle extends Component {
         this.highlight(ids);
         this.updateControls();
         this.toast('优先收集发光的小伙伴吧！');
-      } else this.toast('先试试撤回或重排，给口袋腾个位置');
+      } else {
+        this.play('blocked');
+        this.toast('先试试撤回或重排，给口袋腾个位置');
+      }
     }
   }
   private startLevel(id: number, seed?: number, mode: ModeId = this.selectedMode): void {
+    if (this.modal) {
+      this.closeModal(() => this.startLevel(id, seed, mode));
+      return;
+    }
     if (this.online && !this.practice) {
       void this.startCloud(mode);
       return;
@@ -373,6 +402,7 @@ export class StarIsle extends Component {
     this.mountLevel(new MatchGame(id, seed, mode), id === 1);
   }
   private mountLevel(game: MatchGame, rules: boolean): void {
+    if (!this.isValid) return;
     this.clearScreen('game');
     this.game = game;
     this.playTime = 0;
@@ -393,7 +423,9 @@ export class StarIsle extends Component {
     this.setText(
       this.gameRoot!,
       'Instruction',
-      game.mode.id === 'fun' ? '3 个相同 / 两对不同萌宠' : `收集 ${game.mode.matchSize} 个相同萌宠`,
+      game.rules.length <= 3
+        ? `${game.rules.map((rule) => rule.join('+')).join(' / ')} · 点击查看规则`
+        : `${game.rules.length} 条消除规则 · 点击查看`,
     );
     this.buildBoard();
     this.syncReserve();
@@ -409,7 +441,7 @@ export class StarIsle extends Component {
       return;
     }
     const m = this.dialog('Campaign', '闯关模式', 1030);
-    P.text(m, 'Intro', '选择玩法，从第一关连续出发', 360, 420, 25, C.ink, 550, true);
+    P.text(m, 'Intro', '选择玩法，继续你的闯关进度', 360, 420, 25, C.ink, 550, true);
     MODES.forEach((mode, index) => {
       const b = P.button(
         m,
@@ -429,7 +461,9 @@ export class StarIsle extends Component {
     P.text(
       m,
       'CampaignNote',
-      this.online ? '一关接一关，挑战更多萌宠棋盘' : '闯关关卡准备中 · 首页玩法可直接体验',
+      this.online
+        ? '三种玩法独立保存进度，新的冒险持续开放'
+        : '闯关关卡准备中 · 挑战玩法可直接体验',
       360,
       1160,
       21,
@@ -441,25 +475,51 @@ export class StarIsle extends Component {
     if (!this.online || this.networkBusy) return;
     this.networkBusy = true;
     this.selectedMode = mode;
-    const m = this.dialog('Connecting', '准备萌宠冒险', 520);
-    m.getChildByName('Close')!.active = false;
-    P.text(m, 'ConnectingText', '正在连接，准备这次的关卡…', 360, 790, 24, C.ink, 540, true);
+    this.modals.reset();
+    const token = this.levelTransition.show();
+    const online = this.online;
+    let failure: unknown;
     try {
-      if (this.online.active && this.game?.status === 'playing')
-        await this.online.finish('abandoned');
-      const session: CloudSession = await this.online.start(mode, previous, this.selectedEntry);
-      this.mountLevel(MatchGame.fromCloud(session), !previous);
+      if (online.active && this.game?.status === 'playing') await online.finish('abandoned');
+      if (!this.isValid || !this.levelTransition.isCurrent(token)) return;
+      const session: CloudSession = await online.start(mode, previous, this.selectedEntry);
+      if (!this.isValid || !this.levelTransition.isCurrent(token)) return;
+      const nextGame = MatchGame.fromCloud(session);
+      const changedRules = JSON.stringify(this.game?.rules) !== JSON.stringify(nextGame.rules);
+      this.mountLevel(nextGame, !previous || changedRules);
+      this.levelTransition.bringToFront();
     } catch (error) {
+      failure = error;
+    } finally {
+      await this.levelTransition.hide(token);
+      if (this.isValid && this.levelTransition.isCurrent(token)) this.networkBusy = false;
+    }
+    if (failure && this.isValid && this.levelTransition.isCurrent(token)) {
+      if (failure instanceof OnlineError && failure.code === 'CAMPAIGN_COMPLETE') {
+        const m = this.dialog('CampaignComplete', '暂时没有新关卡', 620);
+        P.sprite(m, 'Pet', this.frames[12], 360, 710, 130, 130);
+        P.text(
+          m,
+          'SavedProgress',
+          '进度已保存，新的关卡开放后继续冒险',
+          360,
+          840,
+          24,
+          C.ink,
+          530,
+          true,
+        );
+        P.button(m, 'CompleteHome', '返回主页', 360, 955, 470, 84, () => this.home(), true, 28);
+        return;
+      }
       if (
-        error instanceof OnlineError &&
-        (error.status === 400 || error.status === 409) &&
-        this.online.active &&
+        failure instanceof OnlineError &&
+        (failure.status === 400 || failure.status === 409) &&
+        online.active &&
         this.game
       )
-        await this.reconcileCloud(error);
-      else this.connectionError(error, () => this.startCloud(mode, previous));
-    } finally {
-      this.networkBusy = false;
+        await this.reconcileCloud(failure);
+      else this.connectionError(failure, () => this.startCloud(mode, previous));
     }
   }
   private connectionError(error: unknown, retry: () => Promise<unknown>): void {
@@ -566,7 +626,7 @@ export class StarIsle extends Component {
   }
   private makeTile(parent: Node, tile: Tile, x: number, y: number, scale = 1): Node {
     const n = P.skin(parent, `pet-${tile.id}`, 'tile', x, y, TILE_W, TILE_H);
-    P.sprite(n, 'Pet', this.frames[tile.kind], 0, -9, 81, 81);
+    P.sprite(n, 'Pet', this.frames[tile.kind], 0, tileFaceCenterY(TILE_H), 81, 81);
     n.setScale(scale, scale, 1);
     return n;
   }
@@ -646,6 +706,7 @@ export class StarIsle extends Component {
     const reserved = this.game.reserve.includes(id);
     if (!this.game.tiles[id] || (this.game.tiles[id].removed && !reserved)) return;
     if (!this.game.isAvailable(id)) {
+      this.play('blocked');
       this.toast('先收集上面的小伙伴，下面的才能出来哦');
       return;
     }
@@ -656,7 +717,7 @@ export class StarIsle extends Component {
     if (!result) return;
     this.recordAction('pick', id);
     this.busy = true;
-    this.play('tap');
+    this.play('tile');
     this.clearHighlights();
     this.syncBoard();
     this.syncReserve();
@@ -668,6 +729,7 @@ export class StarIsle extends Component {
       reserved ? RESERVE_SCALE : 1,
     );
     incoming.name = `tray-${id}`;
+    incoming.angle = id % 2 ? -5 : 5;
     this.trayNodes.set(id, incoming);
     const epoch = this.presentationEpoch;
     if (result.matched.length) this.animateMatch(result, epoch);
@@ -692,9 +754,9 @@ export class StarIsle extends Component {
       this.trayMotions.set(id, serial);
       tween(n)
         .to(
-          distance > 140 ? 0.18 : 0.1,
-          { position: destination, scale: new Vec3(TRAY_SCALE, TRAY_SCALE, 1) },
-          { easing: 'quadOut' },
+          distance > 140 ? 0.22 : 0.12,
+          { position: destination, scale: new Vec3(TRAY_SCALE, TRAY_SCALE, 1), angle: 0 },
+          { easing: 'cubicOut' },
         )
         .call(() => {
           if (epoch !== this.presentationEpoch || this.trayMotions.get(id) !== serial) return;
@@ -719,23 +781,46 @@ export class StarIsle extends Component {
       this.trayNodes.delete(id);
       n.parent = this.effects;
       n.name = `matching-${id}`;
+      const fade = P.opacity(n, 255);
       // Cleared groups rise above the rack, leaving the freed slots ready
       // for new taps even while the match effect is finishing.
       tween(n)
         .to(
-          0.16,
-          { position: new Vec3(x, y, 0), scale: new Vec3(TRAY_SCALE, TRAY_SCALE, 1) },
+          0.19,
+          { position: new Vec3(x, y, 0), scale: new Vec3(TRAY_SCALE, TRAY_SCALE, 1), angle: 0 },
           { easing: 'quadOut' },
         )
         .call(() => {
           if (epoch !== this.presentationEpoch || index !== 0) return;
-          this.play('match');
+          const sameKind = result.matched.every(
+            (id) => this.game?.tiles[id].kind === this.game?.tiles[result.matched[0]].kind,
+          );
+          this.play(
+            sameKind ? (result.matched.length >= 4 ? 'match-four' : 'match') : 'match-pairs',
+          );
           result.matched.forEach((mid) =>
             this.burst(TRAY_X + result.displayTray.indexOf(mid) * TRAY_STEP, TRAY_Y, 8),
           );
         })
-        .to(0.07, { position: new Vec3(x, y + 14, 0), scale: new Vec3(1, 1, 1) })
-        .to(0.11, { position: new Vec3(x, y + 60, 0), scale: new Vec3(0.01, 0.01, 1) })
+        .to(
+          0.09,
+          { position: new Vec3(x, y + 9, 0), scale: new Vec3(1.02, 1.02, 1) },
+          { easing: 'quadOut' },
+        )
+        .to(
+          0.17,
+          {
+            position: new Vec3(x, y + 36, 0),
+            scale: new Vec3(0.7, 0.7, 1),
+            angle: index % 2 ? -7 : 7,
+          },
+          {
+            easing: 'quadIn',
+            onUpdate: (_target, ratio = 0) => {
+              if (n.isValid) fade.opacity = 255 * (1 - ratio);
+            },
+          },
+        )
         .call(() => {
           if (n.isValid) n.destroy();
           if (epoch !== this.presentationEpoch) return;
@@ -773,7 +858,8 @@ export class StarIsle extends Component {
       this.persist();
       this.rewardCoins = g.matches;
       if (g.level.id === 1) {
-        this.play('win');
+        this.play('stage');
+        this.soundscape.speak('next');
         this.toast('第一关通过！马上进入第二关');
         this.scheduleOnce(() => {
           if (epoch === this.presentationEpoch && this.game === g)
@@ -791,7 +877,8 @@ export class StarIsle extends Component {
       if (this.game !== g || this.currentScreen !== 'game') return;
       this.rewardCoins = result.rewardCoins;
       if (g.status === 'won' && result.hasNext) {
-        this.play('win');
+        this.play('stage');
+        this.soundscape.speak('next');
         this.toast(`第 ${g.level.id} 关通过！马上进入下一关`);
         const previous = online.active!.id;
         this.scheduleOnce(() => {
@@ -809,12 +896,16 @@ export class StarIsle extends Component {
     }
   }
   private undo(): void {
+    const removed = new Set(this.game!.tiles.filter((tile) => tile.removed).map((tile) => tile.id));
     if (!this.useTool('undo', () => this.game!.undo())) return;
     this.resultHandled = false;
     this.closeModal();
     this.clearHighlights();
     this.disposeChildren(this.board);
     this.buildBoard();
+    this.tileNodes.forEach((node, id) => {
+      if (removed.has(id)) P.pop(node);
+    });
     this.renderTray();
     this.syncReserve();
     this.updateHud();
@@ -841,12 +932,13 @@ export class StarIsle extends Component {
       n.on(Node.EventType.TOUCH_END, () => this.pick(id));
       tween(n)
         .to(
-          0.28,
+          0.32,
           {
             position: new Vec3(TRAY_X + g.reserve.indexOf(id) * TRAY_STEP, -RESERVE_Y),
             scale: new Vec3(RESERVE_SCALE, RESERVE_SCALE, 1),
+            angle: 0,
           },
-          { easing: 'quadOut' },
+          { easing: 'sineOut' },
         )
         .call(() => {
           if (epoch !== this.presentationEpoch || --pending > 0) return;
@@ -893,6 +985,7 @@ export class StarIsle extends Component {
     this.animateShuffle();
   }
   private animateShuffle(): void {
+    this.play('shuffle');
     this.clearHighlights();
     const g = this.game!,
       layer = P.layer(this.effects, 'ShuffleAnimation');
@@ -920,6 +1013,7 @@ export class StarIsle extends Component {
     this.updateHud();
     this.updateControls();
     this.toast('萌宠们转个圈，重新排队！');
+    this.burst(BOARD_X, BOARD_Y, 12);
     const epoch = this.presentationEpoch,
       motion = { phase: 0 };
     this.shuffleMotion = motion;
@@ -946,8 +1040,8 @@ export class StarIsle extends Component {
         }
       });
     tween(motion)
-      .to(0.2, { phase: 1 }, { onUpdate: draw })
-      .to(0.68, { phase: 2 }, { onUpdate: draw })
+      .to(0.24, { phase: 1 }, { easing: 'sineOut', onUpdate: draw })
+      .to(0.72, { phase: 2 }, { easing: 'sineInOut', onUpdate: draw })
       .call(() => {
         cards.forEach(({ id, n }) => {
           if (n.isValid)
@@ -955,7 +1049,7 @@ export class StarIsle extends Component {
               this.frames[g.tiles[id].kind];
         });
       })
-      .to(0.25, { phase: 3 }, { onUpdate: draw })
+      .to(0.28, { phase: 3 }, { easing: 'sineIn', onUpdate: draw })
       .call(() => {
         if (epoch !== this.presentationEpoch || this.game !== g) return;
         this.shuffleMotion = null;
@@ -968,6 +1062,7 @@ export class StarIsle extends Component {
         this.syncReserve();
         this.updateHud();
         this.updateControls();
+        this.play('tap');
         this.toast('重新排好啦，继续收集小伙伴！');
       })
       .start();
@@ -987,7 +1082,10 @@ export class StarIsle extends Component {
         this.persist();
       } else g[key]--;
     }
-    if (used) this.recordAction(tool);
+    if (used) {
+      this.recordAction(tool);
+      if (tool !== 'shuffle') this.play(tool);
+    }
     return used;
   }
   private highlight(ids: number[], timed = true): void {
@@ -1002,14 +1100,18 @@ export class StarIsle extends Component {
         -4,
         TILE_W + 5,
         TILE_H - 2,
-        '#FFEF70',
+        '#F4DA94',
         19,
-        '#F5C62A',
-        56,
+        '#DDAE47',
+        24,
       );
       const alpha = P.opacity(glow, 255);
       tween(alpha)
-        .repeatForever(tween().to(0.55, { opacity: 80 }).to(0.55, { opacity: 255 }))
+        .repeatForever(
+          tween()
+            .to(0.75, { opacity: 130 }, { easing: 'sineInOut' })
+            .to(0.75, { opacity: 255 }, { easing: 'sineInOut' }),
+        )
         .start();
     });
     if (timed) this.scheduleOnce(() => this.clearHighlights(), 4);
@@ -1029,79 +1131,85 @@ export class StarIsle extends Component {
   }
   private burst(x: number, y: number, count: number): void {
     for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count,
-        distance = 30 + (i % 3) * 20;
-      const n = P.star(this.effects, x, y, 7 + (i % 3), [C.gold, C.pink, '#A4F184'][i % 3]);
+      const angle = Math.PI * (0.15 + (0.7 * i) / Math.max(1, count - 1)),
+        distance = 28 + (i % 3) * 15;
+      const n =
+        i % 3
+          ? P.leaf(this.effects, x, y, 7 + (i % 4), ['#93A85A', '#B9BE71', '#D5AE60'][i % 3])
+          : P.rounded(this.effects, 'WoodChip', x, y, 8, 5, '#D8AD6D', 2);
+      const fade = P.opacity(n, 255);
       tween(n)
-        .to(0.5, {
-          position: new Vec3(x + Math.cos(angle) * distance, -y + Math.sin(angle) * distance, 0),
-          scale: new Vec3(0.1, 0.1, 1),
-        })
+        .to(
+          0.2,
+          {
+            position: new Vec3(x + Math.cos(angle) * distance, -y + Math.sin(angle) * distance, 0),
+            angle: i % 2 ? 32 : -32,
+          },
+          { easing: 'quadOut' },
+        )
+        .to(
+          0.42,
+          {
+            position: new Vec3(x + Math.cos(angle) * distance + (i % 2 ? 12 : -12), -y + 12, 0),
+            scale: new Vec3(0.45, 0.45, 1),
+            angle: i % 2 ? 85 : -75,
+          },
+          {
+            easing: 'sineIn',
+            onUpdate: (_target, ratio = 0) => {
+              if (n.isValid) fade.opacity = 255 * (1 - ratio);
+            },
+          },
+        )
         .call(() => n.destroy())
         .start();
     }
   }
-  private closeModal(): void {
-    if (this.modal?.isValid) {
-      this.modal.active = false;
-      this.modal.destroy();
-    }
-    this.modal = null;
+  private closeModal(afterClose?: () => void): void {
+    this.modals.close(afterClose);
   }
   private dialog(name: string, title: string, height = 900): Node {
-    this.closeModal();
-    const m = P.layer(this.stage, name);
-    this.modal = m;
-    P.rounded(
+    const m = this.modals.show(name);
+    const width = 626,
+      top = 780 - height / 2,
+      headerHeight = 82;
+    const headerY = top + MODAL_INSET + headerHeight / 2;
+    P.skin(m, 'Panel', 'panel', 360, 780, width, height);
+    P.skin(m, 'Banner', 'button-blue', 360, headerY, width - MODAL_INSET * 2, headerHeight);
+    P.text(
       m,
-      'Backdrop',
+      'Title',
+      title,
       360,
-      HEIGHT / 2,
-      WIDTH,
-      HEIGHT,
-      '#251F15',
-      0,
-      undefined,
-      162,
-    ).addComponent(BlockInputEvents);
-    P.skin(m, 'Panel', 'panel', 360, 780, 626, height);
-    P.skin(m, 'Banner', 'button-blue', 360, 780 - height / 2 + 65, 545, 88);
-    P.text(m, 'Title', title, 360, 780 - height / 2 + 58, 33, C.white, 490, true, 'center', 3);
+      headerY - 5,
+      33,
+      C.white,
+      width - MODAL_INSET * 2 - 24,
+      true,
+      'center',
+      3,
+    );
     P.button(
       m,
       'Close',
       '×',
-      640,
-      780 - height / 2 + 25,
-      58,
-      62,
+      639,
+      top + 30,
+      68,
+      72,
       () => {
         this.play('tap');
         this.closeModal();
       },
       true,
-      38,
+      46,
       'round-blue',
     );
     return m;
   }
   private showMenu(): void {
-    this.closeModal();
-    const m = P.layer(this.stage, 'HomeMenu');
-    this.modal = m;
-    const shade = P.rounded(
-      m,
-      'Backdrop',
-      360,
-      HEIGHT / 2,
-      WIDTH,
-      HEIGHT,
-      '#251F15',
-      0,
-      undefined,
-      155,
-    );
-    shade.addComponent(BlockInputEvents);
+    const m = this.modals.show('HomeMenu', 155, 199, 283);
+    const shade = m.getChildByName('Backdrop')!;
     shade.on(Node.EventType.TOUCH_END, () => this.closeModal());
     P.skin(m, 'MenuPanel', 'panel', 199, 283, 312, 330).addComponent(BlockInputEvents);
     [
@@ -1114,9 +1222,9 @@ export class StarIsle extends Component {
         name,
         '',
         199,
-        178 + i * 102,
-        282,
-        84,
+        200 + i * 83,
+        312 - MODAL_INSET * 2,
+        76,
         () => {
           this.play('tap');
           if (i === 0) this.showSettings();
@@ -1125,76 +1233,70 @@ export class StarIsle extends Component {
         },
         true,
       );
-      if (i === 0) P.sprite(b, 'Gear', this.utilityFrames[1], -99, -5, 47, 47);
-      else P.icon(b, i === 1 ? 'contact' : 'sound', -99, -4, 23, C.white);
-      P.text(b, 'Label', label, 23, -5, 29, C.white, 205, true, 'center', 2);
+      if (i === 0) P.sprite(b, 'Gear', this.utilityFrames[1], -77, -5, 42, 42);
+      else P.icon(b, i === 1 ? 'contact' : 'sound', -77, -4, 20, C.white);
+      P.text(b, 'Label', label, 23, -5, 28, C.white, 154, true, 'center', 2);
     });
   }
-  private showRules(): void {
-    const g = this.game!,
-      mode = g.mode,
-      fun = mode.id === 'fun';
-    const m = this.dialog('Rules', `${mode.title} · 规则`, 1110);
-    m.getChildByName('Close')!.active = false;
-    P.text(m, 'Intro', '第一关 · 先认识一下消除方法', 360, 386, 25, C.ink, 560, true);
-    const example = (kinds: number[], y: number) =>
+  private showRules(tutorial = true): void {
+    const g = this.game!;
+    const m = this.dialog('Rules', '本关消除规则', 1110);
+    m.getChildByName('Close')!.active = !tutorial;
+    P.text(m, 'Intro', '第 ' + g.level.id + ' 关 · 按顺序优先匹配', 360, 386, 25, C.ink, 560, true);
+    const compact = g.rules.length > 3;
+    g.rules.forEach((pattern, index) => {
+      const y = compact
+        ? 465 + index * 98
+        : g.rules.length === 3
+          ? 480 + index * 155
+          : 500 + index * 175;
+      P.text(
+        m,
+        'Rule-' + index,
+        index + 1 + '. ' + ruleDescription(pattern),
+        360,
+        y - 36,
+        compact ? 22 : 25,
+        C.deep,
+        530,
+        true,
+      );
+      const kinds = pattern.flatMap((amount, kind) => Array<number>(amount).fill(kind));
+      const scale = compact ? 0.48 : 0.62;
       kinds.forEach((kind, i) =>
         this.makeTile(
           m,
           { id: i, kind, x: 0, y: 0, layer: 0, removed: false },
-          360 + (i - (kinds.length - 1) / 2) * 105,
-          y,
-          0.88,
+          360 + (i - (kinds.length - 1) / 2) * (compact ? 53 : 66),
+          y + 12,
+          scale,
         ),
       );
-    example(Array(mode.matchSize).fill(0), 491);
-    P.text(
-      m,
-      'SameRule',
-      mode.id === 'quartet' ? '四个相同才消除，三个还不够哦' : '三个相同，自动消除',
-      360,
-      569,
-      26,
-      C.deep,
-      550,
-      true,
-    );
-    if (fun) {
-      example([1, 1, 2, 2], 671);
-      P.text(m, 'PairRule', '两种不同萌宠各两个，也能一起消除', 360, 750, 25, C.deep, 555, true);
-    } else {
-      P.sprite(m, 'TutorialPet', this.frames[3], 360, 706, 125, 125);
-      P.text(m, 'NoAdjacency', '不用排成一行，也不需要相邻', 360, 803, 24, C.muted, 550);
-    }
-    const lines = fun
-      ? [
-          '点击亮色萌宠，进入下方 7 格收纳槽',
-          '先判断三消；两对消除必须是不同种类',
-          '棋盘和槽位都清空才算通关',
-          '满槽或最后剩下无法成组的萌宠，会失败',
-        ]
-      : [
-          '点击亮色萌宠，被覆盖的暂时不能点',
-          '收纳槽共 7 格，满槽且不能消除就失败',
-          '棋盘和收纳槽都清空，继续挑战下一关',
-        ];
-    lines.forEach((line, i) =>
-      P.text(m, `RuleLine${i}`, line, 360, (fun ? 844 : 886) + i * 59, 22, C.ink, 550),
-    );
+    });
+    if (g.rules.length === 1) P.sprite(m, 'TutorialPet', this.frames[3], 360, 744, 128, 128);
+    const noteY = compact ? 1055 : 952;
+    [
+      '点击亮色萌宠，放入下方 7 格收纳槽',
+      '组合不要求相邻；加号两侧必须是不同种类',
+      '清空棋盘与槽位通关，满槽无法消除则失败',
+    ].forEach((line, i) => P.text(m, 'RuleLine' + i, line, 360, noteY + i * 39, 21, C.ink, 540));
     P.button(
       m,
       'Understood',
-      '明白了，开始游戏！',
+      tutorial ? '明白了，开始游戏！' : '继续游戏',
       360,
       1203,
       510,
       94,
       () => {
         this.closeModal();
-        const charges = g.hintLeft,
-          ids = g.hint();
-        g.hintLeft = charges;
-        if (ids.length) this.highlight(ids, false);
+        if (tutorial) {
+          this.soundscape.speak('start');
+          const charges = g.hintLeft,
+            ids = g.hint();
+          g.hintLeft = charges;
+          if (ids.length) this.highlight(ids, false);
+        }
       },
       true,
       29,
@@ -1256,7 +1358,7 @@ export class StarIsle extends Component {
             .signIn()
             .then(() => {
               this.showSignIn();
-              this.play('win');
+              this.play('reward');
             })
             .catch((error) => this.toast(error instanceof Error ? error.message : '签到暂未完成'))
             .finally(() => {
@@ -1267,7 +1369,7 @@ export class StarIsle extends Component {
         if (claimSignIn(this.save)) {
           this.persist();
           this.refreshHome();
-          this.play('win');
+          this.play('reward');
           this.showSignIn();
           this.toast('金币和道具已经放进背包啦！');
         } else this.toast('今天已经领取过啦，明天再来！');
@@ -1314,7 +1416,10 @@ export class StarIsle extends Component {
     P.button(m, 'BagDone', '知道啦', 360, 1210, 480, 86, () => this.closeModal(), true, 29);
   }
   private showCustomerService(): void {
-    this.closeModal();
+    if (this.modal) {
+      this.closeModal(() => this.showCustomerService());
+      return;
+    }
     if (typeof wx !== 'undefined' && typeof wx.openCustomerServiceConversation === 'function') {
       try {
         wx.openCustomerServiceConversation({
@@ -1372,12 +1477,11 @@ export class StarIsle extends Component {
   }
   private showAlbum(): void {
     const m = this.dialog('Album', '萌宠图鉴', 1110);
-    P.text(m, 'Subtitle', '十二生肖 + 猫、熊猫、狮子', 360, 382, 24, C.ink, 560, true);
     for (let i = 0; i < this.frames.length; i++) {
       const x = 180 + (i % 3) * 180,
-        y = 475 + Math.floor(i / 3) * 151;
-      P.skin(m, `PetCard${i}`, 'tile', x, y, 105, 110);
-      P.sprite(m, `Pet${i}`, this.frames[i], x, y - 5, 92, 92);
+        y = 435 + Math.floor(i / 3) * 160;
+      const card = P.skin(m, `PetCard${i}`, 'tile', x, y, 105, 110);
+      P.sprite(card, `Pet${i}`, this.frames[i], 0, tileFaceCenterY(110), 92, 92);
       P.text(m, `PetName${i}`, KIND_NAMES[i], x, y + 69, 22, C.deep, 166, true);
     }
     P.button(m, 'AlbumDone', '都好可爱！', 360, 1240, 456, 88, () => this.closeModal(), true, 28);
@@ -1385,11 +1489,8 @@ export class StarIsle extends Component {
   private toggleSound(): void {
     this.save.sound = !this.save.sound;
     this.persist();
-    if (!this.save.sound) this.music.stop();
-    else {
-      this.startMusic();
-      this.play('tap');
-    }
+    this.soundscape.syncEnabled();
+    if (this.save.sound) this.play('tap');
   }
   private showSettings(): void {
     const inGame = this.currentScreen === 'game';
@@ -1398,7 +1499,7 @@ export class StarIsle extends Component {
     P.text(
       m,
       'SettingsDescription',
-      '轻松的音乐，陪小可爱们一起出发',
+      '温柔的木琴，陪萌宠一起出发',
       360,
       inGame ? 752 : 782,
       23,
@@ -1409,7 +1510,7 @@ export class StarIsle extends Component {
     const b = P.button(
       m,
       'SoundToggle',
-      this.save.sound ? '音乐与音效：开启' : '音乐与音效：关闭',
+      this.save.sound ? '音乐、音效与语音：开启' : '音乐、音效与语音：关闭',
       360,
       inGame ? 858 : 888,
       480,
@@ -1418,8 +1519,8 @@ export class StarIsle extends Component {
         this.toggleSound();
         b.children.find((n) => !!n.getComponent(Label))!.getComponent(Label)!.string = this.save
           .sound
-          ? '音乐与音效：开启'
-          : '音乐与音效：关闭';
+          ? '音乐、音效与语音：开启'
+          : '音乐、音效与语音：关闭';
       },
       true,
       27,
@@ -1461,7 +1562,7 @@ export class StarIsle extends Component {
     P.button(
       m,
       'Restart',
-      '从第一关重新开始',
+      this.selectedEntry === 'campaign' && !this.practice ? '重新挑战当前关' : '从第一关重新开始',
       360,
       962,
       470,
@@ -1474,10 +1575,39 @@ export class StarIsle extends Component {
   }
   private showResult(won: boolean): void {
     const g = this.game!;
+    const campaign = this.selectedEntry === 'campaign' && !this.practice;
     this.play(won ? 'win' : 'lose');
+    this.soundscape.speak(won ? 'win' : 'lose');
     const m = this.dialog(won ? 'Victory' : 'TryAgain', won ? '闯关成功！' : '就差一点点！', 960);
     m.getChildByName('Close')!.active = false;
-    P.sprite(m, 'ResultPet', won ? this.utilityFrames[0] : this.frames[3], 360, 545, 168, 168);
+    const resultPet = P.sprite(
+      m,
+      'ResultPet',
+      won ? this.utilityFrames[0] : this.frames[3],
+      360,
+      545,
+      168,
+      168,
+    );
+    if (won)
+      tween(resultPet)
+        .to(
+          0.18,
+          { position: new Vec3(360, -537), scale: new Vec3(1.04, 1.04, 1) },
+          { easing: 'quadOut' },
+        )
+        .to(
+          0.22,
+          { position: new Vec3(360, -545), scale: new Vec3(1, 1, 1) },
+          { easing: 'sineInOut' },
+        )
+        .start();
+    else
+      tween(resultPet)
+        .to(0.12, { angle: -4 })
+        .to(0.24, { angle: 4 })
+        .to(0.12, { angle: 0 })
+        .start();
     P.text(
       m,
       'ResultTitle',
@@ -1498,7 +1628,11 @@ export class StarIsle extends Component {
     P.text(
       m,
       'ResultSubtitle',
-      won ? `${g.mode.title}挑战完成，试试其他玩法吧！` : '优先凑齐槽里已有的萌宠，再收新种类。',
+      won
+        ? campaign
+          ? '当前已开放关卡全部完成，进度已保存'
+          : `${g.mode.title}挑战完成，试试其他玩法吧！`
+        : '优先凑齐槽里已有的萌宠，再收新种类。',
       360,
       753,
       22,
@@ -1531,26 +1665,37 @@ export class StarIsle extends Component {
     P.button(
       m,
       'ResultPrimary',
-      '重新开始 · 第一关',
+      campaign ? (won ? '返回主页' : '重试 · 当前关') : '重新开始 · 第一关',
       360,
       1020,
       510,
       98,
-      () => this.startLevel(1, undefined, g.mode.id),
+      () => (campaign && won ? this.home() : this.startLevel(1, undefined, g.mode.id)),
       true,
       30,
     );
-    P.button(m, 'ResultHome', '返回主页', 360, 1140, 510, 88, () => this.home(), false, 28);
+    if (!(campaign && won))
+      P.button(m, 'ResultHome', '返回主页', 360, 1140, 510, 88, () => this.home(), false, 28);
     if (won)
-      for (let i = 0; i < 22; i++) {
-        const x = 72 + ((i * 91) % 570),
-          y = 330 + ((i * 43) % 230);
-        const n = P.star(m, x, y, 8 + (i % 5), [C.gold, C.pink, '#8BE49A', '#83E3FF'][i % 4]);
+      for (let i = 0; i < 16; i++) {
+        const x = 110 + ((i * 89) % 500),
+          y = 420 + ((i * 47) % 200);
+        const n = P.leaf(m, x, y, 8 + (i % 5), ['#90A85A', '#B7BD70', '#D8B562'][i % 3]);
+        const fade = P.opacity(n, 230);
         tween(n)
-          .to(2 + (i % 3) * 0.4, {
-            position: new Vec3(x + (i % 2 ? 35 : -35), -y - 420, 0),
-            angle: i % 2 ? 180 : -180,
-          })
+          .to(
+            1.8 + (i % 3) * 0.3,
+            {
+              position: new Vec3(x + (i % 2 ? 16 : -16), -y - 300, 0),
+              angle: i % 2 ? 180 : -180,
+            },
+            {
+              easing: 'sineInOut',
+              onUpdate: (_target, ratio = 0) => {
+                if (n.isValid) fade.opacity = 230 * (1 - ratio);
+              },
+            },
+          )
           .call(() => n.destroy())
           .start();
       }
@@ -1574,8 +1719,12 @@ export class StarIsle extends Component {
     );
     P.text(n, 'ToastMessage', message, 0, 0, 22, C.white, 626, true);
     this.toastNode = n;
-    tween(P.opacity(n, 255))
-      .delay(2.1)
+    const resting = n.position.clone();
+    n.setPosition(resting.x, resting.y - 7);
+    tween(n).to(0.16, { position: resting }, { easing: 'cubicOut' }).start();
+    tween(P.opacity(n, 0))
+      .to(0.14, { opacity: 255 })
+      .delay(2)
       .to(0.25, { opacity: 0 })
       .call(() => {
         if (n.isValid) n.destroy();
@@ -1584,8 +1733,10 @@ export class StarIsle extends Component {
       .start();
   }
   onDestroy(): void {
+    this.levelTransition?.reset();
+    this.online?.detach();
+    this.modals?.reset();
     this.clearHighlights();
-    this.music?.stop();
     this.unscheduleAllCallbacks();
   }
 }

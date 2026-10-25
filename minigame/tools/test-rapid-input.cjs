@@ -61,12 +61,13 @@ fs.mkdirSync(output, { recursive: true });
           .getChildByName('StarIsleGame')
           .getComponent('StarIsle');
         window.__qaApp = a;
+        a.modals.reset();
         a.startLevel(level, seed);
         a.closeModal();
       },
       { level, seed },
     );
-    await page.waitForTimeout(40);
+    await page.waitForFunction(() => !window.__qaApp.modal);
   };
   const openTiles = () =>
     page.evaluate(() => {
@@ -186,6 +187,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal((await read()).moves, 1, 'modal still blocks board input');
     await settle();
     await click(360, 850);
+    await page.waitForFunction(() => !window.__qaApp.modal);
     await tap(open[1]);
     await assertRack();
     assert.equal((await read()).moves, 2);
@@ -207,7 +209,9 @@ fs.mkdirSync(output, { recursive: true });
     await tap(open[0]);
     await click(664, 77);
     await click(360, 962);
+    await page.waitForFunction(() => window.__qaApp.modal?.name === 'Rules');
     await page.evaluate(() => window.__qaApp.closeModal());
+    await page.waitForFunction(() => !window.__qaApp.modal);
     await page.waitForTimeout(500);
     state = await read();
     assert.equal(state.moves, 0);
@@ -265,6 +269,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.ok(failureButtons.includes('ResultPrimary') && failureButtons.includes('ResultHome'));
     assert.equal(await page.evaluate(() => window.__qaApp.game.canUndo), false);
     await click(360, 1020);
+    await page.waitForFunction(() => window.__qaApp.modal?.name === 'Rules');
     assert.equal((await read()).modal, 'Rules');
     assert.equal(await page.evaluate(() => window.__qaApp.game.level.id), 1);
     assert.equal((await read()).coins, failedCoins);

@@ -79,6 +79,27 @@ func (s *Server) registerGame(router *gin.Engine, admin, user *gin.RouterGroup) 
 		s.result(c, v, e)
 	})
 	admin.GET("/levels", func(c *gin.Context) { v, e := service.Levels(c.Request.Context(), false); s.result(c, v, e) })
+	admin.GET("/level-templates", func(c *gin.Context) { v, e := service.Templates(c.Request.Context()); s.result(c, v, e) })
+	saveTemplate := func(c *gin.Context) {
+		var in game.TemplateInput
+		if e := bind(c, &in); e != nil {
+			s.respondError(c, e)
+			return
+		}
+		v, e := service.SaveTemplate(c.Request.Context(), c.Param("id"), in)
+		s.result(c, v, e)
+	}
+	admin.POST("/level-templates", saveTemplate)
+	admin.PUT("/level-templates/:id", saveTemplate)
+	admin.DELETE("/level-templates/:id", func(c *gin.Context) {
+		version, e := strconv.ParseInt(c.Query("version"), 10, 32)
+		if e != nil || version < 1 {
+			s.respondError(c, users.Invalid("请提供有效的模板版本"))
+			return
+		}
+		e = service.DeleteTemplate(c.Request.Context(), c.Param("id"), int32(version))
+		s.result(c, gin.H{"ok": e == nil}, e)
+	})
 	save := func(c *gin.Context) {
 		var in game.DraftInput
 		if e := bind(c, &in); e != nil {

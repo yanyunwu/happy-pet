@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "theme": "森林木作 · 木琴小径",
+  "method": "Original deterministic DSP composition and foley; local Windows speech synthesis",
+  "source": "tools/generate-audio.cjs",
+  "speechSource": "tools/generate-voices.ps1",
+  "assets": [
+    {
+      "name": "tap",
+      "kind": "effect",
+      "file": "assets/resources/audio/tap.mp3",
+      "sampleRate": 22050,
+      "duration": 0.14,
+      "description": "轻敲原木按钮"
+    },
+    {
+      "name": "tile",
+      "kind": "effect",
+      "file": "assets/resources/audio/tile.mp3",
+      "sampleRate": 22050,
+      "duration": 0.18,
+      "description": "拾起木雕牌片"
+    },
+    {
+      "name": "blocked",
+      "kind": "effect",
+      "file": "assets/resources/audio/blocked.mp3",
+      "sampleRate": 22050,
+      "duration": 0.22,
+      "description": "被覆盖木牌的柔和闷响"
+    },
+    {
+      "name": "match",
+      "kind": "effect",
+      "file": "assets/resources/audio/match.mp3",
+      "sampleRate": 22050,
+      "duration": 0.64,
+      "description": "三颗木琴音与轻木扣"
+    },
+    {
+      "name": "match-four",
+      "kind": "effect",
+      "file": "assets/resources/audio/match-four.mp3",
+      "sampleRate": 22050,
+      "duration": 0.7500226757369615,
+      "description": "四颗拇指琴音"
+    },
+    {
+      "name": "match-pairs",
+      "kind": "effect",
+      "file": "assets/resources/audio/match-pairs.mp3",
+      "sampleRate": 22050,
+      "duration": 0.68,
+      "description": "两组配对木琴音"
+    },
+    {
+      "name": "undo",
+      "kind": "effect",
+      "file": "assets/resources/audio/undo.mp3",
+      "sampleRate": 22050,
+      "duration": 0.36,
+      "description": "木片轻轻滑回"
+    },
+    {
+      "name": "shovel",
+      "kind": "effect",
+      "file": "assets/resources/audio/shovel.mp3",
+      "sampleRate": 22050,
+      "duration": 0.5,
+      "description": "木铲扫过与牌片落位"
+    },
+    {
+      "name": "hint",
+      "kind": "effect",
+      "file": "assets/resources/audio/hint.mp3",
+      "sampleRate": 22050,
+      "duration": 0.72,
+      "description": "轻亮的拇指琴提示"
+    },
+    {
+      "name": "shuffle",
+      "kind": "effect",
+      "file": "assets/resources/audio/shuffle.mp3",
+      "sampleRate": 22050,
+      "duration": 1.0500226757369615,
+      "description": "木片转动与树叶沙沙"
+    },
+    {
+      "name": "popup-open",
+      "kind": "effect",
+      "file": "assets/resources/audio/popup-open.mp3",
+      "sampleRate": 22050,
+      "duration": 0.24,
+      "description": "木盒打开的轻响"
+    },
+    {
+      "name": "popup-close",
+      "kind": "effect",
+      "file": "assets/resources/audio/popup-close.mp3",
+      "sampleRate": 22050,
+      "duration": 0.21002267573696146,
+      "description": "木盒轻合"
+    },
+    {
+      "name": "reward",
+      "kind": "effect",
+      "file": "assets/resources/audio/reward.mp3",
+      "sampleRate": 22050,
+      "duration": 0.9500226757369614,
+      "description": "木质金币收纳的明亮和弦"
+    },
+    {
+      "name": "stage",
+      "kind": "effect",
+      "file": "assets/resources/audio/stage.mp3",
+      "sampleRate": 22050,
+      "duration": 1.1499773242630384,
+      "description": "下一关的简短木琴应答"
+    },
+    {
+      "name": "win",
+      "kind": "effect",
+      "file": "assets/resources/audio/win.mp3",
+      "sampleRate": 22050,
+      "duration": 1.9,
+      "description": "温暖木琴与拨弦庆祝"
+    },
+    {
+      "name": "lose",
+      "kind": "effect",
+      "file": "assets/resources/audio/lose.mp3",
+      "sampleRate": 22050,
+      "duration": 1.2500226757369615,
+      "description": "柔和下行拨弦，鼓励再试"
+    },
+    {
+      "name": "music-home",
+      "kind": "music",
+      "file": "assets/resources/audio/music-home.mp3",
+      "sampleRate": 22050,
+      "duration": 43.636371882086166,
+      "bpm": 88,
+      "loop": true,
+      "description": "林间小憩：木琴、柔和拨弦与暖低音"
+    },
+    {
+      "name": "music",
+      "kind": "music",
+      "file": "assets/resources/audio/music.mp3",
+      "sampleRate": 22050,
+      "duration": 38.4,
+      "bpm": 100,
+      "loop": true,
+      "description": "萌宠寻路：拇指琴、拨弦、木拍与叶声"
+    },
+    {
+      "name": "voice-start",
+      "kind": "voice",
+      "file": "assets/resources/audio/voice-start.mp3",
+      "sampleRate": 22050,
+      "text": "准备好，出发啦！",
+      "voice": "Microsoft Huihui Desktop",
+      "engine": "Windows System.Speech",
+      "language": "zh-CN"
+    },
+    {
+      "name": "voice-next",
+      "kind": "voice",
+      "file": "assets/resources/audio/voice-next.mp3",
+      "sampleRate": 22050,
+      "text": "继续加油！",
+      "voice": "Microsoft Huihui Desktop",
+      "engine": "Windows System.Speech",
+      "language": "zh-CN"
+    },
+    {
+      "name": "voice-win",
+      "kind": "voice",
+      "file": "assets/resources/audio/voice-win.mp3",
+      "sampleRate": 22050,
+      "text": "真棒，闯关成功！",
+      "voice": "Microsoft Huihui Desktop",
+      "engine": "Windows System.Speech",
+      "language": "zh-CN"
+    },
+    {
+      "name": "voice-lose",
+      "kind": "voice",
+      "file": "assets/resources/audio/voice-lose.mp3",
+      "sampleRate": 22050,
+      "text": "慢慢来，再试一次吧。",
+      "voice": "Microsoft Huihui Desktop",
+      "engine": "Windows System.Speech",
+      "language": "zh-CN"
+    }
+  ]
+}

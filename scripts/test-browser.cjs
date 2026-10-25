@@ -80,6 +80,7 @@ const server = http.createServer((req, res) => {
   });
   const errors = [],
     checks = [];
+  let debugGame;
   try {
     const admin = await browser.newPage({ viewport: { width: 1440, height: 1024 } });
     admin.on('pageerror', (e) => errors.push('admin: ' + e.message));
@@ -90,8 +91,9 @@ const server = http.createServer((req, res) => {
     await admin.getByRole('heading', { name: '用户管理' }).waitFor();
     await admin.screenshot({ path: path.join(out, 'admin-users.png'), fullPage: true });
     checks.push('admin login and reference UI');
-    await admin.getByRole('menuitem', { name: '闯关关卡' }).click();
-    await admin.getByRole('heading', { name: '闯关关卡' }).waitFor();
+    await require('./test-catalog-ui.cjs')(admin, origin, out, checks);
+    await admin.getByRole('menuitem', { name: '关卡管理' }).click();
+    await admin.getByRole('heading', { name: '关卡管理' }).waitFor();
     await admin.getByRole('button', { name: '编辑', exact: true }).first().click();
     await admin.getByText('15 种萌宠配比').waitFor();
     await admin.getByRole('button', { name: '校验并预览' }).click();
@@ -111,6 +113,7 @@ const server = http.createServer((req, res) => {
       viewport: { width: 432, height: 936 },
       deviceScaleFactor: 1,
     });
+    debugGame = game;
     game.on('pageerror', (e) => errors.push('game: ' + e.message));
     await game.addInitScript(() => {
       window.wx = {
@@ -147,7 +150,22 @@ const server = http.createServer((req, res) => {
         .every((n) => Math.abs(n.scale.x - 1) < 0.001),
     );
     await game.screenshot({ path: path.join(out, 'game-campaign-home.png') });
-    const tap = (x, y) => game.mouse.click(x * 0.6, y * 0.6);
+    const tap = async (x, y) => {
+      await game.waitForFunction(() => !window.qaApp.levelTransition?.active);
+      await game.mouse.click(x * 0.6, y * 0.6);
+      await game.waitForFunction(() => {
+        const app = window.qaApp,
+          m = app?.modal,
+          opacity = m?.getComponent('cc.UIOpacity');
+        const closing = Array.from(app?.modals?.motions || []).some(
+          (state) => state.node === m && state.closing,
+        );
+        return (
+          !m ||
+          (!closing && Math.abs(m.scale.x - 1) < 0.001 && (!opacity || opacity.opacity === 255))
+        );
+      });
+    };
     const tapHome = async (path) => {
       const p = await game.evaluate((path) => {
         const n = path
@@ -273,9 +291,9 @@ const server = http.createServer((req, res) => {
     assert.equal(summary.status, 'lost');
     await tap(360, 1020);
     await game.waitForFunction(
-      () => window.qaApp.game?.level.id === 1 && window.qaApp.modal?.name === 'Rules',
+      () => window.qaApp.game?.level.id === 2 && window.qaApp.modal?.name === 'Rules',
     );
-    checks.push('loss uploaded and restart returns to first level');
+    checks.push('campaign loss uploaded; retry resumes current uncleared level');
     // A legal fun-mode pair match can leave an impossible multiset. A rejected
     // shuffle must restore the confirmed board, retain the charge and allow undo.
     await tap(360, 1203);
@@ -352,11 +370,13 @@ const server = http.createServer((req, res) => {
     assert.equal(assetResult.coins, 35);
     checks.push('admin changes player assets and ledger with required reason');
     await admin.goto(origin + '/admin/levels');
+    await admin.getByRole('tab', { name: '闯关模式', exact: true }).click();
     await admin.getByRole('button', { name: '新增关卡' }).click();
     await admin.getByLabel('关卡名称').fill('界面联调新关卡');
     await admin.getByRole('button', { name: '保存草稿', exact: true }).click();
     await admin.getByText('草稿已保存', { exact: true }).waitFor();
     await admin.goto(origin + '/admin/levels');
+    await admin.getByRole('tab', { name: '闯关模式', exact: true }).click();
     const newRow = admin.locator('.ant-table-tbody tr').filter({ hasText: '界面联调新关卡' });
     await newRow.getByRole('button', { name: /发\s*布/ }).click();
     await admin.getByRole('button', { name: '发布关卡', exact: true }).click();
@@ -365,12 +385,104 @@ const server = http.createServer((req, res) => {
     assert(liveLevels.some((l) => l.title === '界面联调新关卡' && l.ordinal === 3));
     await admin.screenshot({ path: path.join(out, 'admin-levels.png'), fullPage: true });
     checks.push('new level saved, validated, published and visible through game API');
+    // Publish actual custom rules into a challenge entry and play them in Cocos.
+    const customLayout = {
+      columns: 5,
+      rows: 1,
+      layers: [{ z: 0, cells: Array.from({ length: 5 }, (_, i) => ({ x: i * 2, y: 0 })) }],
+    };
+    assert.equal(
+      (
+        await admin.request.post(origin + '/api/v1/admin/level-templates', {
+          data: { name: '组合验证布局', layout: customLayout },
+        })
+      ).status(),
+      200,
+    );
+    await admin.goto(origin + '/admin/levels');
+    const challengeRow = admin.locator('tr[data-row-key="standard-classic-1"]');
+    await challengeRow.getByRole('button', { name: '编辑', exact: true }).click();
+    await admin.getByLabel('关卡名称', { exact: true }).fill('组合消除验证');
+    await admin.getByLabel('消除规则 1', { exact: true }).fill('3+2');
+    await admin.getByRole('button', { name: '添加规则', exact: true }).click();
+    await admin.getByLabel('消除规则 2', { exact: true }).fill('4');
+    await admin.getByLabel('鼠数量', { exact: true }).fill('3');
+    await admin.getByLabel('牛数量', { exact: true }).fill('2');
+    await admin.getByLabel('虎数量', { exact: true }).fill('0');
+    await admin.getByLabel('选择布局模板', { exact: true }).click();
+    await admin.getByText('组合验证布局', { exact: true }).click();
+    await admin.getByRole('button', { name: '导入布局', exact: true }).click();
+    await admin.getByRole('button', { name: '确认导入', exact: true }).click();
+    await admin.getByRole('button', { name: '保存草稿', exact: true }).click();
+    await admin.getByText('草稿已保存', { exact: true }).waitFor();
+    await admin.screenshot({ path: path.join(out, 'admin-custom-rules.png'), fullPage: true });
+    await admin.getByRole('button', { name: '关闭', exact: true }).click();
+    await challengeRow.getByRole('button', { name: '发布', exact: true }).click();
+    await admin.getByRole('button', { name: '发布关卡', exact: true }).click();
+    await admin.getByText('新版本已发布', { exact: true }).waitFor();
+    await game.evaluate(() => window.qaApp.home());
+    await game.waitForFunction(() => window.qaApp.currentScreen === 'home' && !window.qaApp.modal);
+    await tapHome('WelcomePanel/Mode-classic');
+    await game.waitForFunction(
+      () => !window.qaApp.networkBusy && window.qaApp.modal?.name === 'Rules',
+    );
+    assert.deepEqual(await game.evaluate(() => window.qaApp.game.rules), [[3, 2], [4]]);
+    await game.screenshot({ path: path.join(out, 'game-custom-rules.png') });
+    await tap(360, 1203);
+    const customSessionId = await game.evaluate(() => window.qaApp.online.active.id);
+    const customKinds = await game.evaluate(() =>
+      [0, 1].map((kind) =>
+        window.qaApp.game.tiles.filter((tile) => tile.kind === kind).map((tile) => tile.id),
+      ),
+    );
+    for (const id of customKinds[0]) await pick(id);
+    assert.equal(
+      await game.evaluate(() => window.qaApp.game.cleared),
+      0,
+      'three alone must not clear under 3+2 rules',
+    );
+    for (const id of customKinds[1]) await pick(id);
+    await game.waitForFunction(
+      () =>
+        !window.qaApp.networkBusy &&
+        window.qaApp.game?.level.id === 2 &&
+        window.qaApp.modal?.name === 'Rules',
+    );
+    assert.deepEqual(await game.evaluate(() => window.qaApp.game.rules), [[3]]);
+    const replay = await (
+      await admin.request.get(origin + '/api/v1/admin/sessions/' + customSessionId + '/replay')
+    ).json();
+    assert.equal(replay.status, 'won');
+    assert.equal(replay.session.state.cleared, 5);
+    assert.deepEqual(replay.config.rules, [[3, 2], [4]]);
+    checks.push(
+      'custom multi-rule publish, template isolation, actual 3+2 play, next-rule explanation and replay',
+    );
     assert.deepEqual(errors, []);
     fs.writeFileSync(
       path.join(out, 'browser-qa.json'),
       JSON.stringify({ ok: true, checks, summary, errors }, null, 2),
     );
     console.log(JSON.stringify({ ok: true, checks }));
+  } catch (error) {
+    if (debugGame) {
+      await debugGame
+        .screenshot({ path: path.join(out, 'game-integration-failure.png') })
+        .catch(() => {});
+      console.error(
+        'Game failure state:',
+        await debugGame
+          .evaluate(() => ({
+            screen: window.qaApp?.currentScreen,
+            modal: window.qaApp?.modal?.name,
+            networkBusy: window.qaApp?.networkBusy,
+            transition: window.qaApp?.levelTransition?.active,
+            stageChildren: window.qaApp?.stage?.children.map((node) => node.name),
+          }))
+          .catch(() => null),
+      );
+    }
+    throw error;
   } finally {
     await browser.close();
     server.close();

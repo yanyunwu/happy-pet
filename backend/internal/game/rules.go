@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-const RulesVersion = "pet-rules-1"
+const RulesVersion = "pet-rules-2"
 
 var Tools = []string{"undo", "shovel", "hint", "shuffle"}
 
@@ -19,8 +19,16 @@ type Layer struct {
 	Z     int    `json:"z"`
 	Cells []Cell `json:"cells"`
 }
+
+// Layout is reusable geometry, independent of rules, counts, tools, and rewards.
+type Layout struct {
+	Columns int     `json:"columns"`
+	Rows    int     `json:"rows"`
+	Layers  []Layer `json:"layers"`
+}
 type Config struct {
 	RulesVersion string         `json:"rulesVersion"`
+	Rules        [][]int        `json:"rules,omitempty"`
 	Mode         string         `json:"mode"`
 	Columns      int            `json:"columns"`
 	Rows         int            `json:"rows"`
@@ -54,6 +62,7 @@ type State struct {
 	Tools        map[string]int `json:"tools"`
 	History      []Frame        `json:"history,omitempty"`
 	RulesVersion string         `json:"rulesVersion"`
+	Rules        [][]int        `json:"rules,omitempty"`
 }
 type Action struct {
 	Seq    int    `json:"seq"`
@@ -76,13 +85,51 @@ func shuffle[T any](a []T, r *rng) {
 		a[i], a[j] = a[j], a[i]
 	}
 }
-func ValidMode(s string) bool { return s == "classic" || s == "quartet" || s == "fun" }
-func Validate(c Config) error {
-	if !ValidMode(c.Mode) || c.RulesVersion != RulesVersion {
-		return fmt.Errorf("规则或版本不支持")
+func ValidMode(s string) bool  { return s == "classic" || s == "quartet" || s == "fun" }
+func ValidEntry(s string) bool { return s == "standard" || s == "campaign" }
+
+func ValidateLayout(layout Layout) error {
+	if layout.Columns < 1 || layout.Columns > 6 || layout.Rows < 1 || layout.Rows > 8 || len(layout.Layers) < 1 || len(layout.Layers) > 8 {
+		return fmt.Errorf("棋盘为 1–6 列、1–8 行、1–8 层")
 	}
-	if c.Columns < 1 || c.Columns > 6 || c.Rows < 1 || c.Rows > 8 || c.Capacity != 7 || len(c.Layers) < 1 || len(c.Layers) > 8 {
-		return fmt.Errorf("棋盘为 1–6 列、1–8 行、1–8 层，收纳槽为 7 格")
+	count := 0
+	zs := map[int]bool{}
+	for _, layer := range layout.Layers {
+		if layer.Z < 0 || layer.Z > 7 || zs[layer.Z] || len(layer.Cells) == 0 {
+			return fmt.Errorf("层号必须唯一且为 0–7，每层至少一个格子")
+		}
+		zs[layer.Z] = true
+		count += len(layer.Cells)
+		if count > 192 {
+			return fmt.Errorf("布局总格子数为 3–192")
+		}
+		for i, p := range layer.Cells {
+			if p.X < 0 || p.Y < 0 || p.X > 2*(layout.Columns-1) || p.Y > 2*(layout.Rows-1) {
+				return fmt.Errorf("格子超出棋盘范围")
+			}
+			for _, q := range layer.Cells[:i] {
+				if abs(p.X-q.X) < 2 && abs(p.Y-q.Y) < 2 {
+					return fmt.Errorf("同层方块不可重叠")
+				}
+			}
+		}
+	}
+	if count < 3 {
+		return fmt.Errorf("布局总格子数为 3–192")
+	}
+	return nil
+}
+
+func Validate(c Config) error {
+	rules, err := CanonicalRules(c.Mode, c.RulesVersion, c.Rules)
+	if err != nil {
+		return err
+	}
+	if err := ValidateLayout(Layout{Columns: c.Columns, Rows: c.Rows, Layers: c.Layers}); err != nil {
+		return err
+	}
+	if c.Capacity != 7 {
+		return fmt.Errorf("收纳槽为 7 格")
 	}
 	if len(c.Counts) != 15 || c.RewardCoins < 0 || c.RewardCoins > 10000 {
 		return fmt.Errorf("需要 15 种萌宠数量，奖励为 0–10000 金币")
@@ -107,29 +154,14 @@ func Validate(c Config) error {
 		}
 	}
 	count := 0
-	zs := map[int]bool{}
 	for _, l := range c.Layers {
-		if l.Z < 0 || l.Z > 7 || zs[l.Z] || len(l.Cells) == 0 {
-			return fmt.Errorf("层号必须唯一且为 0–7，每层至少一个格子")
-		}
-		zs[l.Z] = true
-		for i, p := range l.Cells {
-			if p.X < 0 || p.Y < 0 || p.X > 2*(c.Columns-1) || p.Y > 2*(c.Rows-1) {
-				return fmt.Errorf("格子超出棋盘范围")
-			}
-			for _, q := range l.Cells[:i] {
-				if abs(p.X-q.X) < 2 && abs(p.Y-q.Y) < 2 {
-					return fmt.Errorf("同层方块不可重叠")
-				}
-			}
-			count++
-		}
+		count += len(l.Cells)
 	}
 	if sum != count {
 		return fmt.Errorf("格子共 %d 个，萌宠数量合计 %d 个，必须相等", count, sum)
 	}
-	if groups(c.Counts, c.Mode) == nil {
-		return fmt.Errorf("这些萌宠数量无法按当前规则全部消除")
+	if _, err := ruleGroups(c.Counts, rules); err != nil {
+		return err
 	}
 	return nil
 }
@@ -140,35 +172,7 @@ func abs(x int) int {
 	return x
 }
 func match(kinds []int, mode string) []int {
-	n := 3
-	if mode == "quartet" {
-		n = 4
-	}
-	order := []int{}
-	m := map[int][]int{}
-	for i, k := range kinds {
-		if len(m[k]) == 0 {
-			order = append(order, k)
-		}
-		m[k] = append(m[k], i)
-	}
-	for _, k := range order {
-		if len(m[k]) >= n {
-			return m[k][:n]
-		}
-	}
-	if mode == "fun" {
-		out := []int{}
-		for _, k := range order {
-			if len(m[k]) >= 2 {
-				out = append(out, m[k][:2]...)
-				if len(out) == 4 {
-					return out
-				}
-			}
-		}
-	}
-	return nil
+	return matchRules(kinds, defaultRules(mode))
 }
 func groups(counts []int, mode string) [][]int {
 	out := [][]int{}
@@ -292,6 +296,10 @@ func (s *State) Pick(id int) error {
 	if s.Status != "playing" || !s.Open(id) {
 		return fmt.Errorf("这个方块当前不可选择")
 	}
+	rules, err := CanonicalRules(s.Mode, s.RulesVersion, s.Rules)
+	if err != nil {
+		return err
+	}
 	s.History = append(s.History, cloneFrame(s.Frame))
 	if len(s.History) > 64 {
 		s.History = s.History[len(s.History)-64:]
@@ -312,7 +320,7 @@ func (s *State) Pick(id int) error {
 	for _, v := range s.Tray {
 		kinds = append(kinds, s.Tiles[v].Kind)
 	}
-	matched := match(kinds, s.Mode)
+	matched := matchRules(kinds, rules)
 	if len(matched) > 0 {
 		skip := map[int]bool{}
 		for _, i := range matched {
@@ -423,7 +431,8 @@ func NewBoard(c Config, seed uint32) (State, []int, error) {
 	if e := Validate(c); e != nil {
 		return State{}, nil, e
 	}
-	s := State{Frame: Frame{Tiles: []Tile{}, Tray: []int{}, Reserve: []int{}, Status: "playing"}, Mode: c.Mode, Capacity: c.Capacity, Tools: map[string]int{}, RulesVersion: RulesVersion}
+	rules, _ := CanonicalRules(c.Mode, c.RulesVersion, c.Rules)
+	s := State{Frame: Frame{Tiles: []Tile{}, Tray: []int{}, Reserve: []int{}, Status: "playing"}, Mode: c.Mode, Capacity: c.Capacity, Tools: map[string]int{}, RulesVersion: c.RulesVersion, Rules: rules}
 	for _, k := range Tools {
 		s.Tools[k] = c.FreeTools[k]
 	}
@@ -435,10 +444,22 @@ func NewBoard(c Config, seed uint32) (State, []int, error) {
 		}
 	}
 	r := &rng{seed}
-	seq := assign(s.Tiles, c.Counts, c.Mode, r)
+	seq, err := assignRules(s.Tiles, c.Counts, rules, r)
+	if err != nil {
+		return State{}, nil, err
+	}
+	if presetMode(rules) == "" {
+		if err := verifyWitness(s, seq); err != nil {
+			return State{}, nil, err
+		}
+	}
 	return s, seq, nil
 }
 func (s *State) reshuffle(seed uint32) error {
+	rules, err := CanonicalRules(s.Mode, s.RulesVersion, s.Rules)
+	if err != nil {
+		return err
+	}
 	ids := map[int]bool{}
 	for _, i := range s.Tray {
 		ids[i] = true
@@ -452,9 +473,12 @@ func (s *State) reshuffle(seed uint32) error {
 			counts[t.Kind]++
 		}
 	}
-	if groups(counts, s.Mode) == nil {
-		return fmt.Errorf("剩余数量无法成组，无法重排")
+	if _, err := ruleGroups(counts, rules); err != nil {
+		return err
 	}
+	candidate := *s
+	candidate.Frame = cloneFrame(s.Frame)
+	candidate.Rules = rules
 	type pos struct {
 		x, y float64
 		l    int
@@ -471,14 +495,23 @@ func (s *State) reshuffle(seed uint32) error {
 	shuffle(positions, r)
 	for n, id := range indices {
 		p := positions[n]
-		s.Tiles[id].X = p.x
-		s.Tiles[id].Y = p.y
-		s.Tiles[id].Layer = p.l
-		s.Tiles[id].Removed = false
+		candidate.Tiles[id].X = p.x
+		candidate.Tiles[id].Y = p.y
+		candidate.Tiles[id].Layer = p.l
+		candidate.Tiles[id].Removed = false
 	}
-	s.Tray = []int{}
-	s.Reserve = []int{}
-	s.History = nil
-	assign(s.Tiles, counts, s.Mode, r)
+	candidate.Tray = []int{}
+	candidate.Reserve = []int{}
+	candidate.History = nil
+	seq, err := assignRules(candidate.Tiles, counts, rules, r)
+	if err != nil {
+		return err
+	}
+	if presetMode(rules) == "" {
+		if err := verifyWitness(candidate, seq); err != nil {
+			return err
+		}
+	}
+	*s = candidate
 	return nil
 }

@@ -16,6 +16,14 @@ SELECT * FROM asset_ledger WHERE user_id=$1 AND request_key=$2;
 SELECT * FROM asset_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100;
 -- name: ListLevels :many
 SELECT * FROM levels ORDER BY entry,mode,ordinal;
+-- name: NextPlayableLevel :one
+SELECT l.* FROM levels l
+WHERE l.entry=sqlc.arg(entry) AND l.mode=sqlc.arg(mode) AND l.enabled AND l.published_revision IS NOT NULL
+AND ((l.entry='standard' AND l.ordinal>sqlc.arg(after_ordinal)::integer)
+ OR (l.entry='campaign' AND NOT EXISTS (
+  SELECT 1 FROM level_clears c WHERE c.user_id=sqlc.arg(user_id) AND c.level_id=l.id
+ )))
+ORDER BY l.ordinal LIMIT 1;
 -- name: GetLevel :one
 SELECT * FROM levels WHERE id=$1;
 -- name: LockLevel :one
@@ -69,3 +77,14 @@ AND (sqlc.arg(entry)::text='' OR s.entry=sqlc.arg(entry));
 INSERT INTO level_clears(user_id,level_id,session_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING;
 -- name: ListClears :many
 SELECT level_id FROM level_clears WHERE user_id=$1;
+-- name: ListLevelTemplates :many
+SELECT * FROM level_templates ORDER BY updated_at DESC,id;
+-- name: GetLevelTemplate :one
+SELECT * FROM level_templates WHERE id=$1;
+-- name: CreateLevelTemplate :one
+INSERT INTO level_templates(id,name,layout) VALUES($1,$2,$3) RETURNING *;
+-- name: UpdateLevelTemplate :one
+UPDATE level_templates SET name=$2,layout=$3,version=version+1,updated_at=now()
+WHERE id=$1 AND version=$4 RETURNING *;
+-- name: DeleteLevelTemplate :execrows
+DELETE FROM level_templates WHERE id=$1 AND version=$2;

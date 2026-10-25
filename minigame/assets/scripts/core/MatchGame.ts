@@ -32,6 +32,39 @@ export const MODES: Mode[] = [
     matchSize: 3,
   },
 ];
+export const defaultRules = (mode: ModeId): number[][] =>
+  mode === 'quartet' ? [[4]] : mode === 'fun' ? [[3], [2, 2]] : [[3]];
+export function canonicalRules(rules: number[][]): number[][] {
+  if (!Array.isArray(rules) || rules.length < 1 || rules.length > 6)
+    throw new Error('关卡需要 1–6 条消除规则');
+  const seen = new Set<string>();
+  return rules.map((pattern) => {
+    if (
+      !Array.isArray(pattern) ||
+      !pattern.length ||
+      pattern.some((n) => !Number.isInteger(n) || n < 1 || n > 7)
+    )
+      throw new Error('消除规则需要正整数');
+    const total = pattern.reduce((sum, n) => sum + n, 0);
+    if (total < 2 || total > CAPACITY) throw new Error('每条消除规则合计 2–7 个萌宠');
+    const next = pattern.slice().sort((a, b) => b - a),
+      key = next.join('+');
+    if (seen.has(key)) throw new Error('消除规则不可重复');
+    seen.add(key);
+    return next;
+  });
+}
+function presetRuleMode(rules: number[][]): ModeId | null {
+  return (
+    MODES.find((mode) => JSON.stringify(defaultRules(mode.id)) === JSON.stringify(rules))?.id ||
+    null
+  );
+}
+export function ruleDescription(pattern: number[]): string {
+  if (pattern.length === 1) return `${pattern[0]} 个相同萌宠`;
+  if (pattern.every((n) => n === pattern[0])) return `${pattern.length} 种萌宠各 ${pattern[0]} 个`;
+  return `${pattern.join(' + ')} · 每组是不同种类`;
+}
 export interface Tile {
   id: number;
   kind: number;
@@ -132,27 +165,46 @@ function removalOrder(tiles: Tile[], rng: () => number): number[] {
   return result;
 }
 /** The same matcher drives real picks, dealing, hints and difficulty simulation. */
-export function matchIndices(kinds: number[], mode: ModeId): number[] {
+export function matchIndices(kinds: number[], rule: ModeId | number[][]): number[] {
   const groups = new Map<number, number[]>();
   kinds.forEach((kind, index) => groups.set(kind, [...(groups.get(kind) || []), index]));
-  const size = mode === 'quartet' ? 4 : 3;
-  for (const indices of groups.values()) if (indices.length >= size) return indices.slice(0, size);
-  // Creator's loose Babel transform assumes spread operands are arrays.
-  // Explicitly materialize iterators so both web and WeChat exports agree.
-  if (mode === 'fun') {
-    const pairs = Array.from(groups.values()).filter((indices) => indices.length >= 2);
-    if (pairs.length >= 2) return [...pairs[0].slice(0, 2), ...pairs[1].slice(0, 2)];
+  const rules = typeof rule === 'string' ? defaultRules(rule) : rule;
+  const buckets = Array.from(groups.values());
+  for (const pattern of rules) {
+    const used = new Set<number>(),
+      matched: number[] = [];
+    const assign = (slot: number): boolean => {
+      if (slot === pattern.length) return true;
+      for (let kind = 0; kind < buckets.length; kind++) {
+        if (used.has(kind) || buckets[kind].length < pattern[slot]) continue;
+        used.add(kind);
+        const length = matched.length;
+        matched.push(...buckets[kind].slice(0, pattern[slot]));
+        if (assign(slot + 1)) return true;
+        matched.length = length;
+        used.delete(kind);
+      }
+      return false;
+    };
+    if (assign(0)) return matched.sort((a, b) => a - b);
   }
   return [];
 }
-function afterPick(held: number[], kind: number, mode: ModeId): number[] {
+function afterPick(held: number[], kind: number, mode: ModeId | number[][]): number[] {
   const all = [...held, kind],
     matched = matchIndices(all, mode);
   return all.filter((_, i) => !matched.includes(i));
 }
 /** Partition into valid groups. In fun mode AAA + BBB can become AABB + AB;
  * that remainder cannot be repaired by permuting cards. Never invent/discard it. */
-function groupsForCounts(counts: number[], mode: ModeId, rng?: () => number): number[][] | null {
+function groupsForCounts(
+  counts: number[],
+  rule: ModeId | number[][],
+  rng?: () => number,
+): number[][] | null {
+  const rules = typeof rule === 'string' ? defaultRules(rule) : rule;
+  const mode = presetRuleMode(rules);
+  if (!mode) return customGroups(counts, rules);
   const size = mode === 'quartet' ? 4 : 3,
     result: number[][] = [];
   if (mode !== 'fun') {
@@ -193,9 +245,99 @@ function groupsForCounts(counts: number[], mode: ModeId, rng?: () => number): nu
   }
   return result;
 }
+
+function triggerablePatterns(rules: number[][]): { pattern: number[]; order: number[] }[] {
+  return rules.flatMap((pattern) => {
+    const used = pattern.map(() => 0),
+      order: number[] = [],
+      bad = new Set<string>();
+    const total = pattern.reduce((sum, n) => sum + n, 0);
+    const search = (): boolean => {
+      const matched = matchIndices(order, rules);
+      if (order.length === total) return matched.length === total;
+      if (matched.length) return false;
+      const key = used.join(',');
+      if (bad.has(key)) return false;
+      for (let kind = 0; kind < pattern.length; kind++) {
+        if (used[kind] >= pattern[kind]) continue;
+        used[kind]++;
+        order.push(kind);
+        if (search()) return true;
+        order.pop();
+        used[kind]--;
+      }
+      bad.add(key);
+      return false;
+    };
+    return search() ? [{ pattern, order }] : [];
+  });
+}
+
+/** Each decomposed group uses a real triggering order, including rule priority. */
+function customGroups(counts: number[], rules: number[][], budget = 50000): number[][] | null {
+  const plans = triggerablePatterns(rules);
+  const remaining = counts.slice(),
+    bad = new Set<string>(),
+    result: number[][] = [];
+  const search = (): boolean => {
+    if (--budget < 0) return false;
+    const anchor = remaining.findIndex((n) => n > 0);
+    if (anchor < 0) return true;
+    const key = remaining
+      .slice()
+      .sort((a, b) => a - b)
+      .join(',');
+    if (bad.has(key)) return false;
+    for (const { pattern, order } of plans) {
+      const seenAnchor = new Set<number>();
+      for (let anchorSlot = 0; anchorSlot < pattern.length; anchorSlot++) {
+        const amount = pattern[anchorSlot];
+        if (seenAnchor.has(amount) || remaining[anchor] < amount) continue;
+        seenAnchor.add(amount);
+        const chosen = Array<number>(pattern.length).fill(-1),
+          used = new Set([anchor]);
+        chosen[anchorSlot] = anchor;
+        const assign = (slot: number): boolean => {
+          if (--budget < 0) return false;
+          if (slot === pattern.length) {
+            chosen.forEach((kind, i) => {
+              remaining[kind] -= pattern[i];
+            });
+            result.push(order.map((slot) => chosen[slot]));
+            if (search()) return true;
+            result.pop();
+            chosen.forEach((kind, i) => {
+              remaining[kind] += pattern[i];
+            });
+            return false;
+          }
+          if (slot === anchorSlot) return assign(slot + 1);
+          const seenCounts = new Set<number>();
+          for (let kind = 0; kind < remaining.length; kind++) {
+            const amount = remaining[kind];
+            if (used.has(kind) || amount < pattern[slot] || seenCounts.has(amount)) continue;
+            seenCounts.add(amount);
+            used.add(kind);
+            chosen[slot] = kind;
+            if (assign(slot + 1)) return true;
+            used.delete(kind);
+            if (budget < 0) return false;
+          }
+          return false;
+        };
+        if (assign(0)) return true;
+        if (budget < 0) return false;
+      }
+    }
+    bad.add(key);
+    return false;
+  };
+  return search() ? result : null;
+}
 export class MatchGame {
   readonly level: Level;
   readonly mode: Mode;
+  rules: number[][] = [[3]];
   readonly seed: number;
   tiles: Tile[] = [];
   tray: number[] = [];
@@ -229,8 +371,17 @@ export class MatchGame {
     return g;
   }
   applyCloud(state: CloudState): void {
-    if (state.rulesVersion !== 'pet-rules-1' || state.capacity !== CAPACITY)
+    if (!['pet-rules-1', 'pet-rules-2'].includes(state.rulesVersion) || state.capacity !== CAPACITY)
       throw new Error('当前版本不支持该关卡规则');
+    const rules = canonicalRules(
+      state.rules || (state.rulesVersion === 'pet-rules-1' ? defaultRules(state.mode) : []),
+    );
+    if (
+      state.rulesVersion === 'pet-rules-1' &&
+      JSON.stringify(rules) !== JSON.stringify(defaultRules(state.mode))
+    )
+      throw new Error('旧版本不支持自定义消除规则');
+    this.rules = rules;
     this.tiles = state.tiles.map((t) => ({ ...t }));
     this.tray = state.tray.slice();
     this.reserve = state.reserve.slice();
@@ -254,6 +405,7 @@ export class MatchGame {
   private rng: () => number;
   constructor(levelId: number, seed: number = Date.now(), modeId: ModeId = 'classic') {
     this.mode = MODES.find((m) => m.id === modeId) || MODES[0];
+    this.rules = defaultRules(this.mode.id);
     this.level = { ...(LEVELS[levelId - 1] || LEVELS[0]) };
     this.seed = seed >>> 0;
     this.rng = randomSource(this.seed);
@@ -470,7 +622,7 @@ export class MatchGame {
     const displayTray = this.tray.slice(),
       matched = matchIndices(
         this.tray.map((tid) => this.tiles[tid].kind),
-        this.mode.id,
+        this.rules,
       ).map((i) => this.tray[i]);
     if (matched.length) {
       this.tray = this.tray.filter((tid) => !matched.includes(tid));
@@ -515,7 +667,7 @@ export class MatchGame {
     );
     const counts = Array(this.level.kinds).fill(0) as number[];
     unmatched.forEach((t) => counts[t.kind]++);
-    const groups = groupsForCounts(counts, this.mode.id);
+    const groups = groupsForCounts(counts, this.rules);
     if (!groups) return false;
     unmatched.forEach((tile) => (tile.removed = false));
     this.tray = [];
@@ -540,6 +692,8 @@ export class MatchGame {
   }
   hint(): number[] {
     if (this.status !== 'playing' || this.hintLeft < 1) return [];
+    const preset = presetRuleMode(this.rules);
+    if (!preset) return this.customHint();
     const open = this.availableTiles(),
       held = this.tray.map((id) => this.tiles[id].kind),
       counts = Array(this.level.kinds).fill(0) as number[];
@@ -548,14 +702,15 @@ export class MatchGame {
       .forEach((t) => counts[t.kind]++);
     const candidates: number[][] = [],
       options: number[][] = [];
-    for (let k = 0; k < this.level.kinds; k++) candidates.push(Array(this.mode.matchSize).fill(k));
-    if (this.mode.id === 'fun')
+    for (let k = 0; k < this.level.kinds; k++)
+      candidates.push(Array(preset === 'quartet' ? 4 : 3).fill(k));
+    if (preset === 'fun')
       for (let a = 0; a < this.level.kinds; a++)
         for (let b = a + 1; b < this.level.kinds; b++) candidates.push([a, a, b, b]);
     for (const group of candidates) {
       const rest = counts.slice();
       group.forEach((k) => rest[k]--);
-      if (rest.some((n) => n < 0) || !groupsForCounts(rest, this.mode.id)) continue;
+      if (rest.some((n) => n < 0) || !groupsForCounts(rest, this.rules)) continue;
       const ids: number[] = [];
       let enough = true;
       for (const k of Array.from(new Set(group))) {
@@ -572,7 +727,7 @@ export class MatchGame {
       }
       let pending = held.slice();
       for (const id of ids) {
-        pending = afterPick(pending, this.tiles[id].kind, this.mode.id);
+        pending = afterPick(pending, this.tiles[id].kind, this.rules);
         if (pending.length >= CAPACITY) enough = false;
       }
       if (enough && ids.length) options.push(ids);
@@ -580,7 +735,7 @@ export class MatchGame {
     options.sort((a, b) => a.length - b.length);
     let ids = options[0];
     if (!ids) {
-      const safe = open.filter((t) => afterPick(held, t.kind, this.mode.id).length < CAPACITY);
+      const safe = open.filter((t) => afterPick(held, t.kind, this.rules).length < CAPACITY);
       safe.sort(
         (a, b) => held.filter((k) => k === b.kind).length - held.filter((k) => k === a.kind).length,
       );
@@ -588,5 +743,85 @@ export class MatchGame {
     }
     if (ids.length) this.hintLeft--;
     return ids;
+  }
+  private customHint(): number[] {
+    const open = this.availableTiles(),
+      held = this.tray.map((id) => this.tiles[id].kind);
+    let budget = 3000;
+    const options: { ids: number[]; rest: number[] }[] = [],
+      seen = new Set<string>();
+    const counts = Array<number>(this.level.kinds).fill(0);
+    this.tiles
+      .filter(
+        (tile) => !tile.removed || this.tray.includes(tile.id) || this.reserve.includes(tile.id),
+      )
+      .forEach((tile) => counts[tile.kind]++);
+    const kinds = Array.from(new Set([...held, ...open.map((tile) => tile.kind)]));
+    for (const { pattern, order } of triggerablePatterns(this.rules)) {
+      const used = new Set<number>();
+      const chosen: number[] = [];
+      const find = (slot: number): void => {
+        if (--budget < 0 || options.length >= 48) return;
+        if (slot === pattern.length) {
+          const heldLeft = counts.map((_, kind) => held.filter((k) => k === kind).length);
+          const available = new Map(
+            kinds.map((kind) => [
+              kind,
+              open.filter((tile) => tile.kind === kind).map((tile) => tile.id),
+            ]),
+          );
+          const ids: number[] = [];
+          for (const item of order) {
+            const kind = chosen[item];
+            if (heldLeft[kind]) heldLeft[kind]--;
+            else ids.push(available.get(kind)!.shift()!);
+          }
+          if (!ids.length || seen.has(ids.join(','))) return;
+          seen.add(ids.join(','));
+          let pending = held.slice(),
+            cleared = false;
+          for (const id of ids) {
+            const next = afterPick(pending, this.tiles[id].kind, this.rules);
+            cleared ||= next.length < pending.length + 1;
+            pending = next;
+            if (pending.length >= CAPACITY) return;
+          }
+          if (cleared) {
+            const rest = counts.slice();
+            [...held, ...ids.map((id) => this.tiles[id].kind)].forEach((kind) => rest[kind]--);
+            pending.forEach((kind) => rest[kind]++);
+            options.push({ ids, rest });
+          }
+          return;
+        }
+        for (const kind of kinds) {
+          if (used.has(kind)) continue;
+          const needed = Math.max(0, pattern[slot] - held.filter((k) => k === kind).length);
+          const choices = open.filter((tile) => tile.kind === kind).slice(0, needed);
+          if (choices.length < needed) continue;
+          used.add(kind);
+          chosen[slot] = kind;
+          find(slot + 1);
+          used.delete(kind);
+          if (budget < 0) return;
+        }
+      };
+      find(0);
+    }
+    options.sort((a, b) => a.ids.length - b.ids.length);
+    let best =
+      options.find((option) => customGroups(option.rest, this.rules, 2000) !== null)?.ids || [];
+    if (!best.length) {
+      const safe = open.filter((tile) => afterPick(held, tile.kind, this.rules).length < CAPACITY);
+      safe.sort(
+        (a, b) =>
+          held.filter((kind) => kind === b.kind).length -
+          held.filter((kind) => kind === a.kind).length,
+      );
+      best = safe.length ? [safe[0].id] : [];
+    }
+    if (best.length) this.hintLeft--;
+    // Custom combinations can require an order; highlight only the next safe tile.
+    return best.slice(0, 1);
   }
 }

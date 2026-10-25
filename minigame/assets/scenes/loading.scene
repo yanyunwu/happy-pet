@@ -588,7 +588,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 36,
-      "height": 75.60000000000001
+      "height": 37.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -617,13 +617,13 @@
       "b": 179,
       "a": 255
     },
-    "_string": "·",
+    "_string": "•",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 46,
-    "_fontSize": 46,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Microsoft YaHei",
-    "_lineHeight": 67,
+    "_lineHeight": 32,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -702,7 +702,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 36,
-      "height": 75.60000000000001
+      "height": 37.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -731,13 +731,13 @@
       "b": 179,
       "a": 255
     },
-    "_string": "·",
+    "_string": "•",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 46,
-    "_fontSize": 46,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Microsoft YaHei",
-    "_lineHeight": 67,
+    "_lineHeight": 32,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -816,7 +816,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 36,
-      "height": 75.60000000000001
+      "height": 37.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -845,13 +845,13 @@
       "b": 179,
       "a": 255
     },
-    "_string": "·",
+    "_string": "•",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 46,
-    "_fontSize": 46,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Microsoft YaHei",
-    "_lineHeight": 67,
+    "_lineHeight": 32,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,

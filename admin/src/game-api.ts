@@ -1,12 +1,14 @@
 import { request } from './api';
 export type Mode = 'classic' | 'quartet' | 'fun';
 export type Entry = 'standard' | 'campaign';
-export const entryNames: Record<Entry, string> = { standard: '首页玩法', campaign: '闯关模式' };
+export const entryNames: Record<Entry, string> = { standard: '挑战模式', campaign: '闯关模式' };
 export const modeNames: Record<Mode, string> = {
   classic: '经典三消',
   quartet: '极限四消',
   fun: '趣味规则消',
 };
+export const defaultRules = (mode: Mode): number[][] =>
+  mode === 'quartet' ? [[4]] : mode === 'fun' ? [[3], [2, 2]] : [[3]];
 export const petNames = [
   '鼠',
   '牛',
@@ -49,12 +51,22 @@ export interface Cell {
   x: number;
   y: number;
 }
-export interface Config {
-  rulesVersion: string;
-  mode: Mode;
+export interface BoardLayout {
   columns: number;
   rows: number;
   layers: { z: number; cells: Cell[] }[];
+}
+export interface LayoutTemplate {
+  id: string;
+  name: string;
+  layout: BoardLayout;
+  version: number;
+  updatedAt: string;
+}
+export interface Config extends BoardLayout {
+  rulesVersion: string;
+  mode: Mode;
+  rules?: number[][];
   counts: number[];
   capacity: number;
   freeTools: Record<string, number>;
@@ -62,6 +74,7 @@ export interface Config {
 }
 export interface Level {
   id: string;
+  entry: Entry;
   mode: Mode;
   ordinal: number;
   title: string;
@@ -91,6 +104,7 @@ export interface BoardState {
   capacity: number;
   mode: Mode;
   rulesVersion: string;
+  rules?: number[][];
 }
 export interface Action {
   seq: number;
@@ -147,6 +161,7 @@ export const gameApi = {
     request<Level>(l.id ? `/admin/levels/${l.id}` : '/admin/levels', {
       method: l.id ? 'PUT' : 'POST',
       body: body({
+        entry: l.entry,
         mode: l.mode,
         ordinal: l.ordinal,
         title: l.title,
@@ -163,6 +178,19 @@ export const gameApi = {
     request(`/admin/levels/${id}/enabled`, { method: 'POST', body: body({ enabled }) }),
   preview: (config: Config, seed: number) =>
     request<BoardState>('/admin/levels/preview', { method: 'POST', body: body({ config, seed }) }),
+  templates: () => request<LayoutTemplate[]>('/admin/level-templates'),
+  saveTemplate: (template: LayoutTemplate) =>
+    request<LayoutTemplate>(
+      template.id ? `/admin/level-templates/${template.id}` : '/admin/level-templates',
+      {
+        method: template.id ? 'PUT' : 'POST',
+        body: body({ name: template.name, layout: template.layout, version: template.version }),
+      },
+    ),
+  deleteTemplate: (template: LayoutTemplate) =>
+    request(`/admin/level-templates/${template.id}?version=${template.version}`, {
+      method: 'DELETE',
+    }),
   sessions: (query: Record<string, string | number>) =>
     request<{ items: Session[]; total: number; page: number; pageSize: number }>(
       `/admin/sessions?${new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)]))}`,

@@ -190,6 +190,7 @@ func (s *Service) Ledger(ctx context.Context, id string) ([]map[string]any, erro
 
 type LevelView struct {
 	ID           string    `json:"id"`
+	Entry        string    `json:"entry"`
 	Mode         string    `json:"mode"`
 	Ordinal      int32     `json:"ordinal"`
 	Title        string    `json:"title"`
@@ -201,7 +202,7 @@ type LevelView struct {
 }
 
 func levelView(l dbgen.Level) LevelView {
-	v := LevelView{ID: l.ID, Mode: l.Mode, Ordinal: l.Ordinal, Title: l.Title, DraftVersion: l.DraftVersion, RevisionID: l.PublishedRevision.String, Enabled: l.Enabled, UpdatedAt: l.UpdatedAt}
+	v := LevelView{ID: l.ID, Entry: l.Entry, Mode: l.Mode, Ordinal: l.Ordinal, Title: l.Title, DraftVersion: l.DraftVersion, RevisionID: l.PublishedRevision.String, Enabled: l.Enabled, UpdatedAt: l.UpdatedAt}
 	_ = json.Unmarshal(l.Draft, &v.Config)
 	return v
 }
@@ -209,9 +210,6 @@ func (s *Service) Levels(ctx context.Context, public bool) ([]LevelView, error) 
 	ls, e := s.Q.ListLevels(ctx)
 	out := []LevelView{}
 	for _, l := range ls {
-		if l.Entry != "campaign" {
-			continue
-		}
 		if public {
 			if !l.Enabled || !l.PublishedRevision.Valid {
 				continue
@@ -229,6 +227,7 @@ func (s *Service) Levels(ctx context.Context, public bool) ([]LevelView, error) 
 }
 
 type DraftInput struct {
+	Entry        string `json:"entry"`
 	Mode         string `json:"mode"`
 	Ordinal      int32  `json:"ordinal"`
 	Title        string `json:"title"`
@@ -237,9 +236,17 @@ type DraftInput struct {
 }
 
 func (s *Service) SaveLevel(ctx context.Context, id string, in DraftInput) (LevelView, error) {
-	if !ValidMode(in.Mode) || in.Ordinal < 1 || in.Ordinal > 9999 || len(in.Title) > 180 || strings.TrimSpace(in.Title) == "" || in.Config.Mode != in.Mode {
+	if in.Entry == "" {
+		in.Entry = "campaign"
+	}
+	if !ValidEntry(in.Entry) || !ValidMode(in.Mode) || in.Ordinal < 1 || len(in.Title) > 180 || strings.TrimSpace(in.Title) == "" || in.Config.Mode != in.Mode {
 		return LevelView{}, users.Invalid("请检查关卡名称、模式和序号")
 	}
+	rules, err := CanonicalRules(in.Config.Mode, in.Config.RulesVersion, in.Config.Rules)
+	if err != nil {
+		return LevelView{}, invalid(err)
+	}
+	in.Config.Rules = rules
 	// Drafts may have unmatched counts while the designer paints. Structure size is bounded.
 	if len(raw(in.Config)) > 60000 || len(in.Config.Layers) > 8 || len(in.Config.Counts) > 15 {
 		return LevelView{}, users.Invalid("关卡配置过大")
@@ -247,17 +254,14 @@ func (s *Service) SaveLevel(ctx context.Context, id string, in DraftInput) (Leve
 	var l dbgen.Level
 	var e error
 	if id == "" {
-		l, e = s.Q.CreateLevel(ctx, dbgen.CreateLevelParams{ID: users.NewID(), Mode: in.Mode, Ordinal: in.Ordinal, Title: in.Title, Draft: raw(in.Config), Entry: "campaign"})
+		l, e = s.Q.CreateLevel(ctx, dbgen.CreateLevelParams{ID: users.NewID(), Mode: in.Mode, Ordinal: in.Ordinal, Title: in.Title, Draft: raw(in.Config), Entry: in.Entry})
 	} else {
 		old, err := s.Q.GetLevel(ctx, id)
 		if err != nil {
 			return LevelView{}, missing(err)
 		}
-		if old.Mode != in.Mode || old.Ordinal != in.Ordinal {
-			return LevelView{}, users.Invalid("已建关卡的模式和序号不能修改，请新建关卡")
-		}
-		if old.Entry != "campaign" {
-			return LevelView{}, users.Invalid("首页三种玩法使用固定双关配置")
+		if old.Entry != in.Entry || old.Mode != in.Mode || old.Ordinal != in.Ordinal {
+			return LevelView{}, users.Invalid("已建关卡的入口、规则和序号不能修改，请新建关卡")
 		}
 		l, e = s.Q.SaveDraft(ctx, dbgen.SaveDraftParams{ID: id, Title: in.Title, Draft: raw(in.Config), DraftVersion: in.DraftVersion})
 		if errors.Is(e, sql.ErrNoRows) {
@@ -265,7 +269,7 @@ func (s *Service) SaveLevel(ctx context.Context, id string, in DraftInput) (Leve
 		}
 	}
 	if e != nil {
-		return LevelView{}, conflict("保存失败，请检查同一模式下是否已有该关卡序号")
+		return LevelView{}, conflict("保存失败，请检查同一入口和规则下是否已有该关卡序号")
 	}
 	return levelView(l), nil
 }
@@ -282,9 +286,6 @@ func (s *Service) Publish(ctx context.Context, id, actor string, version int32) 
 	}
 	if l.DraftVersion != version {
 		return LevelView{}, conflict("草稿版本已变化，请刷新")
-	}
-	if l.Entry != "campaign" {
-		return LevelView{}, users.Invalid("首页三种玩法使用固定双关配置")
 	}
 	c := levelView(l).Config
 	if e = Validate(c); e != nil {
@@ -326,9 +327,6 @@ func (s *Service) Enabled(ctx context.Context, id string, enabled bool) error {
 	if e != nil {
 		return missing(e)
 	}
-	if l.Entry != "campaign" {
-		return users.Invalid("首页三种玩法使用固定双关配置")
-	}
 	if enabled && !l.PublishedRevision.Valid {
 		return users.Invalid("请先发布有效版本")
 	}
@@ -344,20 +342,13 @@ func Seed(ctx context.Context, db *sql.DB) error {
 		return e
 	}
 	q := dbgen.New(tx)
-	existing, e := q.ListLevels(ctx)
-	if e != nil {
-		return e
-	}
-	hasCampaign := false
-	known := map[string]bool{}
-	for _, l := range existing {
-		known[l.ID] = true
-		if l.Entry == "campaign" {
-			hasCampaign = true
-		}
-	}
 	for _, entry := range []string{"standard", "campaign"} {
-		if entry == "campaign" && hasCampaign {
+		key := "level_catalog:" + entry
+		initialized, err := q.HasSystemInitialization(ctx, key)
+		if err != nil {
+			return err
+		}
+		if initialized {
 			continue
 		}
 		for _, mode := range []string{"classic", "quartet", "fun"} {
@@ -366,9 +357,6 @@ func Seed(ctx context.Context, db *sql.DB) error {
 				id := fmt.Sprintf("%s-%d", mode, stage)
 				if entry == "standard" {
 					id = "standard-" + id
-				}
-				if known[id] {
-					continue
 				}
 				title := []string{"新手乐园", "高手挑战"}[stage-1]
 				_, e = q.CreateLevel(ctx, dbgen.CreateLevelParams{ID: id, Mode: mode, Ordinal: int32(stage), Title: title, Draft: raw(c), Entry: entry})
@@ -384,11 +372,14 @@ func Seed(ctx context.Context, db *sql.DB) error {
 				}
 			}
 		}
+		if e = q.RecordSystemInitialization(ctx, key); e != nil {
+			return e
+		}
 	}
 	return tx.Commit()
 }
 func DefaultConfig(mode string, stage int) Config {
-	c := Config{RulesVersion: RulesVersion, Mode: mode, Columns: 6, Rows: 8, Counts: make([]int, 15), Capacity: 7, FreeTools: map[string]int{"undo": 1, "shovel": 1, "hint": 3, "shuffle": 1}, RewardCoins: 30, Layers: []Layer{}}
+	c := Config{RulesVersion: RulesVersion, Rules: defaultRules(mode), Mode: mode, Columns: 6, Rows: 8, Counts: make([]int, 15), Capacity: 7, FreeTools: map[string]int{"undo": 1, "shovel": 1, "hint": 3, "shuffle": 1}, RewardCoins: 30, Layers: []Layer{}}
 	add := func(z, cols, rows, x, y, dy int) {
 		l := Layer{Z: z, Cells: []Cell{}}
 		for row := 0; row < rows; row++ {

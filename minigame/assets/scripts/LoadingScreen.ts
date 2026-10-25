@@ -43,8 +43,8 @@ export class LoadingScreen extends Component {
         .delay(i * 0.16)
         .repeatForever(
           tween()
-            .to(0.34, { position: new Vec3(330 + i * 30, -1213) })
-            .to(0.34, { position: new Vec3(330 + i * 30, -1205) })
+            .to(0.3, { position: new Vec3(330 + i * 30, -1211) }, { easing: 'sineOut' })
+            .to(0.38, { position: new Vec3(330 + i * 30, -1205) }, { easing: 'sineIn' })
             .delay(0.32),
         )
         .start();

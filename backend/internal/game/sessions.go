@@ -53,7 +53,7 @@ func (s *Service) Start(ctx context.Context, user string, in StartInput) (Sessio
 	if in.Entry == "" {
 		in.Entry = "campaign"
 	}
-	if in.Entry != "standard" && in.Entry != "campaign" {
+	if !ValidEntry(in.Entry) {
 		return SessionView{}, users.Invalid("无效的玩法入口")
 	}
 	if !ValidMode(in.Mode) || !keyPattern.MatchString(in.RequestID) {
@@ -93,20 +93,12 @@ func (s *Service) Start(ctx context.Context, user string, in StartInput) (Sessio
 		after = prev.Ordinal
 		campaign = prev.CampaignID
 	}
-	levels, e := q.ListLevels(ctx)
+	target, e := q.NextPlayableLevel(ctx, dbgen.NextPlayableLevelParams{Entry: in.Entry, Mode: in.Mode, AfterOrdinal: after, UserID: user})
+	if errors.Is(e, sql.ErrNoRows) {
+		return SessionView{}, &users.Error{Status: 404, Code: "CAMPAIGN_COMPLETE", Message: "当前模式的关卡已全部完成"}
+	}
 	if e != nil {
 		return SessionView{}, e
-	}
-	var target *dbgen.Level
-	for _, l := range levels {
-		if l.Entry == in.Entry && l.Mode == in.Mode && l.Enabled && l.PublishedRevision.Valid && l.Ordinal > after {
-			copy := l
-			target = &copy
-			break
-		}
-	}
-	if target == nil {
-		return SessionView{}, &users.Error{Status: 404, Code: "CAMPAIGN_COMPLETE", Message: "当前模式的关卡已全部完成"}
 	}
 	revision, e := q.GetRevision(ctx, target.PublishedRevision.String)
 	if e != nil {
@@ -160,9 +152,11 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 	if e = json.Unmarshal(session.State, &state); e != nil {
 		return EventResult{}, e
 	}
-	if state.RulesVersion != RulesVersion {
+	rules, err := CanonicalRules(state.Mode, state.RulesVersion, state.Rules)
+	if err != nil {
 		return EventResult{}, conflict("该对局需要对应的规则版本")
 	}
+	state.Rules = rules
 	lastAt := int64(0)
 	if session.LastSeq > 0 {
 		event, err := q.GetEvent(ctx, dbgen.GetEventParams{SessionID: id, Seq: session.LastSeq})
@@ -297,15 +291,11 @@ func (s *Service) Finish(ctx context.Context, user, id, outcome string) (FinishR
 	}
 	next := false
 	if outcome == "won" {
-		levels, err := q.ListLevels(ctx)
-		if err != nil {
+		_, err := q.NextPlayableLevel(ctx, dbgen.NextPlayableLevelParams{Entry: row.Entry, Mode: row.Mode, AfterOrdinal: row.Ordinal, UserID: user})
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return FinishResult{}, err
 		}
-		for _, l := range levels {
-			if l.Entry == row.Entry && l.Mode == row.Mode && l.Ordinal > row.Ordinal && l.Enabled && l.PublishedRevision.Valid {
-				next = true
-			}
-		}
+		next = err == nil
 	}
 	return FinishResult{outcome, row.RewardCoins, next, assets(a)}, tx.Commit()
 }

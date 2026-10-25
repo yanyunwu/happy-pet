@@ -44,6 +44,17 @@ export function skin(
 ): Node {
   const frame = skins.get(key);
   if (!frame) throw new Error(`Missing UI skin: ${key}`);
+  if (sliced && h > 0 && frame.originalSize.width > frame.originalSize.height) {
+    // Preserve every source row of a horizontal wooden skin. Compressing a
+    // nine-slice directly to a short button can collapse its middle rows.
+    // The unscaled host keeps text, click bounds and press animation unchanged.
+    const host = node(parent, name, x, y, w, h);
+    const scale = h / frame.originalSize.height;
+    const graphic = sprite(host, 'SkinGraphic', frame, 0, 0, w / scale, frame.originalSize.height);
+    graphic.getComponent(Sprite)!.type = Sprite.Type.SLICED;
+    graphic.setScale(scale, scale, 1);
+    return host;
+  }
   const n = sprite(parent, name, frame, x, y, w, h);
   n.getComponent(Sprite)!.type = sliced ? Sprite.Type.SLICED : Sprite.Type.SIMPLE;
   return n;
@@ -190,7 +201,7 @@ export function button(
       primary ? '#3B562D' : '#9A4D25',
     );
   n.on(Node.EventType.TOUCH_START, () => {
-    n.setScale(0.96, 0.96, 1);
+    n.setScale(0.985, 0.985, 1);
   });
   n.on(Node.EventType.TOUCH_CANCEL, () => {
     n.setScale(1, 1, 1);
@@ -220,6 +231,22 @@ export function star(
   }
   g.close();
   g.fill();
+  return n;
+}
+export function leaf(parent: Node, x: number, y: number, radius: number, tint: string): Node {
+  const n = node(parent, 'LeafParticle', x, y, radius * 2, radius * 2);
+  const g = n.addComponent(Graphics);
+  g.fillColor = color(tint);
+  g.moveTo(-radius, 0);
+  g.bezierCurveTo(-radius * 0.45, radius * 0.9, radius * 0.6, radius * 0.8, radius, 0);
+  g.bezierCurveTo(radius * 0.45, -radius * 0.7, -radius * 0.6, -radius * 0.7, -radius, 0);
+  g.close();
+  g.fill();
+  g.strokeColor = color('#586D39', 120);
+  g.lineWidth = 1;
+  g.moveTo(-radius * 0.75, 0);
+  g.lineTo(radius * 0.72, 0);
+  g.stroke();
   return n;
 }
 export function line(
@@ -356,11 +383,11 @@ export function icon(
   return n;
 }
 export function pop(n: Node, delay = 0): void {
-  n.setScale(0.9, 0.9, 1);
+  n.setScale(0.965, 0.965, 1);
   const o = opacity(n, 0);
   tween(n)
     .delay(delay)
-    .to(0.32, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' })
+    .to(0.25, { scale: new Vec3(1, 1, 1) }, { easing: 'cubicOut' })
     .start();
   tween(o).delay(delay).to(0.2, { opacity: 255 }).start();
 }

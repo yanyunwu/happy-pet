@@ -82,6 +82,14 @@ type LevelRevision struct {
 	Title     string
 }
 
+type LevelTemplate struct {
+	ID        string
+	Name      string
+	Layout    json.RawMessage
+	Version   int32
+	UpdatedAt time.Time
+}
+
 type PlayerAsset struct {
 	UserID      string
 	Coins       int64
@@ -99,6 +107,14 @@ type SchemaMigration struct {
 	Name      string
 	Checksum  string
 	AppliedAt time.Time
+}
+
+// 系统初始化记录表
+type SystemInitialization struct {
+	// 初始化任务唯一标识，使用业务前缀，例如 level_catalog:standard
+	InitKey string
+	// 初始化记录写入时间
+	RecordedAt time.Time
 }
 
 type User struct {
