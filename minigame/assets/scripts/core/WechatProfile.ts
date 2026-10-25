@@ -5,8 +5,18 @@ export interface ProfileRect {
   height: number;
 }
 
-interface WechatProfileResult {
+export interface WechatUserProfile {
+  avatarUrl: string;
+  nickName: string;
+}
+
+interface WechatProfileFailure {
   errMsg?: string;
+  errno?: number;
+  errCode?: number;
+}
+
+interface WechatProfileResult extends WechatProfileFailure {
   userInfo?: { avatarUrl?: string; nickName?: string };
 }
 
@@ -21,6 +31,20 @@ interface NativeProfileButton {
 }
 
 interface WechatProfileAPI {
+  getPrivacySetting?: (options: {
+    success: (result: { needAuthorization: boolean }) => void;
+    fail: (result?: WechatProfileFailure) => void;
+  }) => void;
+  getSetting?: (options: {
+    success: (result: { authSetting?: { 'scope.userInfo'?: boolean } }) => void;
+    fail: (result?: WechatProfileFailure) => void;
+  }) => void;
+  getUserInfo?: (options: {
+    withCredentials: false;
+    lang: 'zh_CN';
+    success: (result: WechatProfileResult) => void;
+    fail: (result?: WechatProfileFailure) => void;
+  }) => void;
   createUserInfoButton?: (options: {
     type: 'text';
     text: string;
@@ -39,6 +63,41 @@ interface WechatProfileAPI {
 }
 
 declare const wx: WechatProfileAPI | undefined;
+
+function hasWechatFailure(result?: WechatProfileFailure): boolean {
+  return (
+    [result?.errno, result?.errCode].some(
+      (code) => typeof code === 'number' && Number.isFinite(code) && code !== 0,
+    ) ||
+    (typeof result?.errMsg === 'string' && !!result.errMsg && !result.errMsg.endsWith(':ok'))
+  );
+}
+
+function wechatFailureMessage(stage: string, result?: WechatProfileFailure): string {
+  const errMsg = typeof result?.errMsg === 'string' ? result.errMsg.slice(0, 320) : '';
+  const errno = typeof result?.errno === 'number' ? result.errno : undefined;
+  const errCode = typeof result?.errCode === 'number' ? result.errCode : undefined;
+  const privacyUnavailable =
+    [errno, errCode].some((code) => code === 112 || code === 1025 || code === 1026) ||
+    /announce your privacy usage/i.test(errMsg);
+  // Keep the platform cause, never the response object (which can contain personal data).
+  console.warn(
+    '[pet-profile] 微信接口失败',
+    JSON.stringify({
+      stage,
+      errno,
+      errCode,
+      errMsg,
+      action: privacyUnavailable
+        ? '检查微信公众平台：设置 > 服务内容声明 > 用户隐私保护指引，确认头像、昵称用途已声明并生效；若接口被限制，按后台提示处理。'
+        : undefined,
+    }),
+  );
+  if (privacyUnavailable) return '微信资料授权暂不可用，请稍后再试';
+  if (/cancel/i.test(errMsg)) return '已取消同步，原头像和昵称保持不变';
+  if (/auth deny|user deny/i.test(errMsg)) return '未授权微信资料，原头像和昵称保持不变';
+  return '微信资料暂时无法获取，请重新同步';
+}
 
 /** Validate without the DOM URL global, which is not available in every mini-game runtime. */
 export function normalizeWechatAvatarUrl(value: string): string {
@@ -78,6 +137,97 @@ export function normalizeWechatAvatarUrl(value: string): string {
   const canonical = `https://${host}${path}${parts[4] || ''}`;
   if (byteLength(canonical) > 2048) throw invalid();
   return canonical;
+}
+
+export function normalizeWechatProfile(value?: {
+  avatarUrl?: string;
+  nickName?: string;
+}): WechatUserProfile {
+  const nickName = typeof value?.nickName === 'string' ? value.nickName.trim() : '';
+  if (
+    !nickName ||
+    Array.from(nickName).length > 32 ||
+    Array.from(nickName).some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || (code >= 127 && code <= 159);
+    })
+  )
+    throw new Error('微信暂未提供有效昵称，请重新同步');
+  return { nickName, avatarUrl: normalizeWechatAvatarUrl(value?.avatarUrl || '') };
+}
+
+/** This path never opens a permission prompt. First-time consent belongs to the native button. */
+export function readAuthorizedWechatProfile(timeoutMs = 8000): Promise<WechatUserProfile | null> {
+  const api = typeof wx === 'undefined' ? undefined : wx;
+  if (!api?.getSetting || !api.getUserInfo) return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const finish = (profile: WechatUserProfile | null, error?: Error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(profile);
+    };
+    const timer = setTimeout(() => finish(null, new Error('微信资料获取超时，请重试')), timeoutMs);
+    const failure = (stage: string, result?: WechatProfileFailure) => {
+      if (!finished) finish(null, new Error(wechatFailureMessage(stage, result)));
+    };
+    const readUserInfo = () => {
+      if (finished) return;
+      try {
+        api.getUserInfo!({
+          withCredentials: false,
+          lang: 'zh_CN',
+          success: (result) => {
+            if (finished) return;
+            try {
+              if (hasWechatFailure(result)) {
+                failure('getUserInfo', result);
+                return;
+              }
+              finish(normalizeWechatProfile(result?.userInfo));
+            } catch (error) {
+              finish(null, error instanceof Error ? error : new Error('微信资料暂时无法获取'));
+            }
+          },
+          fail: (result) => failure('getUserInfo', result),
+        });
+      } catch (error) {
+        failure('getUserInfo', { errMsg: error instanceof Error ? error.message : undefined });
+      }
+    };
+    try {
+      api.getSetting!({
+        success: (setting) => {
+          if (finished) return;
+          if (setting.authSetting?.['scope.userInfo'] !== true) {
+            finish(null);
+            return;
+          }
+          try {
+            if (api.getPrivacySetting) {
+              api.getPrivacySetting({
+                success: (privacy) => {
+                  // false can also mean no collection is declared; getUserInfo may still reject it.
+                  if (privacy?.needAuthorization === false) readUserInfo();
+                  else finish(null);
+                },
+                fail: (result) => failure('getPrivacySetting', result),
+              });
+            } else readUserInfo();
+          } catch (error) {
+            failure('getPrivacySetting', {
+              errMsg: error instanceof Error ? error.message : undefined,
+            });
+          }
+        },
+        fail: (result) => failure('getSetting', result),
+      });
+    } catch (error) {
+      failure('getSetting', { errMsg: error instanceof Error ? error.message : undefined });
+    }
+  });
 }
 
 /** A top-left rectangle in the 720 × 1560 design canvas, converted to logical screen pixels. */
@@ -127,7 +277,7 @@ export class WechatAvatarButton {
   private generation = 0;
 
   constructor(
-    private readonly onResult: (profile: { avatarUrl: string; nickName: string }) => void,
+    private readonly onResult: (profile: WechatUserProfile) => void,
     private readonly onFailure: (message: string) => void,
   ) {}
 
@@ -181,31 +331,30 @@ export class WechatAvatarButton {
       this.button = button;
       this.listener = (result) => {
         if (this.button !== button || !this.visible || this.generation !== generation) return;
-        if (result?.errMsg && !result.errMsg.endsWith(':ok')) {
-          this.onFailure('未同步微信头像，原头像保持不变');
+        if (hasWechatFailure(result)) {
+          this.onFailure(wechatFailureMessage('UserInfoButton.onTap', result));
           return;
         }
-        if (!result?.userInfo?.avatarUrl) {
-          this.onFailure('微信暂未提供头像，原头像保持不变，请稍后重试');
-          return;
-        }
-        let avatarUrl: string;
+        let profile: WechatUserProfile;
         try {
-          avatarUrl = normalizeWechatAvatarUrl(result.userInfo.avatarUrl);
-        } catch {
-          this.onFailure('微信头像地址不可用，原头像保持不变，请稍后重试');
+          profile = normalizeWechatProfile(result?.userInfo);
+        } catch (error) {
+          this.onFailure(
+            error instanceof Error ? error.message : '微信资料暂时无法获取，请重新同步',
+          );
           return;
         }
-        this.onResult({
-          avatarUrl,
-          nickName: typeof result.userInfo.nickName === 'string' ? result.userInfo.nickName : '',
-        });
+        this.onResult(profile);
       };
       button.onTap(this.listener);
       button.show();
-    } catch {
+    } catch (error) {
       this.disposeNative();
-      this.onFailure('微信头像同步暂不可用，请稍后重试');
+      this.onFailure(
+        wechatFailureMessage('createUserInfoButton', {
+          errMsg: error instanceof Error ? error.message : undefined,
+        }),
+      );
     }
   }
 

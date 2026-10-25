@@ -99,6 +99,203 @@ function accountRuntime() {
   };
 }
 
+test('an authorized login automatically saves both WeChat nickname and avatar', async () => {
+  const runtime = accountRuntime();
+  let reads = 0;
+  global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': true } });
+  global.wx.getUserInfo = ({ success, withCredentials, lang }) => {
+    assert.equal(withCredentials, false);
+    assert.equal(lang, 'zh_CN');
+    reads++;
+    success({ userInfo: { nickName: '微信小伙伴', avatarUrl: 'http://wx.qlogo.cn/new/132' } });
+  };
+  const client = new OnlineClient(baseURL, runtime.storage);
+  await client.login();
+  await new Promise(setImmediate);
+  assert.deepEqual(client.profile, {
+    id: original.id,
+    nickname: '微信小伙伴',
+    avatarUrl: 'https://wx.qlogo.cn/new/132',
+  });
+  assert.equal(reads, 1);
+  assert.equal(runtime.calls.filter((call) => call.method === 'PUT').length, 1);
+  await client.syncWechatProfile();
+  assert.equal(
+    runtime.calls.filter((call) => call.method === 'PUT').length,
+    1,
+    'unchanged authorized profiles do not create redundant writes',
+  );
+});
+
+test('unapproved profiles never trigger a silent user-info request or overwrite stored data', async () => {
+  for (const allowed of [false, undefined]) {
+    const runtime = accountRuntime();
+    global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': allowed } });
+    global.wx.getUserInfo = () => assert.fail('user information requires prior authorization');
+    const client = new OnlineClient(baseURL, runtime.storage);
+    await client.login();
+    assert.equal(await client.syncWechatProfile(), null);
+    assert.deepEqual(client.profile, original);
+    assert.equal(runtime.calls.filter((call) => call.method === 'PUT').length, 0);
+  }
+});
+
+test('native authorization saves the nickname and avatar together, without a separate save', async () => {
+  const runtime = accountRuntime();
+  const client = new OnlineClient(baseURL, runtime.storage);
+  await client.login();
+  await client.syncWechatProfile({
+    nickName: '微信名字 🌲',
+    avatarUrl: 'https://wx.qlogo.cn/live/132',
+  });
+  assert.deepEqual(client.profile, {
+    id: original.id,
+    nickname: '微信名字 🌲',
+    avatarUrl: 'https://wx.qlogo.cn/live/132',
+  });
+  const writes = runtime.calls.filter((call) => call.method === 'PUT');
+  assert.equal(writes.length, 1);
+  assert.deepEqual(writes[0].data, {
+    nickname: '微信名字 🌲',
+    avatarUrl: 'https://wx.qlogo.cn/live/132',
+  });
+  for (const invalid of [
+    { nickName: '', avatarUrl: 'https://wx.qlogo.cn/live/132' },
+    { nickName: '微信用户', avatarUrl: '' },
+    { nickName: 'bad\nname', avatarUrl: 'https://wx.qlogo.cn/live/132' },
+  ])
+    await assert.rejects(client.syncWechatProfile(invalid));
+  assert.equal(runtime.calls.filter((call) => call.method === 'PUT').length, 1);
+});
+
+test('slow authorized reads do not block login and concurrent reads share one synchronization', async () => {
+  const runtime = accountRuntime();
+  let finish;
+  let reads = 0;
+  global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': true } });
+  global.wx.getUserInfo = ({ success }) => {
+    reads++;
+    finish = success;
+  };
+  const client = new OnlineClient(baseURL, runtime.storage);
+  await client.login();
+  await new Promise(setImmediate);
+  assert.deepEqual(client.profile, original, 'login completes while WeChat is still pending');
+  const first = client.syncWechatProfile();
+  const second = client.syncWechatProfile();
+  finish({ userInfo: { nickName: '同步完成', avatarUrl: original.avatarUrl } });
+  assert.deepEqual(await first, await second);
+  assert.equal(reads, 1);
+  assert.equal(runtime.calls.filter((call) => call.method === 'PUT').length, 1);
+});
+
+test('late WeChat results cannot be saved to an account that changed while reading', async () => {
+  const runtime = accountRuntime();
+  const client = new OnlineClient(baseURL, runtime.storage);
+  await client.login();
+  await new Promise(setImmediate);
+  let finish;
+  global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': true } });
+  global.wx.getUserInfo = ({ success }) => {
+    finish = success;
+  };
+  const syncing = client.syncWechatProfile();
+  await new Promise(setImmediate);
+  runtime.setUser(other.id);
+  global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': false } });
+  await client.login();
+  finish({ userInfo: { nickName: '旧账号微信名', avatarUrl: original.avatarUrl } });
+  await assert.rejects(syncing, (error) => error.code === 'PROFILE_ACCOUNT_CHANGED');
+  assert.deepEqual(client.profile, other);
+  assert.equal(runtime.calls.filter((call) => call.method === 'PUT').length, 0);
+});
+
+test('a new login account starts its own auto-sync while the old SDK callback is pending', async () => {
+  const runtime = accountRuntime();
+  const reads = [];
+  global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': true } });
+  global.wx.getUserInfo = ({ success }) => reads.push(success);
+  const client = new OnlineClient(baseURL, runtime.storage);
+  await client.login();
+  await new Promise(setImmediate);
+  const oldSync = client.syncWechatProfile();
+  runtime.setUser(other.id);
+  await client.login();
+  await new Promise(setImmediate);
+  reads[0]({ userInfo: { nickName: '旧微信名', avatarUrl: original.avatarUrl } });
+  reads[1]?.({ userInfo: { nickName: '新账号微信名', avatarUrl: other.avatarUrl } });
+  await assert.rejects(oldSync, (error) => error.code === 'PROFILE_ACCOUNT_CHANGED');
+  await new Promise(setImmediate);
+  assert.equal(reads.length, 2, 'account B needs an independent authorized read');
+  assert.deepEqual(client.profile, { ...other, nickname: '新账号微信名' });
+  assert.deepEqual(runtime.profiles.get(original.id), original);
+});
+
+test('authorized reads bound SDK timeouts and reject incomplete data', async () => {
+  const { readAuthorizedWechatProfile } = load('WechatProfile');
+  global.wx = { getSetting: () => {}, getUserInfo: () => {} };
+  await assert.rejects(readAuthorizedWechatProfile(10), /超时/);
+  global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': true } });
+  global.wx.getUserInfo = ({ success }) => success({ userInfo: { avatarUrl: original.avatarUrl } });
+  await assert.rejects(readAuthorizedWechatProfile(), /昵称/);
+  global.wx.getUserInfo = ({ fail }) => fail({ errMsg: 'getUserInfo:fail auth deny' });
+  await assert.rejects(readAuthorizedWechatProfile(), /微信/);
+  delete global.wx;
+  assert.equal(await readAuthorizedWechatProfile(), null);
+});
+
+test('automatic retrieval waits for privacy consent even when user-info scope is already granted', async () => {
+  const { readAuthorizedWechatProfile } = load('WechatProfile');
+  let reads = 0;
+  global.wx = {
+    getSetting: ({ success }) => success({ authSetting: { 'scope.userInfo': true } }),
+    getPrivacySetting: ({ success }) => success({ needAuthorization: true }),
+    getUserInfo: ({ success }) => {
+      reads++;
+      success({ userInfo: { nickName: '微信昵称', avatarUrl: original.avatarUrl } });
+    },
+  };
+  const waiting = await readAuthorizedWechatProfile();
+  assert.equal(reads, 0, 'calling getUserInfo here would open an unexpected privacy prompt');
+  assert.equal(waiting, null);
+  global.wx.getPrivacySetting = ({ success }) => success({ needAuthorization: false });
+  assert.deepEqual(await readAuthorizedWechatProfile(), {
+    nickName: '微信昵称',
+    avatarUrl: original.avatarUrl,
+  });
+  assert.equal(reads, 1);
+  global.wx.getPrivacySetting = ({ fail }) => fail();
+  await assert.rejects(readAuthorizedWechatProfile(), /微信/);
+  assert.equal(reads, 1, 'a failed privacy lookup must not fall through to a privacy API');
+});
+
+test('privacy rejection during automatic reads preserves the account and reports the platform error', async () => {
+  const runtime = accountRuntime();
+  const client = new OnlineClient(baseURL, runtime.storage);
+  await client.login();
+  await new Promise(setImmediate);
+  const warnings = [];
+  const warn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    global.wx.getSetting = ({ success }) => success({ authSetting: { 'scope.userInfo': true } });
+    // false also means that no privacy collection has been declared in the MP console.
+    global.wx.getPrivacySetting = ({ success }) => success({ needAuthorization: false });
+    global.wx.getUserInfo = ({ fail }) =>
+      fail({
+        errMsg: 'getUserInfo:fail please go to mp to announce your privacy usage',
+        errno: 1026,
+      });
+    await assert.rejects(client.syncWechatProfile(), /微信资料授权暂不可用/);
+    assert.deepEqual(client.profile, original);
+    assert.equal(runtime.calls.filter((call) => call.method === 'PUT').length, 0);
+    assert.match(JSON.stringify(warnings), /1026/);
+    assert.match(JSON.stringify(warnings), /getUserInfo/);
+  } finally {
+    console.warn = warn;
+  }
+});
+
 test('login caches a confirmed profile without exposing mutable draft references', async () => {
   const runtime = accountRuntime();
   const client = new OnlineClient(baseURL, runtime.storage);
@@ -553,6 +750,56 @@ test('hidden, replaced and destroyed native buttons ignore late callbacks, inclu
   assert.equal(third.destroys, 1);
   assert.equal(results.length, 1);
   assert.equal(failures.length, 0);
+});
+
+test('native privacy restrictions remain distinct from denial and preserve diagnostics without profile data', () => {
+  const { WechatAvatarButton } = load('WechatProfile');
+  const buttons = nativeButtons();
+  const results = [],
+    failures = [],
+    warnings = [];
+  const warn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  const bridge = new WechatAvatarButton(
+    (profile) => results.push(profile),
+    (message) => failures.push(message),
+  );
+  try {
+    bridge.mount({ left: 10, top: 20, width: 200, height: 44 });
+    const callback = buttons[0].listeners[0];
+    for (const payload of [
+      { errMsg: 'getUserInfo:fail please go to mp to announce your privacy usage', errno: 1026 },
+      { errno: 1026 },
+      { errCode: 112 },
+      { errMsg: 'getUserInfo:fail please go to mp to announce your privacy usage' },
+    ]) {
+      callback({
+        ...payload,
+        userInfo: { nickName: 'PRIVATE-NAME', avatarUrl: 'https://wx.qlogo.cn/private/132' },
+      });
+      assert.equal(failures.at(-1), '微信资料授权暂不可用，请稍后再试');
+    }
+    assert.equal(results.length, 0, 'a nonzero error code must override any included profile');
+    const diagnostic = JSON.stringify(warnings);
+    assert.match(diagnostic, /1026/);
+    assert.match(diagnostic, /announce your privacy usage/);
+    assert.match(diagnostic, /用户隐私保护指引/);
+    assert(!diagnostic.includes('PRIVATE-NAME'));
+    assert(!diagnostic.includes('qlogo.cn'));
+    callback({ errMsg: 'getUserInfo:fail auth deny' });
+    assert.match(failures.at(-1), /未授权/);
+    callback({ errMsg: 'getUserInfo:fail network error' });
+    assert.match(failures.at(-1), /暂时无法获取/);
+    callback({
+      errMsg: 'getUserInfo:ok',
+      errno: 0,
+      userInfo: { nickName: '微信昵称', avatarUrl: original.avatarUrl },
+    });
+    assert.equal(results.length, 1, 'a later successful authorization must still work');
+  } finally {
+    bridge.destroy();
+    console.warn = warn;
+  }
 });
 
 test('unsupported or failing native APIs produce a friendly failure and do not crash', () => {

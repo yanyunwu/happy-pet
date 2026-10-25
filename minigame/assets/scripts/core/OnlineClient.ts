@@ -1,6 +1,11 @@
 import { ModeId, GameStatus, Tile } from './MatchGame';
 import { ToolId } from './Profile';
-import { normalizeWechatAvatarUrl } from './WechatProfile';
+import {
+  normalizeWechatAvatarUrl,
+  normalizeWechatProfile,
+  readAuthorizedWechatProfile,
+  WechatUserProfile,
+} from './WechatProfile';
 export interface CloudProfile {
   id: string;
   nickname: string;
@@ -126,6 +131,8 @@ export class OnlineClient {
   private finishResults = new Map<string, CloudFinish>();
   private stateResults = new Map<string, CloudState>();
   private loginTask: Promise<void> | null = null;
+  private profileSyncTask: Promise<CloudProfile | null> | null = null;
+  private profileSyncOwner: { userId: string; generation: number } | null = null;
   private readonly storageScope: string;
   onAssets: (assets: CloudAssets) => void = () => {};
   onProfile: (profile: CloudProfile | null) => void = () => {};
@@ -261,6 +268,16 @@ export class OnlineClient {
     })().finally(() => {
       this.loginTask = null;
     });
+    void this.loginTask.then(
+      () => {
+        // Profile permissions and avatar servers must never hold up login or gameplay.
+        void this.syncWechatProfile().catch((error) => {
+          if (error instanceof OnlineError && error.code === 'PROFILE_ACCOUNT_CHANGED') return;
+          console.warn('[pet-profile] 自动同步未完成，可在个人设置重试');
+        });
+      },
+      () => {},
+    );
     return this.loginTask;
   }
   async refreshAssets(): Promise<void> {
@@ -276,6 +293,48 @@ export class OnlineClient {
   }
   async getProfile(): Promise<CloudProfile> {
     return this.requestProfile('GET');
+  }
+  async syncWechatProfile(input?: WechatUserProfile): Promise<CloudProfile | null> {
+    const pendingOwner = this.profileSyncOwner;
+    const sameAccount =
+      !pendingOwner?.userId ||
+      (pendingOwner.userId === this.userId && pendingOwner.generation === this.identityGeneration);
+    const previous = sameAccount ? this.profileSyncTask : null;
+    if (!input && previous) return previous;
+    const supplied = input ? normalizeWechatProfile(input) : null;
+    const initialOwner = this.userId;
+    const initialGeneration = this.identityGeneration;
+    const syncOwner = { userId: initialOwner, generation: initialGeneration };
+    const task = (async () => {
+      if (previous) await previous.catch(() => {});
+      await this.ready();
+      const owner = initialOwner || this.userId;
+      const generation = initialOwner ? initialGeneration : this.identityGeneration;
+      const checkAccount = () => {
+        if (owner !== this.userId || generation !== this.identityGeneration)
+          throw new OnlineError('登录账号已变化，请重新同步微信资料', 0, 'PROFILE_ACCOUNT_CHANGED');
+      };
+      checkAccount();
+      syncOwner.userId = owner;
+      syncOwner.generation = generation;
+      const profile = supplied || (await readAuthorizedWechatProfile());
+      checkAccount();
+      if (!profile) return null;
+      if (
+        this.confirmedProfile?.nickname === profile.nickName &&
+        this.confirmedProfile.avatarUrl === profile.avatarUrl
+      )
+        return this.profile;
+      return this.updateProfile({ nickname: profile.nickName, avatarUrl: profile.avatarUrl });
+    })().finally(() => {
+      if (this.profileSyncTask === task) {
+        this.profileSyncTask = null;
+        this.profileSyncOwner = null;
+      }
+    });
+    this.profileSyncTask = task;
+    this.profileSyncOwner = syncOwner;
+    return task;
   }
   async updateProfile(input: { nickname: string; avatarUrl?: string }): Promise<CloudProfile> {
     const nickname = typeof input.nickname === 'string' ? input.nickname.trim() : '';
