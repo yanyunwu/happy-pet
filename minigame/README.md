@@ -80,7 +80,7 @@ Logo、冒险背景、最终海报均用内置 image_gen 生成。提示词与�
 
 - `assets/resources/cartoon/home.jpg`：暖色兔子阅读室背景。
 - `assets/resources/cartoon/game.jpg`：蓝绿天空游戏背景。
-- `assets/resources/cartoon/pets/`：15 种原创萌宠牌面（原有 9 种 + 新增狐狸、羊、企鹅、仓鼠、考拉、大象）。
+- `assets/resources/cartoon/pets/`：15 种原创萌宠牌面，编号 0–14 依次为鼠、牛、虎、兔、龙、蛇、马、羊、猴、鸡、狗、猪、猫、熊猫、狮子。
 - `assets/resources/cartoon/icons/`：10 种原创导航、道具图标，含新增铲子。
 - `assets/resources/cartoon/home-ui/`：新生成的金币、7 日签到礼盒、背包透明图标。原图在 `art/source-v3`，完整提示词在 `art/home-v3-manifest.json`。
 - `assets/resources/cartoon/ui/`：原创渐变、高光、描边与立体边缘的按钮和面板。
@@ -88,7 +88,7 @@ Logo、冒险背景、最终海报均用内置 image_gen 生成。提示词与�
 
 背景与插画图标使用内置 image_gen 生成。原始图集在 `art/source-v2`，完整提示词和处理记录在 `art/cartoon-v2-manifest.json`。参考截图在 `art/references-v2`，不进入构建包。上一版的相关源文件和图片备份在 `art/archive-v1`。
 
-新增六种萌宠和铲子图标使用内置 image_gen 生成，保留透明通道。原图在 `art/source-v4`，完整提示词和目标路径在 `art/pets-v4-manifest.json`。
+当前角色采用十二生肖加猫、熊猫、狮子。保留兔、羊、狗、猪、猫、狮子的既有原创头像，其余九种使用内置 image_gen 按相同风格生成，保留透明通道。可复用原图在 `art/source-zodiac`，完整提示词、名称和编号在 `art/pets-zodiac-manifest.json`。执行 `node tools/prepare-zodiac-pets.cjs` 可重新规范尺寸并同步小游戏和后台图片；后台关卡配比和回放采用同一编号。旧版原图及铲子仍保留在 `art/source-v4`。
 
 ## 构建
 

@@ -13,11 +13,19 @@ $BuildProcess = Start-Process -FilePath $CreatorPath -ArgumentList @('--project'
 if ($BuildProcess.ExitCode -notin @(0, 36)) { throw "Creator build exit code: $($BuildProcess.ExitCode). Check output/build logs." }
 if ($Platform -eq 'wechatgame') {
   $SourceConfig = Get-Content -LiteralPath $BuildConfig -Raw -Encoding UTF8 | ConvertFrom-Json
-  if (-not $SourceConfig.packages.wechatgame.appid) {
-    $WechatProject = Join-Path $ProjectRoot 'build\wechatgame\project.config.json'
-    $PreviewConfig = Get-Content -LiteralPath $WechatProject -Raw -Encoding UTF8 | ConvertFrom-Json
-    $PreviewConfig.appid = 'touristappid'
-    $PreviewConfig | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $WechatProject -Encoding utf8
+  $WechatProject = Join-Path $ProjectRoot 'build\wechatgame\project.config.json'
+  $PreviewConfig = Get-Content -LiteralPath $WechatProject -Raw -Encoding UTF8 | ConvertFrom-Json
+  $OnlineConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'assets\resources\online.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $LoopbackApi = $false
+  if ($OnlineConfig.apiBaseUrl) {
+    $ApiUri = [Uri]$OnlineConfig.apiBaseUrl
+    $LoopbackApi = $ApiUri.IsLoopback
   }
+  # Local developer-tool requests use loopback HTTP. A non-local build restores validation.
+  $PreviewConfig.setting | Add-Member -NotePropertyName urlCheck -NotePropertyValue (-not $LoopbackApi) -Force
+  if (-not $SourceConfig.packages.wechatgame.appid) {
+    $PreviewConfig.appid = 'touristappid'
+  }
+  [IO.File]::WriteAllText($WechatProject, ($PreviewConfig | ConvertTo-Json -Depth 30), (New-Object Text.UTF8Encoding $false))
 }
 Write-Output "Build complete: $ProjectRoot\build\$Platform"

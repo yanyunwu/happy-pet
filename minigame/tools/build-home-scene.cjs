@@ -25,7 +25,7 @@ for(const[x,y,name,title,file,action]of [[92,370,'SignInButton','7日签到','ho
 const welcome=group(home,'WelcomePanel');
 for(const[i,id,title,subtitle,style]of [[0,'classic','经典三消','三个相同消除 · 双关挑战','button-blue'],[1,'quartet','极限四消','四个相同消除 · 双关挑战','button-gold'],[2,'fun','趣味规则消','三消 / 两对消除 · 双关挑战','button-pink']]){
  const b=s.button(welcome,`Mode-${id}`,360,1048+i*124,550,108,style,'onHomeMode',id);
- pet(b,'PetIcon',[0,1,3][i],-202,-4,80);label(b,'Title',title,35,-22,35,{width:375,stroke:3,outline:i===1?'#b56a20':i===2?'#a33d70':'#176083'});label(b,'Subtitle',subtitle,35,23,21,{width:383,tint:'#fff7cc',stroke:2,outline:i===1?'#b56a20':i===2?'#a33d70':'#176083'});
+ pet(b,'PetIcon',[9,12,3][i],-202,-4,80);label(b,'Title',title,35,-22,35,{width:375,stroke:3,outline:i===1?'#b56a20':i===2?'#a33d70':'#176083'});label(b,'Subtitle',subtitle,35,23,21,{width:383,tint:'#fff7cc',stroke:2,outline:i===1?'#b56a20':i===2?'#a33d70':'#176083'});
 }
 const campaign=s.button(welcome,'CampaignButton',360,1442,550,122,'button-blue','onHomeNav','campaign');
 icon(campaign,'Trophy',3,-202,-4,86);label(campaign,'Title','闯关模式',35,-24,39,{width:375,stroke:3});label(campaign,'Subtitle','选择玩法 · 更多关卡',35,27,23,{width:383,tint:'#fff7cc',stroke:2});

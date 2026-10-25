@@ -65,7 +65,9 @@ const server = http.createServer((req, res) => {
   }
   let body = fs.readFileSync(file);
   if (isGame && file.endsWith('.json'))
-    body = Buffer.from(body.toString().replace(/"apiBaseUrl"\s*:\s*""/g, '"apiBaseUrl":"/api/v1"'));
+    body = Buffer.from(
+      body.toString().replace(/"apiBaseUrl"\s*:\s*"(?:\\.|[^"\\])*"/g, '"apiBaseUrl":"/api/v1"'),
+    );
   res.setHeader('Content-Type', mime[path.extname(file)] || 'application/octet-stream');
   res.end(body);
 });

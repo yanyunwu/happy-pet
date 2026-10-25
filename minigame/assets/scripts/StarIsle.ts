@@ -163,6 +163,7 @@ export class StarIsle extends Component {
         if (this.networkBusy || !MODES.some(m => m.id === mode)) return;
         if (!this.onlineReady) { this.toast('正在准备冒险，请稍等一下'); return; }
         if (entry === 'campaign' && !this.online) { this.toast('闯关关卡准备中，先体验首页三种玩法吧'); return; }
+        if (entry === 'campaign' && typeof wx === 'undefined') { this.toast('闯关模式请在微信中体验'); return; }
         this.selectedEntry = entry;
         this.practice = entry === 'standard' && (!this.online || typeof wx === 'undefined');
         this.save = this.practice ? this.localSave : this.cloudSave;
@@ -222,7 +223,7 @@ export class StarIsle extends Component {
         P.text(m, 'Intro', '选择玩法，从第一关连续出发', 360, 420, 25, C.ink, 550, true);
         MODES.forEach((mode, index) => {
             const b = P.button(m, `Campaign-${mode.id}`, mode.title, 360, 570 + index * 175, 510, 112, () => this.beginMode(mode.id, 'campaign'), index !== 1, 34);
-            P.sprite(b, 'Pet', this.frames[[0, 1, 3][index]], -202, -4, 66, 66);
+            P.sprite(b, 'Pet', this.frames[[9, 12, 3][index]], -202, -4, 66, 66);
             P.text(m, `Rule-${mode.id}`, mode.shortRule, 360, 642 + index * 175, 21, C.muted, 540);
         });
         P.text(m, 'CampaignNote', this.online ? '一关接一关，挑战更多萌宠棋盘' : '闯关关卡准备中 · 首页玩法可直接体验', 360, 1160, 21, C.muted, 570);
@@ -628,7 +629,7 @@ export class StarIsle extends Component {
         const rows = [
             ['三种玩法，一起开玩', '经典三消、极限四消、趣味规则消现已开放'],
             ['一口气，连闯两关', '从第一关直接开始，过关后自动进入第二关'],
-            ['15 位萌宠来报到', '狐狸、绵羊、企鹅、仓鼠、考拉和大象加入冒险'],
+            ['十二生肖来报到', '和猫、熊猫、狮子一起，15 位萌宠陪你冒险'],
             ['四种道具，帮你过关', '撤回、铲出、提示和顺时针转动重排'],
         ];
         rows.forEach(([title, detail], i) => { const y = 580 + i * 130; P.text(m, 'NewsTitle', title, 360, y, 27, C.ink, 540, true); P.text(m, 'NewsDetail', detail, 360, y + 45, 20, C.muted, 550); });
@@ -636,7 +637,7 @@ export class StarIsle extends Component {
     }
     private showAlbum(): void {
         const m = this.dialog('Album', '萌宠图鉴', 1110);
-        P.text(m, 'Subtitle', '15 位可爱的小伙伴，等你一起冒险', 360, 382, 24, C.ink, 560, true);
+        P.text(m, 'Subtitle', '十二生肖 + 猫、熊猫、狮子', 360, 382, 24, C.ink, 560, true);
         for (let i = 0; i < this.frames.length; i++) {
             const x = 180 + i % 3 * 180, y = 475 + Math.floor(i / 3) * 151;
             P.skin(m, `PetCard${i}`, 'tile', x, y, 105, 110);

@@ -1,0 +1,144 @@
+{
+  "version": 5,
+  "generator": "built-in image_gen",
+  "date": "2026-10-25",
+  "description": "十二生肖加猫、熊猫、狮子；种类编号按此顺序固定为 0–14。既有关卡计数和回放继续使用原编号，采用本套角色外观。",
+  "referenceRole": "Existing cyan cat and white rabbit sprites are style references only. Rabbit, sheep, dog, pig, cat and lion artwork is retained; nine other heads are newly generated.",
+  "assets": [
+    {
+      "index": 0,
+      "name": "rat",
+      "label": "鼠",
+      "source": "art/source-zodiac/rat.png",
+      "output": "assets/resources/cartoon/pets/0.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a small silver-gray mouse / Chinese zodiac rat head, very large round ears with pink interiors, a small pointed cream muzzle, tiny pink nose, short whiskers and two tiny front teeth. Clearly a mouse, not a hamster or koala. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 1,
+      "name": "ox",
+      "label": "牛",
+      "source": "art/source-zodiac/ox.png",
+      "output": "assets/resources/cartoon/pets/1.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a sweet golden-tan Chinese zodiac ox head with two small curved ivory horns, broad rounded ears, a light cream broad muzzle with two visible nostrils and a small brown hair tuft. Clearly an ox or cow. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 2,
+      "name": "tiger",
+      "label": "虎",
+      "source": "art/source-zodiac/tiger.png",
+      "output": "assets/resources/cartoon/pets/2.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a playful orange Chinese zodiac tiger cub head with small rounded ears, distinct dark-brown forehead and cheek stripes, cream fluffy cheeks and muzzle, tiny dark triangular nose. Clearly a tiger, not a lion, with no mane. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 3,
+      "name": "rabbit",
+      "label": "兔",
+      "source": "art/source-zodiac/rabbit.png",
+      "output": "assets/resources/cartoon/pets/3.png",
+      "prepared": true,
+      "origin": "Retained existing generated rabbit sprite; copied before remapping."
+    },
+    {
+      "index": 4,
+      "name": "dragon",
+      "label": "龙",
+      "source": "art/source-zodiac/dragon.png",
+      "output": "assets/resources/cartoon/pets/4.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a friendly turquoise and mint-green Chinese zodiac dragon head, two short rounded golden antler-like horns, little fan-shaped cheek fins, golden forehead tuft, a broad rounded snout and subtle whiskers. Clearly a cute Chinese dragon, not a dinosaur. No wings. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 5,
+      "name": "snake",
+      "label": "蛇",
+      "source": "art/source-zodiac/snake.png",
+      "output": "assets/resources/cartoon/pets/5.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a friendly spring-green Chinese zodiac snake with a large rounded head and one short curled neck loop directly beneath the chin so it is recognizable as a snake, pale yellow chin, tiny red forked tongue, no ears and no limbs. Nearly all the composition is the rounded head. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 6,
+      "name": "horse",
+      "label": "马",
+      "source": "art/source-zodiac/horse.png",
+      "output": "assets/resources/cartoon/pets/6.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a cute chestnut-brown Chinese zodiac horse head, tall rounded ears, chocolate forelock and short mane, cream blaze down the nose and a broad cream muzzle with two nostrils. Compact long oval face, clearly a horse, no horns. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 7,
+      "name": "sheep",
+      "label": "羊",
+      "source": "art/source-zodiac/sheep.png",
+      "output": "assets/resources/cartoon/pets/7.png",
+      "prepared": true,
+      "origin": "Retained existing generated sheep sprite; copied before remapping."
+    },
+    {
+      "index": 8,
+      "name": "monkey",
+      "label": "猴",
+      "source": "art/source-zodiac/monkey.png",
+      "output": "assets/resources/cartoon/pets/8.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a playful warm caramel-brown Chinese zodiac monkey head, large round ears, cream peach heart-shaped face and muzzle patch, one small curled hair tuft, tiny round nose and happy gentle smile. Clearly a monkey. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 9,
+      "name": "rooster",
+      "label": "鸡",
+      "source": "art/source-zodiac/rooster.png",
+      "output": "assets/resources/cartoon/pets/9.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a cute golden-yellow Chinese zodiac rooster head with a bright coral-red three-lobed comb and small rounded red wattles, a little orange beak and small golden cheek-feather tufts. Clearly a rooster, not a plain baby chick. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 10,
+      "name": "dog",
+      "label": "狗",
+      "source": "art/source-zodiac/dog.png",
+      "output": "assets/resources/cartoon/pets/10.png",
+      "prepared": true,
+      "origin": "Retained existing generated dog sprite; copied before remapping."
+    },
+    {
+      "index": 11,
+      "name": "pig",
+      "label": "猪",
+      "source": "art/source-zodiac/pig.png",
+      "output": "assets/resources/cartoon/pets/11.png",
+      "prepared": true,
+      "origin": "Retained existing generated pig sprite; copied before remapping."
+    },
+    {
+      "index": 12,
+      "name": "cat",
+      "label": "猫",
+      "source": "art/source-zodiac/cat.png",
+      "output": "assets/resources/cartoon/pets/12.png",
+      "prepared": true,
+      "origin": "Retained existing generated cat sprite; copied before remapping."
+    },
+    {
+      "index": 13,
+      "name": "panda",
+      "label": "熊猫",
+      "source": "art/source-zodiac/panda.png",
+      "output": "assets/resources/cartoon/pets/13.png",
+      "prepared": false,
+      "prompt": "Use case: stylized-concept. Asset type: one production-ready animal tile sprite for an existing casual cartoon pet matching game. Input image 1 (cyan cat) and image 2 (white rabbit) are STYLE REFERENCES ONLY, not edit targets. Primary request: create a cuddly black-and-white giant panda head, black round ears, distinctive symmetrical black patches around the eyes, white fluffy cheek silhouette, small black nose and tiny gentle smile. Clearly a giant panda, not a brown bear. Match the reference sprites closely: rounded kawaii 2D cartoon illustration with gentle airbrushed gradients, clean thin warm outline, glossy dark eyes with tiny white highlights, soft pink cheek blush, smooth polished casual-mobile-game finish. Front-facing, symmetrical, friendly, childlike. Animal head only unless a tiny neck curl is explicitly requested, no body and no paws. Same apparent face scale and style as the references; full ears/horns/mane visible, centered in a square with about 8 percent transparent padding on every side. One single animal, real transparent alpha background. No card, no frame, no drop shadow, no props, no clothes, no text, no letters, no number, no watermark. Keep a strong species-specific silhouette and readable features at 80 pixels."
+    },
+    {
+      "index": 14,
+      "name": "lion",
+      "label": "狮子",
+      "source": "art/source-zodiac/lion.png",
+      "output": "assets/resources/cartoon/pets/14.png",
+      "prepared": true,
+      "origin": "Retained existing generated lion sprite; copied before remapping."
+    }
+  ]
+}

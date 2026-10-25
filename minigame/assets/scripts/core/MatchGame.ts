@@ -15,7 +15,8 @@ export const LEVELS: Level[] = [
     { id: 2, title: '高手挑战', subtitle: '先看下层，再做选择', kinds: 15, total: 108 },
 ];
 export const CAPACITY = 7, RESERVE_CAPACITY = 7, TILE_W = 94, TILE_H = 98;
-export const KIND_NAMES = ['小黄啾', '蓝莓喵', '奶糖汪', '棉花兔', '青团蛙', '桃桃猪', '葡萄鸮', '团团熊', '小狮宝', '蜜橘狐', '棉花羊', '豆豆企鹅', '布丁鼠', '抱抱考拉', '紫芋象'];
+// Kind IDs follow the twelve zodiac animals, then cat, panda and lion.
+export const KIND_NAMES = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪', '猫', '熊猫', '狮子'];
 export interface PickResult { tile: Tile; displayTray: number[]; matched: number[]; insertion: number; source: 'board' | 'reserve'; }
 interface Snapshot { tiles: Tile[]; tray: number[]; reserve: number[]; matches: number; cleared: number; moves: number; status: GameStatus; }
 export function randomSource(seed: number): () => number {
