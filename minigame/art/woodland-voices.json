@@ -1,7 +1,24 @@
 {
-  "preferredVoice": "Microsoft Yaoyao",
+  "provider": "Microsoft Edge online neural text-to-speech",
+  "engine": "Microsoft neural speech",
+  "tool": "edge-tts",
+  "toolVersion": "7.3.1",
+  "voice": "zh-CN-XiaoyiNeural",
   "language": "zh-CN",
-  "rate": 1,
+  "rate": "+2%",
+  "pitch": "+0Hz",
+  "volume": "+0%",
+  "normalization": {
+    "integratedLufs": -19,
+    "truePeakDbtp": -3,
+    "loudnessRangeLu": 7,
+    "compression": {
+      "threshold": 0.1778,
+      "ratio": 2,
+      "attackMs": 3,
+      "releaseMs": 80
+    }
+  },
   "clips": [
     { "name": "voice-start", "text": "准备好，出发啦！" },
     { "name": "voice-next", "text": "继续加油！" },

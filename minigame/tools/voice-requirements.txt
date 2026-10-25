@@ -1,0 +1,2 @@
+# Python 3.10+; install explicitly into a virtual environment or owned --target directory.
+edge-tts==7.3.1

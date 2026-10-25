@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "theme": "森林木作 · 木琴小径",
-  "method": "Original deterministic DSP composition and foley; local Windows speech synthesis",
+  "method": "Original deterministic DSP composition and foley; Microsoft Edge online neural speech",
   "source": "tools/generate-audio.cjs",
-  "speechSource": "tools/generate-voices.ps1",
+  "speechSource": "tools/generate-voices.py",
+  "speechWrapper": "tools/generate-voices.ps1",
   "assets": [
     {
       "name": "tap",
@@ -159,9 +160,28 @@
       "file": "assets/resources/audio/voice-start.mp3",
       "sampleRate": 22050,
       "text": "准备好，出发啦！",
-      "voice": "Microsoft Huihui Desktop",
-      "engine": "Windows System.Speech",
-      "language": "zh-CN"
+      "provider": "Microsoft Edge online neural text-to-speech",
+      "engine": "Microsoft neural speech",
+      "tool": "edge-tts",
+      "toolVersion": "7.3.1",
+      "voice": "zh-CN-XiaoyiNeural",
+      "language": "zh-CN",
+      "rate": "+2%",
+      "pitch": "+0Hz",
+      "volume": "+0%",
+      "sourceSha256": "2afba0471ceb472768ef193c5321b1565a6194017d7fb8959f33030e28efdaf3",
+      "normalization": {
+        "integratedLufs": -19,
+        "truePeakDbtp": -3,
+        "loudnessRangeLu": 7,
+        "compression": {
+          "threshold": 0.1778,
+          "ratio": 2,
+          "attackMs": 3,
+          "releaseMs": 80
+        }
+      },
+      "sha256": "72f769d4fc3201f1eb8a310584cacfb5d9c3be1aedfa6e2abb43ee8083ef86ad"
     },
     {
       "name": "voice-next",
@@ -169,9 +189,28 @@
       "file": "assets/resources/audio/voice-next.mp3",
       "sampleRate": 22050,
       "text": "继续加油！",
-      "voice": "Microsoft Huihui Desktop",
-      "engine": "Windows System.Speech",
-      "language": "zh-CN"
+      "provider": "Microsoft Edge online neural text-to-speech",
+      "engine": "Microsoft neural speech",
+      "tool": "edge-tts",
+      "toolVersion": "7.3.1",
+      "voice": "zh-CN-XiaoyiNeural",
+      "language": "zh-CN",
+      "rate": "+2%",
+      "pitch": "+0Hz",
+      "volume": "+0%",
+      "sourceSha256": "e5aece1e14dca7f6a4a57d452e3a3d0b234258768076b362dbfcf2385e6cd7de",
+      "normalization": {
+        "integratedLufs": -19,
+        "truePeakDbtp": -3,
+        "loudnessRangeLu": 7,
+        "compression": {
+          "threshold": 0.1778,
+          "ratio": 2,
+          "attackMs": 3,
+          "releaseMs": 80
+        }
+      },
+      "sha256": "49d721c6a4303fcb0c622ed77cc897848ab34fbe3bef4503299de25ee8060422"
     },
     {
       "name": "voice-win",
@@ -179,9 +218,28 @@
       "file": "assets/resources/audio/voice-win.mp3",
       "sampleRate": 22050,
       "text": "真棒，闯关成功！",
-      "voice": "Microsoft Huihui Desktop",
-      "engine": "Windows System.Speech",
-      "language": "zh-CN"
+      "provider": "Microsoft Edge online neural text-to-speech",
+      "engine": "Microsoft neural speech",
+      "tool": "edge-tts",
+      "toolVersion": "7.3.1",
+      "voice": "zh-CN-XiaoyiNeural",
+      "language": "zh-CN",
+      "rate": "+2%",
+      "pitch": "+0Hz",
+      "volume": "+0%",
+      "sourceSha256": "08104a79b0f34d2a9306448b28ef8ceabab761d1948523119a3687d079bf60e1",
+      "normalization": {
+        "integratedLufs": -19,
+        "truePeakDbtp": -3,
+        "loudnessRangeLu": 7,
+        "compression": {
+          "threshold": 0.1778,
+          "ratio": 2,
+          "attackMs": 3,
+          "releaseMs": 80
+        }
+      },
+      "sha256": "3f0f54d4ddbb48ad8e242ee893ba5648d20cc1ee6c9370605a9bccdd6743a1af"
     },
     {
       "name": "voice-lose",
@@ -189,9 +247,28 @@
       "file": "assets/resources/audio/voice-lose.mp3",
       "sampleRate": 22050,
       "text": "慢慢来，再试一次吧。",
-      "voice": "Microsoft Huihui Desktop",
-      "engine": "Windows System.Speech",
-      "language": "zh-CN"
+      "provider": "Microsoft Edge online neural text-to-speech",
+      "engine": "Microsoft neural speech",
+      "tool": "edge-tts",
+      "toolVersion": "7.3.1",
+      "voice": "zh-CN-XiaoyiNeural",
+      "language": "zh-CN",
+      "rate": "+2%",
+      "pitch": "+0Hz",
+      "volume": "+0%",
+      "sourceSha256": "a382ee160e810a7735c5b9c85aa49f81765e7c0566a104e84aa6ea1d71f08214",
+      "normalization": {
+        "integratedLufs": -19,
+        "truePeakDbtp": -3,
+        "loudnessRangeLu": 7,
+        "compression": {
+          "threshold": 0.1778,
+          "ratio": 2,
+          "attackMs": 3,
+          "releaseMs": 80
+        }
+      },
+      "sha256": "a6e947320b15db1849d8a9483d9d66deb4e43f5ebbb9c47812ce124b9d3832e1"
     }
   ]
 }

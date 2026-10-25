@@ -4,40 +4,103 @@ const path = require('node:path');
 const {
   chromium,
 } = require('C:/Users/kirito/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const autoplayBlocked = process.env.AUDIO_AUTOPLAY === 'blocked';
+const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
 (async () => {
   const browser = await chromium.launch({
     headless: true,
-    args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'],
+    args: [
+      '--enable-unsafe-swiftshader',
+      '--use-angle=swiftshader',
+      `--autoplay-policy=${autoplayBlocked ? 'document-user-activation-required' : 'no-user-gesture-required'}`,
+    ],
   });
   const page = await browser.newPage({
     viewport: { width: 432, height: 936 },
     deviceScaleFactor: 1,
   });
+  const session = await page.context().newCDPSession(page);
+  // Playwright evaluate/waitForFunction grant user activation. Startup probes must not.
+  const inspect = async (fn) => {
+    const { result, exceptionDetails } = await session.send('Runtime.evaluate', {
+      expression: `(${fn.toString()})()`,
+      returnByValue: true,
+      userGesture: false,
+    });
+    if (exceptionDetails) throw new Error(JSON.stringify(exceptionDetails));
+    return result.value;
+  };
+  const waitForInitial = async (predicate) => {
+    const deadline = Date.now() + 30000;
+    while (!(await inspect(predicate))) {
+      if (Date.now() > deadline) throw new Error('Audio startup timed out without user activation');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  };
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   try {
-    await page.goto('http://127.0.0.1:7457/?qa=soundscape', { waitUntil: 'networkidle' });
-    await page.waitForFunction(
+    await page.goto(`${origin}/?qa=soundscape`, { waitUntil: 'networkidle' });
+    await waitForInitial(
       () =>
         window.cc?.director?.getScene()?.getChildByName('StarIsleGame')?.getComponent('StarIsle')
           ?.onlineReady,
     );
-    await page.evaluate(
-      () =>
-        (window.audioApp = cc.director
-          .getScene()
-          .getChildByName('StarIsleGame')
-          .getComponent('StarIsle')),
-    );
+    await inspect(() => {
+      window.audioApp = cc.director
+        .getScene()
+        .getChildByName('StarIsleGame')
+        .getComponent('StarIsle');
+      return true;
+    });
     assert(
-      await page.evaluate(() => !!window.audioApp.soundscape),
+      await inspect(() => !!window.audioApp.soundscape),
       'The woodland audio director must be installed',
     );
-    await page.waitForFunction(() => window.audioApp.soundscape.loadedCount === 22);
+    await waitForInitial(() => window.audioApp.soundscape.loadedCount === 22);
     assert.equal(
-      await page.evaluate(() => window.audioApp.soundscape.unlocked),
+      await inspect(() => window.audioApp.soundscape.unlocked),
       false,
-      'no autoplay before a gesture',
+      'no game interaction before the startup music check',
+    );
+    assert(
+      await inspect(() =>
+        window.audioApp.soundscape.musicSlots.some(
+          (slot) => slot.name === 'music-home' && slot.target === 1,
+        ),
+      ),
+      'request home music as soon as its resource is loaded, without a gesture',
+    );
+    if (autoplayBlocked) {
+      assert(
+        await inspect(() =>
+          window.audioApp.soundscape.musicSlots.every((slot) => !slot.source.playing),
+        ),
+        'respect the browser autoplay restriction',
+      );
+      // The blank canvas is not a game button: Cocos must resume the queued BGM itself.
+      await page.mouse.click(360 * 0.6, 1100 * 0.6);
+    } else {
+      await waitForInitial(() =>
+        window.audioApp.soundscape.musicSlots.some((slot) => slot.source.playing),
+      );
+      assert.equal(
+        await inspect(() => navigator.userActivation.hasBeenActive),
+        false,
+        'autoplay is verified without a real or automation-generated gesture',
+      );
+    }
+    await page.waitForFunction(() =>
+      window.audioApp.soundscape.musicSlots.some(
+        (slot) => slot.name === 'music-home' && slot.source.playing && slot.source.volume > 0.2,
+      ),
+    );
+    assert.equal(await page.evaluate(() => window.audioApp.soundscape.unlocked), false);
+    assert(
+      await page.evaluate(() =>
+        window.audioApp.soundscape.effects.every((source) => !source.playing),
+      ),
+      'startup only plays background music',
     );
     await page.mouse.click(56 * 0.6, 75 * 0.6);
     await page.waitForFunction(() =>
@@ -142,21 +205,63 @@ const {
     await page.waitForFunction(
       () => window.audioApp.currentScreen === 'home' && window.audioApp.soundscape.mode === 'home',
     );
+    const mutedPage = await browser.newPage();
+    try {
+      mutedPage.on('pageerror', (error) => errors.push(error.message));
+      await mutedPage.addInitScript(() => {
+        localStorage.setItem('star-isle-v1', JSON.stringify({ sound: false }));
+        // Hold login so that stored mute is tested before cloud assets arrive.
+        window.wx = {
+          getDeviceInfo: () => ({ platform: 'devtools' }),
+          getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop' } }),
+          login: () => {},
+          request: (options) => options.fail(),
+        };
+      });
+      await mutedPage.goto(`${origin}/?qa=muted-startup`, { waitUntil: 'networkidle' });
+      await mutedPage.waitForFunction(() => {
+        const app = window.cc?.director
+          ?.getScene()
+          ?.getChildByName('StarIsleGame')
+          ?.getComponent('StarIsle');
+        return app?.onlineReady && app.soundscape.loadedCount === 22;
+      });
+      assert(
+        await mutedPage.evaluate(() => {
+          const app = cc.director
+            .getScene()
+            .getChildByName('StarIsleGame')
+            .getComponent('StarIsle');
+          return (
+            !app.practice &&
+            !app.save.sound &&
+            app.soundscape.musicSlots.every((slot) => !slot.source.playing && slot.target === 0)
+          );
+        }),
+        'saved mute remains effective while WeChat login and asset loading are pending',
+      );
+    } finally {
+      await mutedPage.close();
+    }
     assert.deepEqual(errors, []);
     fs.writeFileSync(
-      path.resolve(__dirname, '../output/qa-audio/result.json'),
+      path.resolve(
+        __dirname,
+        `../output/qa-audio/result-${autoplayBlocked ? 'blocked' : 'allowed'}.json`,
+      ),
       JSON.stringify(
         {
           success: true,
           checks: [
             '22 clips loaded',
-            'gesture-gated music',
+            autoplayBlocked ? 'browser gesture fallback' : 'home music without interaction',
             'home/game music',
             'voice ducking and recovery',
             'leaf match effects',
             'mute stops all channels',
             'background stops sound and foreground resumes game music',
             'unmute and home transition',
+            'saved mute before WeChat login finishes',
           ],
           errors,
         },
@@ -165,7 +270,7 @@ const {
       ),
     );
     console.log(
-      'PASS — woodland audio, speech ducking, music transitions, mute controls and leaf effects.',
+      `PASS — ${autoplayBlocked ? 'browser gesture fallback' : 'startup autoplay'}, speech ducking, music transitions, saved mute and leaf effects.`,
     );
   } finally {
     await browser.close();

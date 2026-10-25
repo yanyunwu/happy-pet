@@ -4,7 +4,7 @@
 
 **Addresses approved by the user:** local `http://127.0.0.1:8080/api/v1`; preview and production both `https://hp.autora.cn/api/v1`.
 
-**Architecture:** A pure TypeScript resolver reads WeChat's documented account/device APIs. Per the user's clarification, browsers, `platform=devtools` and `envVersion=develop` select local; `trial` selects preview; `release` and unidentified WeChat versions select production. Browser-only preview retains offline practice. Configuration remains packaged in `online.json` under `environments.<name>.apiBaseUrl`; runtime code does not depend on Node's `process.env` or URL globals. On a physical phone, a local API must use an address reachable from that phone; loopback points to the phone itself.
+**Architecture:** A pure TypeScript resolver reads WeChat's documented account/device APIs. Per the user's latest clarification, only browsers and `platform=devtools` select local; native `develop` and `trial` select preview; `release` and unidentified WeChat versions select production. Both preview and production use the approved online endpoint. Simulator detection takes priority over version detection. Browser-only preview retains offline practice. Configuration remains packaged in `online.json` under `environments.<name>.apiBaseUrl`; runtime code does not depend on Node's `process.env` or URL globals.
 
 - [x] Add failing unit tests for environment detection, older device API fallback, production-safe fallback, URL normalization and invalid configuration.
 - [x] Implement the resolver, configure all three addresses, integrate it into startup, and update WeChat build settings to use the local address when deciding local URL checks.

@@ -113,13 +113,18 @@ fs.mkdirSync(output, { recursive: true });
     });
     await click(56, 75);
     await page.waitForFunction(() => window.skinApp.modal?.name === 'HomeMenu');
-    await sample('modal', ['SystemSettings', 'CustomerService', 'Announcements']);
+    await sample('modal', [
+      'PersonalSettings',
+      'SystemSettings',
+      'CustomerService',
+      'Announcements',
+    ]);
     await page.screenshot({ path: path.join(output, 'menu.png') });
     await page.screenshot({
       path: path.join(output, 'menu-detail.png'),
-      clip: { x: 21, y: 64, width: 200, height: 213 },
+      clip: { x: 21, y: 64, width: 200, height: 273 },
     });
-    await click(199, 178);
+    await click(199, 283);
     await page.waitForFunction(() => window.skinApp.modal?.name === 'Settings');
     await sample('modal', ['Banner', 'SoundToggle', 'SettingsDone']);
     const close = await page.evaluate(() => {

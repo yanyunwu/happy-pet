@@ -29,6 +29,19 @@ func (fakeWechat) Exchange(_ context.Context, code string) (users.WechatIdentity
 }
 func testStore(t *testing.T) *sql.DB {
 	t.Helper()
+	db := emptyTestStore(t)
+	ctx := context.Background()
+	if err := schema.Initialize(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	if err := game.Seed(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+func emptyTestStore(t *testing.T) *sql.DB {
+	t.Helper()
 	dsn := os.Getenv("API_TEST_DATABASE_URL")
 	if dsn == "" {
 		dsn = "postgres://happy_pet:happy-pet-local-only@127.0.0.1:5432/happy_pet?sslmode=disable"
@@ -51,12 +64,6 @@ func testStore(t *testing.T) *sql.DB {
 		t.Fatal(e)
 	}
 	t.Cleanup(func() { db.Close(); _, _ = base.ExecContext(ctx, `DROP SCHEMA "`+name+`" CASCADE`); base.Close() })
-	if e = schema.Initialize(ctx, db); e != nil {
-		t.Fatal(e)
-	}
-	if e = game.Seed(ctx, db); e != nil {
-		t.Fatal(e)
-	}
 	return db
 }
 

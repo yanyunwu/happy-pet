@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-25",
+  "generator": "built-in image_gen",
+  "purpose": "Textured woodland menu and dialog icons",
+  "transparentBackground": true,
+  "packaging": "Copy original PNGs into art/source-woodland, preserve alpha and resize to 256x256 with tools/prepare-menu-art.cjs",
+  "assets": [
+    {
+      "source": "art/source-woodland/menu-support.png",
+      "runtime": "assets/resources/cartoon/ui/menu-support.png",
+      "prompt": "Generate one production game UI icon: a chunky over-ear customer-support headset with a short curved microphone boom, handmade sculpted warm honey oak and muted forest-green painted wood, subtly visible carved wood grain, rounded toy-like beveled edges, soft polished matte finish, warm top-left light with soft self-shadow. Front-facing near-orthographic, large centered recognizable silhouette, occupies 80% of the square, isolated on a genuinely transparent background. Match a premium cozy forest woodworking / cute wooden pet puzzle game. Both earpads readable, microphone tip visible. No person, no face, no letters, no text, no badge/container, no ground plane or background, no drop shadow outside object, no white-outline vector strokes. Crisp clean alpha edges. Asset should remain legible at 52px display size. Deliver a single square transparent PNG."
+    },
+    {
+      "source": "art/source-woodland/menu-announcement.png",
+      "runtime": "assets/resources/cartoon/ui/menu-announcement.png",
+      "prompt": "Generate one production game UI icon: a cheerful announcement megaphone crafted from chunky warm honey oak, muted forest-green painted wooden horn exterior with cream inner cone and a small brass detail, visible carved wood grain and thick rounded beveled toy-like edges, soft polished matte finish, warm top-left lighting and soft self-shadow. Front three-quarter angle with horn opening facing upper-left, short sturdy handle visible at lower-right, large centered recognizable silhouette occupying 80% of a square. Premium cozy forest woodworking / cute wooden pet puzzle game icon. Isolated on a genuinely transparent background. No lettering, no text, no person, no separate badge/container, no ground plane or background, no white-outline vector strokes, no detached sound lines or particles. Crisp clean alpha edges, easily recognizable at 52px. Deliver a single square transparent PNG."
+    }
+  ]
+}

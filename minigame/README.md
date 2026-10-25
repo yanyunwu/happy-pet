@@ -51,7 +51,7 @@ Canvas
 
 ## 可玩内容
 
-首页保留左上角菜单和右上角萌宠金币余额。木雕动物下方横排展示 7 日签到、萌宠图鉴、背包道具、声音设置，四个玩法入口使用下方双列布局。菜单点击后弹出系统设置、联系客服、更新公告三项，点击外部即可关闭。
+首页保留左上角菜单和右上角萌宠金币余额。木雕动物下方横排展示 7 日签到、萌宠图鉴、背包道具、声音设置，四个玩法入口使用下方双列布局。菜单点击后弹出个人设置、系统设置、联系客服、更新公告四项，点击外部即可关闭。
 
 首页前三个入口属于挑战模式，当前每种规则默认连续两关，第一关简单、第二关为 15 种萌宠的挑战关；微信联网时从后台读取已发布的挑战关卡，后台可编辑并在以后扩展。第四个“闯关模式”独立选择三种规则，保存各自的通关进度，重新进入继续首个未通关关卡。两类入口共用关卡、资产与回放系统。普通网页或未连接服务器时前三种使用下表的内置离线双关，闯关模式显示准备中。
 
@@ -92,7 +92,7 @@ Canvas
 - `assets/resources/cartoon/icons/`：7 种木作图鉴、闯关、设置和道具图标；运行时弹窗绑定其中 6 种。
 - `assets/resources/cartoon/home-ui/`：木牌 Logo、爪印金币、签到日历、背包透明图标。
 - `assets/resources/cartoon/ui/`：木纹按钮、厚实奶白牌块、木框面板与嵌槽皮肤。
-- `assets/resources/audio/`：22 段森林木作主题 MP3，包括 16 段交互音效、2 首原创循环背景音乐和 4 句本机合成中文语音，总计约 790 KiB。
+- `assets/resources/audio/`：22 段森林木作主题 MP3，包括 16 段交互音效、2 首原创循环背景音乐和 4 句晓伊神经网络中文配音，总计约 782 KiB。
 
 背景与插画图标使用内置 image_gen 生成。美术目录只保留当前森林木作原图、提示词和选定的 B 概念参考；历史素材、未采用的方案和旧版导入工具已清理。
 
@@ -106,21 +106,30 @@ Canvas
 
 首页播放 88 BPM 的《林间小憩》，对局切换到 100 BPM 的《萌宠寻路》，以木琴、卡林巴、拨弦和轻木质打击为主。16 段音效分别用于按钮、选牌、不可选提示、三种消除、四种道具、弹窗开关、签到、过关及胜负。四句中文语音仅在开始、进入下一关、通关和失败时播报，不为每次消除重复配音。
 
-`ui/WoodlandAudio.ts` 管理四个音效通道、两个音乐交叉渐变通道和一个语音通道。首次操作后启动音乐；语音期间降低背景音量，结束后恢复。声音开关同时控制音乐、音效和语音，切入后台停止全部声音，返回后恢复对应场景音乐。
+`ui/WoodlandAudio.ts` 管理四个音效通道、两个音乐交叉渐变通道和一个语音通道。音乐资源加载后自动尝试播放，无需先操作游戏；浏览器阻止自动播放时，由 Cocos 在首次点击后恢复。语音期间降低背景音量，结束后恢复。声音开关同时控制音乐、音效和语音，已保存的静音设置在微信登录完成前也始终生效。切入后台停止全部声音，返回后恢复对应场景音乐。
 
-音乐旋律和音效由项目中的确定性合成脚本原创生成；中文语音使用本机 Windows System.Speech 的可用中文音色合成，实际引擎和音色记录在 `art/woodland-audio-manifest.json`。修改语音文本可编辑 `art/woodland-voices.json`。在装有中文语音包和 FFmpeg 的 Windows 上，从 `minigame` 目录执行：
+音乐旋律和音效由项目中的确定性合成脚本原创生成；中文配音使用已选定的 A 版俏皮女声 `zh-CN-XiaoyiNeural`（语速 +2%，音高不变）。实际来源、参数和音量处理记录在 `art/woodland-audio-manifest.json`，台词在 `art/woodland-voices.json`。重新生成需要 Python 3.10+、FFmpeg 和联网语音服务。从 `minigame` 目录执行：
 
-```text
-node tools/generate-audio.cjs
+```powershell
+py -3 -m venv temp/voice-venv
+$env:VOICE_PYTHON = (Resolve-Path 'temp/voice-venv/Scripts/python.exe').Path
+& $env:VOICE_PYTHON -m pip install -r tools/voice-requirements.txt
+node tools/generate-audio.cjs --voices-only
 ```
 
-脚本生成 22 个 MP3 及稳定的资源元数据，WAV 中间文件放入忽略的 `output/audio-source`。运行游戏不需要语音包、FFmpeg 或联网语音服务。重新生成后应重新构建 Creator 项目。
+`--voices-only` 只更新四句配音，保留其余音乐、音效及现有资源 UUID；去掉该参数可重新生成全部 22 个 MP3。中间文件放入忽略的 `output/audio-source`，合成失败不会退回桌面朗读音色。运行游戏不需要 Python、FFmpeg 或联网语音服务。重新生成后应重新构建 Creator 项目。
+
+## 个人设置
+
+首页菜单提供个人设置、系统设置、联系客服和更新公告。个人设置通过用户主动点击的微信头像授权按钮同步头像，在本地表单中编辑昵称后，使用 `PUT /api/v1/user/me` 保存到当前登录账号。头像仅支持微信返回的图片地址；没有相册上传或萌宠头像选择。网页预览可以查看界面，保存资料需要微信登录。
+
+数据库用增量迁移 `002_user_avatar_url.sql` 保存头像 URL，后台用户列表沿用同一份资料。昵称为 1–32 个字符；未提交头像时保留旧头像。微信头像地址可能在用户换头像后失效，加载失败显示本地默认图，重新点击“使用微信头像”可同步新地址。发布前需在微信后台配置头像昵称相关隐私声明，并确认实际头像 CDN 域名的图片下载配置；本地模拟授权测试不代替真机授权验证。
 
 ## 构建
 
-接口在 `assets/resources/online.json` 的 `environments` 中统一配置。浏览器、模拟器和 `develop` 开发版使用 `local`（默认 `http://127.0.0.1:8080/api/v1`）；`trial` 体验版使用 `preview`，`release` 正式版使用 `production`，目前两者均为 `https://hp.autora.cn/api/v1`。`core/ApiEnvironment.ts` 读取微信官方设备/版本信息；无法识别的微信版本使用正式配置，配置错误不会回退到其他环境。
+接口在 `assets/resources/online.json` 的 `environments` 中统一配置。只有浏览器和开发者工具模拟器使用 `local`（默认 `http://127.0.0.1:8080/api/v1`）；真机 `develop` 开发版／扫码预览及 `trial` 体验版使用 `preview`，`release` 正式版使用 `production`，目前两者均为 `https://hp.autora.cn/api/v1`。`core/ApiEnvironment.ts` 读取微信官方设备/版本信息；模拟器判断优先于版本判断，无法识别的微信版本使用正式配置，配置错误不会回退到其他环境。
 
-从仓库根目录运行 `make configure-game API_ENV=preview API_URL=https://域名/api/v1` 可单独更新一组地址；也可一次传入 `API_LOCAL_URL`、`API_PREVIEW_URL` 和 `API_PRODUCTION_URL`。改地址后重新构建即可。手机开发版的本地地址需要可从手机访问，`127.0.0.1` 只指向运行设备自身；提交审核默认使用开发版时也应使用可访问地址。
+从仓库根目录运行 `make configure-game API_ENV=preview API_URL=https://域名/api/v1` 可单独更新一组地址；也可一次传入 `API_LOCAL_URL`、`API_PREVIEW_URL` 和 `API_PRODUCTION_URL`。改地址后重新构建即可。真机开发、扫码预览和提审使用线上配置，无需调整本地地址。
 
 ```powershell
 .\tools\build.ps1 -Platform web-mobile

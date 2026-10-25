@@ -197,7 +197,8 @@ export class WoodlandAudio extends Component {
   }
 
   private refreshMusic(): void {
-    if (!this.unlocked || !this.soundEnabled() || this.hidden || !this.musicSlots.length) return;
+    // Start when ready; Cocos resumes a blocked browser AudioContext on the first gesture.
+    if (!this.soundEnabled() || this.hidden || !this.musicSlots.length) return;
     const name = this.mode === 'home' ? 'music-home' : 'music';
     const clip = this.clips.get(name);
     if (!clip) return;

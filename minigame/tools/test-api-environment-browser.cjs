@@ -44,7 +44,7 @@ const server = http.createServer((request, response) => {
     for (const spec of [
       { name: 'browser', expected: 'local' },
       { name: 'devtools', platform: 'devtools', version: 'develop', expected: 'local' },
-      { name: 'phone development', platform: 'ios', version: 'develop', expected: 'local' },
+      { name: 'phone development', platform: 'ios', version: 'develop', expected: 'preview' },
       { name: 'phone trial', platform: 'android', version: 'trial', expected: 'preview' },
       { name: 'phone release', platform: 'ios', version: 'release', expected: 'production' },
       {

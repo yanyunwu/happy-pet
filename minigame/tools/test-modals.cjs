@@ -130,9 +130,13 @@ fs.mkdirSync(output, { recursive: true });
     await close();
     await click(56, 75);
     await opening('HomeMenu');
-    await bounds('HomeMenu', ['SystemSettings', 'CustomerService', 'Announcements'], 'MenuPanel');
+    await bounds(
+      'HomeMenu',
+      ['PersonalSettings', 'SystemSettings', 'CustomerService', 'Announcements'],
+      'MenuPanel',
+    );
     await page.screenshot({ path: path.join(output, 'menu.png') });
-    await click(199, 200);
+    await click(199, 283);
     await opening('Settings');
     await page.waitForTimeout(190);
     assert.equal(

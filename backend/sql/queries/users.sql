@@ -47,7 +47,8 @@ WHERE id = $1 AND deleted_at IS NULL RETURNING *;
 
 -- name: UpdateProfile :one
 UPDATE users SET nickname = sqlc.arg(nickname),
- avatar_media_id=CASE WHEN sqlc.arg(update_avatar)::boolean THEN sqlc.narg(avatar_media_id)::text ELSE avatar_media_id END,
+ avatar_url=CASE WHEN sqlc.arg(update_avatar)::boolean THEN sqlc.arg(avatar_url)::text ELSE avatar_url END,
+ avatar_media_id=CASE WHEN sqlc.arg(update_avatar)::boolean THEN NULL ELSE avatar_media_id END,
  updated_at=now() WHERE id=sqlc.arg(id) AND deleted_at IS NULL AND status='active' RETURNING *;
 
 -- name: UpdatePassword :exec

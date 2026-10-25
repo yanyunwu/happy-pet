@@ -25,8 +25,7 @@ export function detectApiEnvironment(runtime?: WechatEnvironmentAPI | null): Api
   if (platform === 'devtools') return 'local';
   try {
     const version = runtime.getAccountInfoSync?.()?.miniProgram?.envVersion;
-    if (version === 'develop') return 'local';
-    if (version === 'trial') return 'preview';
+    if (version === 'develop' || version === 'trial') return 'preview';
   } catch {
     /* Unidentified native builds use production. */
   }

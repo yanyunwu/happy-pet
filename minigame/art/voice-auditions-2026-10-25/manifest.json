@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-25",
+  "purpose": "Alternative game voice auditions; not installed into the game",
+  "provider": "Microsoft Edge online neural text-to-speech",
+  "tool": "edge-tts 7.3.1",
+  "text": "准备好，出发啦！真棒，闯关成功！慢慢来，再试一次吧。",
+  "rate": "+2%",
+  "pitch": "+0Hz",
+  "backgroundMusic": false,
+  "normalization": "FFmpeg loudnorm -18 LUFS / -2 dBTP; mono 24 kHz MP3 96 kbps",
+  "source": "https://github.com/rany2/edge-tts",
+  "clips": [
+    {
+      "id": "A",
+      "label": "俏皮女声",
+      "voice": "zh-CN-XiaoyiNeural",
+      "locale": "zh-CN",
+      "gender": "Female",
+      "file": "A-zh-CN-XiaoyiNeural.mp3",
+      "durationSeconds": 6.678,
+      "bytes": 81333,
+      "sha256": "fca814be12810c1cbf2ff76fba8f6193ca6877d230d2819efafc950c34aecbc0"
+    },
+    {
+      "id": "B",
+      "label": "温柔女声",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "locale": "zh-CN",
+      "gender": "Female",
+      "file": "B-zh-CN-XiaoxiaoNeural.mp3",
+      "durationSeconds": 6.822,
+      "bytes": 83061,
+      "sha256": "de479e751fac508f66ffce17fefb56a0369fbea08870bd9dc836aba8f38b38bd"
+    },
+    {
+      "id": "C",
+      "label": "可爱少年声",
+      "voice": "zh-CN-YunxiaNeural",
+      "locale": "zh-CN",
+      "gender": "Male",
+      "file": "C-zh-CN-YunxiaNeural.mp3",
+      "durationSeconds": 7.23,
+      "bytes": 87960,
+      "sha256": "3429662be7d9a4985415cc229391f735f3feb2f74c0cf8b0f14d7c92e169a918"
+    },
+    {
+      "id": "D",
+      "label": "清甜女声（台式普通话）",
+      "voice": "zh-TW-HsiaoChenNeural",
+      "locale": "zh-TW",
+      "gender": "Female",
+      "file": "D-zh-TW-HsiaoChenNeural.mp3",
+      "durationSeconds": 7.998,
+      "bytes": 97194,
+      "sha256": "38033aa1e43c26238ee2eb60885eceaf5a147f8450c0ad21d9b305d70f3a111d"
+    },
+    {
+      "id": "E",
+      "label": "轻柔女声（台式普通话）",
+      "voice": "zh-TW-HsiaoYuNeural",
+      "locale": "zh-TW",
+      "gender": "Female",
+      "file": "E-zh-TW-HsiaoYuNeural.mp3",
+      "durationSeconds": 9.702,
+      "bytes": 117642,
+      "sha256": "de5d2e3991745f324a416d5272423e979478cf4c1586540b136111caf2510654"
+    },
+    {
+      "id": "F",
+      "label": "阳光男声",
+      "voice": "zh-CN-YunxiNeural",
+      "locale": "zh-CN",
+      "gender": "Male",
+      "file": "F-zh-CN-YunxiNeural.mp3",
+      "durationSeconds": 7.374,
+      "bytes": 89685,
+      "sha256": "231b1eb4aad42e8a9892809f8015c5ee15591d9c9ed267d54a82d7642206f8d4"
+    }
+  ]
+}

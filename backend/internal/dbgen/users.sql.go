@@ -61,7 +61,7 @@ func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int64, 
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, password_hash, wechat_openid, wechat_unionid, nickname, role, status, remark)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url
 `
 
 type CreateUserParams struct {
@@ -105,6 +105,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -119,7 +120,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at FROM users WHERE id = $1
+SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
@@ -141,12 +142,13 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getUserByOpenID = `-- name: GetUserByOpenID :one
-SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at FROM users WHERE wechat_openid = $1
+SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url FROM users WHERE wechat_openid = $1
 `
 
 func (q *Queries) GetUserByOpenID(ctx context.Context, wechatOpenid sql.NullString) (User, error) {
@@ -168,12 +170,13 @@ func (q *Queries) GetUserByOpenID(ctx context.Context, wechatOpenid sql.NullStri
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at FROM users WHERE username = $1
+SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username sql.NullString) (User, error) {
@@ -195,12 +198,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username sql.NullString
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at FROM users
+SELECT id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url FROM users
 WHERE ($1::boolean OR deleted_at IS NULL)
   AND ($2::text = '' OR nickname ILIKE '%' || $2 || '%' OR COALESCE(username, '') ILIKE '%' || $2 || '%' OR id = $2)
   AND ($3::text = '' OR ($3 = 'deleted' AND deleted_at IS NOT NULL) OR (status = $3 AND deleted_at IS NULL))
@@ -250,6 +254,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.AvatarUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -283,7 +288,7 @@ func (q *Queries) LockWechatRegistration(ctx context.Context, openid string) err
 }
 
 const restoreUser = `-- name: RestoreUser :one
-UPDATE users SET deleted_at = NULL, status = 'disabled', updated_at = now(), session_version = session_version + 1 WHERE id = $1 AND deleted_at IS NOT NULL RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at
+UPDATE users SET deleted_at = NULL, status = 'disabled', updated_at = now(), session_version = session_version + 1 WHERE id = $1 AND deleted_at IS NOT NULL RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url
 `
 
 func (q *Queries) RestoreUser(ctx context.Context, id string) (User, error) {
@@ -305,6 +310,7 @@ func (q *Queries) RestoreUser(ctx context.Context, id string) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -319,7 +325,7 @@ func (q *Queries) RevokeSessions(ctx context.Context, id string) error {
 }
 
 const touchLogin = `-- name: TouchLogin :one
-UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = $1 AND status = 'active' AND deleted_at IS NULL RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at
+UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = $1 AND status = 'active' AND deleted_at IS NULL RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url
 `
 
 func (q *Queries) TouchLogin(ctx context.Context, id string) (User, error) {
@@ -341,6 +347,7 @@ func (q *Queries) TouchLogin(ctx context.Context, id string) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -361,22 +368,23 @@ func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) 
 
 const updateProfile = `-- name: UpdateProfile :one
 UPDATE users SET nickname = $1,
- avatar_media_id=CASE WHEN $2::boolean THEN $3::text ELSE avatar_media_id END,
- updated_at=now() WHERE id=$4 AND deleted_at IS NULL AND status='active' RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at
+ avatar_url=CASE WHEN $2::boolean THEN $3::text ELSE avatar_url END,
+ avatar_media_id=CASE WHEN $2::boolean THEN NULL ELSE avatar_media_id END,
+ updated_at=now() WHERE id=$4 AND deleted_at IS NULL AND status='active' RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url
 `
 
 type UpdateProfileParams struct {
-	Nickname      string
-	UpdateAvatar  bool
-	AvatarMediaID sql.NullString
-	ID            string
+	Nickname     string
+	UpdateAvatar bool
+	AvatarUrl    string
+	ID           string
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, updateProfile,
 		arg.Nickname,
 		arg.UpdateAvatar,
-		arg.AvatarMediaID,
+		arg.AvatarUrl,
 		arg.ID,
 	)
 	var i User
@@ -396,6 +404,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (U
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -403,7 +412,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (U
 const updateUser = `-- name: UpdateUser :one
 UPDATE users SET nickname = $2, status = $3, remark = $4, updated_at = now(),
 session_version = session_version + CASE WHEN status <> $3 THEN 1 ELSE 0 END
-WHERE id = $1 AND deleted_at IS NULL RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at
+WHERE id = $1 AND deleted_at IS NULL RETURNING id, username, password_hash, wechat_openid, wechat_unionid, avatar_media_id, nickname, role, status, remark, session_version, last_login_at, created_at, updated_at, deleted_at, avatar_url
 `
 
 type UpdateUserParams struct {
@@ -437,6 +446,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }

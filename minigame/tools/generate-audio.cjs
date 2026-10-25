@@ -1,14 +1,21 @@
-// Original deterministic woodland music/foley. Speech uses the local Windows voice engine.
+// Original deterministic woodland music/foley and the selected online neural voice.
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { root, uuid, write } = require('./lib/creator.cjs');
 const rate = 22050;
 const work = path.join(root, 'output/audio-source');
 const output = path.join(root, 'assets/resources/audio');
+const voicesOnly = process.argv.includes('--voices-only');
+const voices = JSON.parse(fs.readFileSync(path.join(root, 'art/woodland-voices.json'), 'utf8'));
 fs.mkdirSync(work, { recursive: true });
 fs.mkdirSync(output, { recursive: true });
-const assets = [];
+const assets = voicesOnly
+  ? JSON.parse(
+      fs.readFileSync(path.join(root, 'art/woodland-audio-manifest.json'), 'utf8'),
+    ).assets.filter((asset) => asset.kind !== 'voice')
+  : [];
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
 function random(seed) {
   let n = seed >>> 0;
@@ -109,11 +116,16 @@ function encode(name, file, kind, details = {}) {
   const target = path.join(output, name + '.mp3'),
     temporary = path.join(work, name + '.mp3');
   const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', file];
-  if (kind === 'voice')
+  if (kind === 'voice') {
+    // Gentle compression keeps the short neural cues from being limited by their peaks alone.
+    const compression = voices.normalization.compression;
     args.push(
       '-af',
-      'silenceremove=start_periods=1:start_duration=0.02:start_threshold=-55dB,areverse,silenceremove=start_periods=1:start_duration=0.02:start_threshold=-55dB,areverse,highpass=f=95,lowpass=f=7000,loudnorm=I=-19:TP=-3:LRA=7,apad=pad_dur=0.08',
+      'silenceremove=start_periods=1:start_duration=0.02:start_threshold=-55dB,areverse,silenceremove=start_periods=1:start_duration=0.02:start_threshold=-55dB,areverse,highpass=f=95,lowpass=f=7000,' +
+        `acompressor=threshold=${compression.threshold}:ratio=${compression.ratio}:attack=${compression.attackMs}:release=${compression.releaseMs},apad=pad_dur=0.08,` +
+        `loudnorm=I=${voices.normalization.integratedLufs}:TP=${voices.normalization.truePeakDbtp}:LRA=${voices.normalization.loudnessRangeLu}`,
     );
+  }
   args.push(
     '-ac',
     '1',
@@ -133,18 +145,29 @@ function encode(name, file, kind, details = {}) {
   if (encoded.status !== 0) throw new Error(encoded.stderr || 'ffmpeg encoding failed');
   fs.renameSync(temporary, target);
   const relative = 'assets/resources/audio/' + name + '.mp3';
-  write(relative + '.meta', {
-    ver: '1.0.0',
-    importer: 'audio-clip',
-    imported: false,
-    uuid: uuid(relative),
-    files: [],
-    subMetas: {},
-    userData: { downloadMode: 0 },
+  if (!fs.existsSync(target + '.meta'))
+    write(relative + '.meta', {
+      ver: '1.0.0',
+      importer: 'audio-clip',
+      imported: false,
+      uuid: uuid(relative),
+      files: [],
+      subMetas: {},
+      userData: { downloadMode: 0 },
+    });
+  assets.push({
+    name,
+    kind,
+    file: relative,
+    sampleRate: rate,
+    ...details,
+    ...(kind === 'voice'
+      ? { sha256: createHash('sha256').update(fs.readFileSync(target)).digest('hex') }
+      : {}),
   });
-  assets.push({ name, kind, file: relative, sampleRate: rate, ...details });
 }
 function effect(name, seconds, description, render) {
+  if (voicesOnly) return;
   const data = new Float32Array(Math.round(seconds * rate));
   let seed = 100 + assets.length * 67;
   const hit = (at, frequency, length, gain, type) =>
@@ -262,6 +285,7 @@ const phrases = [
   ],
 ];
 function music(name, bpm, gameplay) {
+  if (voicesOnly) return;
   const beat = 60 / bpm,
     duration = beat * 64,
     data = new Float32Array(Math.round(duration * rate));
@@ -309,30 +333,36 @@ function music(name, bpm, gameplay) {
 }
 music('music-home', 88, false);
 music('music', 100, true);
-const voices = JSON.parse(fs.readFileSync(path.join(root, 'art/woodland-voices.json'), 'utf8'));
 const speech = spawnSync(
   'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
   ['-NoProfile', '-File', path.join(__dirname, 'generate-voices.ps1'), '-OutputDirectory', work],
   { encoding: 'utf8' },
 );
 if (speech.status !== 0)
-  throw new Error(speech.stderr || speech.stdout || 'Local speech synthesis failed');
-const voiceEngine = JSON.parse(fs.readFileSync(path.join(work, 'voice-engine.json'), 'utf8'));
+  throw new Error(speech.stderr || speech.stdout || 'Neural speech synthesis failed');
+const { sourceHashes, ...voiceEngine } = JSON.parse(
+  fs.readFileSync(path.join(work, 'voice-engine.json'), 'utf8'),
+);
 for (const clip of voices.clips)
-  encode(clip.name, path.join(work, clip.name + '.wav'), 'voice', {
+  encode(clip.name, path.join(work, clip.name + '.source.mp3'), 'voice', {
     text: clip.text,
     ...voiceEngine,
+    sourceSha256: sourceHashes[clip.name],
+    normalization: voices.normalization,
   });
 write('art/woodland-audio-manifest.json', {
-  version: 1,
+  version: 2,
   theme: '森林木作 · 木琴小径',
-  method: 'Original deterministic DSP composition and foley; local Windows speech synthesis',
+  method: 'Original deterministic DSP composition and foley; Microsoft Edge online neural speech',
   source: 'tools/generate-audio.cjs',
-  speechSource: 'tools/generate-voices.ps1',
+  speechSource: 'tools/generate-voices.py',
+  speechWrapper: 'tools/generate-voices.ps1',
   assets,
 });
 console.log(
-  'Generated ' +
-    assets.length +
-    ' woodland audio assets, including two original music loops and four local Chinese voice cues.',
+  voicesOnly
+    ? 'Replaced four neural Chinese voice cues; preserved music, effects and existing asset metadata.'
+    : 'Generated ' +
+        assets.length +
+        ' woodland audio assets, including two original music loops and four neural Chinese voice cues.',
 );

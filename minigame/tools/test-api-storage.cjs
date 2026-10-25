@@ -5,6 +5,18 @@ const Module = require('node:module');
 const ts = require('C:/ProgramData/cocos/editors/Creator/3.8.8/resources/app.asar.unpacked/node_modules/typescript');
 const file = path.resolve(__dirname, '../assets/scripts/core/OnlineClient.ts');
 const mod = new Module(file);
+const loadDependency = (request) => {
+  const dependency = path.resolve(path.dirname(file), request + '.ts');
+  const loaded = new Module(dependency);
+  loaded._compile(
+    ts.transpileModule(fs.readFileSync(dependency, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    }).outputText,
+    dependency,
+  );
+  return loaded.exports;
+};
+mod.require = (request) => (request.startsWith('./') ? loadDependency(request) : require(request));
 mod._compile(
   ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },

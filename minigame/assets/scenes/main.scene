@@ -18173,6 +18173,16 @@
         "__expectedType__": "cc.SpriteFrame"
       }
     ],
+    "menuFrames": [
+      {
+        "__uuid__": "e86718df-bc57-bbc3-cb68-a980d7d5da29@f9941",
+        "__expectedType__": "cc.SpriteFrame"
+      },
+      {
+        "__uuid__": "765b6a76-7bd1-38f5-38ba-991bba8bc4d5@f9941",
+        "__expectedType__": "cc.SpriteFrame"
+      }
+    ],
     "_id": "a4b78e4b-28c5-ed05-676e-bcc5bfa429ad"
   },
   {

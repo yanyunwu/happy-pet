@@ -6,6 +6,7 @@ const ts = require('C:/ProgramData/cocos/editors/Creator/3.8.8/resources/app.asa
 function load(name) {
   const file = path.resolve(__dirname, `../assets/scripts/core/${name}.ts`),
     mod = new Module(file);
+  mod.require = (request) => (request.startsWith('./') ? load(request.slice(2)) : require(request));
   mod._compile(
     ts.transpileModule(fs.readFileSync(file, 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },

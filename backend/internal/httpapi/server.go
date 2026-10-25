@@ -76,6 +76,8 @@ func New(service *users.Service, cfg config.Config, logger *slog.Logger) *gin.En
 		view, err := service.View(c.Request.Context(), currentUser(c), false)
 		s.result(c, view, err)
 	})
+	user.PATCH("/me", s.updateProfile)
+	user.PUT("/me", s.updateProfile)
 	s.registerGame(router, admin, user)
 	user.POST("/logout", func(c *gin.Context) {
 		if err := service.Logout(c.Request.Context(), currentUser(c).ID); err != nil {
@@ -196,6 +198,25 @@ func (s *Server) wechatLogin(c *gin.Context) {
 		return
 	}
 	c.JSON(200, session)
+}
+func (s *Server) updateProfile(c *gin.Context) {
+	var input struct {
+		Nickname  string          `json:"nickname"`
+		AvatarURL json.RawMessage `json:"avatarUrl"`
+	}
+	if err := bind(c, &input); err != nil {
+		s.respondError(c, err)
+		return
+	}
+	var avatarURL *string
+	if input.AvatarURL != nil {
+		if err := json.Unmarshal(input.AvatarURL, &avatarURL); err != nil || avatarURL == nil {
+			s.respondError(c, users.Invalid("头像地址需为字符串"))
+			return
+		}
+	}
+	view, err := s.Service.UpdateProfile(c.Request.Context(), currentUser(c).ID, users.ProfileInput{Nickname: input.Nickname, AvatarURL: avatarURL})
+	s.result(c, view, err)
 }
 func (s *Server) listUsers(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))

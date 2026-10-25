@@ -39,7 +39,7 @@ assert.equal(
 for (const [platform, version, expected] of [
   ['devtools', 'develop', 'local'],
   ['devtools', 'release', 'local'],
-  ['ios', 'develop', 'local'],
+  ['ios', 'develop', 'preview'],
   ['android', 'trial', 'preview'],
   ['ios', 'release', 'production'],
   ['windows', 'release', 'production'],
@@ -143,7 +143,7 @@ assert.equal(
 );
 assert.equal(
   resolveApiConfiguration(actual, runtime('ios', 'develop')).apiBaseUrl,
-  'http://127.0.0.1:8080/api/v1',
+  'https://hp.autora.cn/api/v1',
 );
 assert.equal(
   resolveApiConfiguration(actual, runtime('ios', 'release')).apiBaseUrl,

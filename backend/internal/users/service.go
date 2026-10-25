@@ -106,9 +106,12 @@ func (s *Service) View(ctx context.Context, u dbgen.User, admin bool) (User, err
 	if u.WechatOpenid.Valid {
 		v.Source = "wechat"
 	}
+	if !u.DeletedAt.Valid {
+		v.AvatarURL = u.AvatarUrl
+	}
 	if u.AvatarMediaID.Valid && !u.DeletedAt.Valid {
 		v.AvatarMediaID = u.AvatarMediaID.String
-		if s.ImageURL != nil {
+		if v.AvatarURL == "" && s.ImageURL != nil {
 			address, err := s.ImageURL(ctx, u.AvatarMediaID.String)
 			if err != nil {
 				return User{}, err

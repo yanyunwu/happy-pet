@@ -50,17 +50,17 @@ make build-wechat
 
 `minigame/assets/resources/online.json` 保存三组地址，由启动时的微信运行信息自动选择：
 
-| 配置         | 运行场景                                     | 当前 API                       |
-| ------------ | -------------------------------------------- | ------------------------------ |
-| `local`      | 浏览器、开发者工具模拟器、`develop` 开发版   | `http://127.0.0.1:8080/api/v1` |
-| `preview`    | `trial` 体验版                               | `https://hp.autora.cn/api/v1`  |
-| `production` | `release` 正式版，或无法识别版本的微信客户端 | `https://hp.autora.cn/api/v1`  |
+| 配置         | 运行场景                                        | 当前 API                       |
+| ------------ | ----------------------------------------------- | ------------------------------ |
+| `local`      | 浏览器、开发者工具模拟器                        | `http://127.0.0.1:8080/api/v1` |
+| `preview`    | 真机 `develop` 开发版／扫码预览、`trial` 体验版 | `https://hp.autora.cn/api/v1`  |
+| `production` | `release` 正式版，或无法识别版本的微信客户端    | `https://hp.autora.cn/api/v1`  |
 
 模拟器使用 `getDeviceInfo().platform` 判断，旧基础库回退到 `getSystemInfoSync()`；版本使用 `getAccountInfoSync().miniProgram.envVersion`。地址由构建时的环境变量或资源 JSON 配置，运行时不读取 Node 的 `process.env`。同一个包自动选取环境；更改地址后需重新构建。[微信官方 API 定义](https://github.com/wechat-miniprogram/minigame-api-typings/blob/master/types/wx/lib.wx.api.d.ts)
 
 可以单独设置 `API_ENV=local|preview|production` 和 `API_URL`，或一次传入 `API_LOCAL_URL`、`API_PREVIEW_URL`、`API_PRODUCTION_URL`。未指定 `API_ENV` 时，`API_URL` 只更新正式地址；其他环境配置保留。预览、正式地址要求非本机 HTTPS，避免手机连接到本机回环。
 
-微信会自动登录、同步资产并读取已发布关卡；普通网页没有 `wx.login`，首页三种玩法仍可离线练习。离线存档与联网资产分开，离线金币不写入服务器。**手机扫码预览通常也是 `develop`；手机上的 `127.0.0.1` 指向手机自身。真机开发需要把 `local` 改成手机可访问的电脑服务或 HTTPS 测试域名。** 官方定义还说明提交审核默认使用开发版，提交前应确保开发版地址对审核设备可访问。
+微信会自动登录、同步资产并读取已发布关卡；普通网页没有 `wx.login`，首页三种玩法仍可离线练习。离线存档与联网资产分开，离线金币不写入服务器。**只有浏览器和开发者工具模拟器使用本地地址；真机开发、扫码预览、体验版、审核及正式版均使用线上地址。** 模拟器判断优先于版本判断，在模拟器切换到正式版仍使用本地地址。
 
 待上传操作和开局重试标识按 API 地址隔离；预览与正式共用相同地址时共享该接口的待上传队列。旧版未标注地址的记录仅在原本机接口自动迁入，其他地址不会猜测其归属或发送它们。自动化验证使用隔离测试 API 或模拟传输，不代表真实微信登录已验证。
 

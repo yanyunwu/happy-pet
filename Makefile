@@ -68,6 +68,7 @@ test-api:
 test-api-race:
 	go -C backend test -race -count=1 -timeout=15m $(GO_TEST_FLAGS) ./...
 test-game:
+	node minigame/tools/test-player-profile.cjs
 	node minigame/tools/test-custom-rules.cjs
 	node minigame/tools/test-game.cjs
 	node minigame/tools/test-modes.cjs
@@ -98,6 +99,7 @@ test-startup:
 test-audio:
 	node minigame/tools/test-audio-assets.cjs
 	node minigame/tools/test-soundscape.cjs
+	AUDIO_AUTOPLAY=blocked node minigame/tools/test-soundscape.cjs
 test-environments:
 	node minigame/tools/test-api-environments.cjs
 	node minigame/tools/test-api-storage.cjs
@@ -105,6 +107,8 @@ test-environments:
 preview-game:
 	node minigame/tools/serve.cjs
 test-ui:
+	cd minigame && node tools/test-profile-ui.cjs
+	cd minigame && node tools/test-toasts.cjs
 	cd minigame && node tools/test-level-transition.cjs
 	cd minigame && node tools/test-modals.cjs
 	cd minigame && node tools/test-ui-skins.cjs

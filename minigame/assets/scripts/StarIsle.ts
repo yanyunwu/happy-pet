@@ -52,6 +52,8 @@ import {
 } from './ui/Layout';
 import * as P from './ui/Paint';
 import { ModalPresenter } from './ui/ModalPresenter';
+import { ToastPresenter } from './ui/ToastPresenter';
+import { PlayerProfileDialog } from './ui/PlayerProfileDialog';
 import { WoodlandAudio } from './ui/WoodlandAudio';
 import { LeafTransition } from './ui/LeafTransition';
 import { OnlineClient, OnlineError, CloudAssets, CloudSession, EntryId } from './core/OnlineClient';
@@ -90,6 +92,8 @@ export class StarIsle extends Component {
   @property([SpriteFrame]) public utilityFrames: SpriteFrame[] = [];
   @property([SpriteFrame]) public skinFrames: SpriteFrame[] = [];
   @property([SpriteFrame]) public homeFrames: SpriteFrame[] = [];
+  @property([SpriteFrame]) public menuFrames: SpriteFrame[] = [];
+  private profileDialog: PlayerProfileDialog | null = null;
   private stage!: Node;
   private screen!: Node;
   private effects!: Node;
@@ -100,7 +104,7 @@ export class StarIsle extends Component {
   private get modal(): Node | null {
     return this.modals?.current || null;
   }
-  private toastNode: Node | null = null;
+  private toasts!: ToastPresenter;
   private tileNodes = new Map<number, Node>();
   private trayNodes = new Map<number, Node>();
   private reserveNodes = new Map<number, Node>();
@@ -140,7 +144,8 @@ export class StarIsle extends Component {
       !this.homeRoot ||
       !this.gameRoot ||
       this.petFrames.length !== KIND_NAMES.length ||
-      this.utilityFrames.length !== 6
+      this.utilityFrames.length !== 6 ||
+      this.menuFrames.length !== 2
     ) {
       throw new Error(
         'Bind the native pages, all 15 pet frames and 6 utility frames in main.scene.',
@@ -153,10 +158,13 @@ export class StarIsle extends Component {
       /* Local storage is optional; keep the game playable. */
     }
     this.localSave = this.save;
+    // Sound is a device preference, including while WeChat login is still pending.
+    this.cloudSave.sound = this.localSave.sound;
     this.stage = this.stageRoot;
     this.modals = new ModalPresenter(this.stage, (cue) => this.play(cue));
     this.frames = this.petFrames.slice();
     P.configureSkin(this.skinFrames);
+    this.toasts = new ToastPresenter(this.stage);
     this.soundscape = this.node.addComponent(WoodlandAudio);
     this.soundscape.configure(() => this.save.sound);
     this.levelTransition = new LeafTransition(
@@ -288,7 +296,9 @@ export class StarIsle extends Component {
   }
 
   private clearScreen(name: 'home' | 'game'): void {
+    this.disposeProfileDialog();
     this.unscheduleAllCallbacks();
+    this.toasts.reset();
     this.clearHighlights();
     this.modals.retire();
     this.resetTrayPresentation();
@@ -303,7 +313,6 @@ export class StarIsle extends Component {
         n.destroy();
       }
     });
-    this.toastNode = null;
     this.tileNodes.clear();
     this.homeRoot!.active = name === 'home';
     this.gameRoot!.active = name === 'game';
@@ -623,8 +632,9 @@ export class StarIsle extends Component {
       ['shuffle', g.shuffleLeft + this.save.bag.shuffle, true],
     ] as [string, number, boolean][]) {
       const n = this.at(this.gameRoot!, `Toolbar/Tool-${key}`);
-      const available = enabled && left > 0 && !this.busy && g.status === 'playing';
-      n.getComponent(Button)!.interactable = available;
+      const available = enabled && left > 0 && g.status === 'playing';
+      // Short animations lock input without flashing the tool's availability appearance.
+      n.getComponent(Button)!.interactable = available && !this.busy;
       P.opacity(n, 255);
       P.opacity(this.at(n, 'Icon'), available ? 255 : 130);
       this.setText(n, 'Count', String(left));
@@ -1184,10 +1194,17 @@ export class StarIsle extends Component {
     }
   }
   private closeModal(afterClose?: () => void): void {
+    this.disposeProfileDialog();
     this.modals.close(afterClose);
   }
+  private disposeProfileDialog(): void {
+    this.profileDialog?.dispose();
+    this.profileDialog = null;
+  }
   private dialog(name: string, title: string, height = 900): Node {
+    this.disposeProfileDialog();
     const m = this.modals.show(name);
+    this.toasts.bringToFront();
     const width = 626,
       top = 780 - height / 2,
       headerHeight = 82;
@@ -1226,11 +1243,14 @@ export class StarIsle extends Component {
     return m;
   }
   private showMenu(): void {
-    const m = this.modals.show('HomeMenu', 155, 199, 283);
+    this.disposeProfileDialog();
+    const m = this.modals.show('HomeMenu', 155, 199, 324.5);
+    this.toasts.bringToFront();
     const shade = m.getChildByName('Backdrop')!;
     shade.on(Node.EventType.TOUCH_END, () => this.closeModal());
-    P.skin(m, 'MenuPanel', 'panel', 199, 283, 312, 330).addComponent(BlockInputEvents);
+    P.skin(m, 'MenuPanel', 'panel', 199, 324.5, 312, 414).addComponent(BlockInputEvents);
     [
+      ['PersonalSettings', '个人设置'],
       ['SystemSettings', '系统设置'],
       ['CustomerService', '联系客服'],
       ['Announcements', '更新公告'],
@@ -1245,16 +1265,33 @@ export class StarIsle extends Component {
         76,
         () => {
           this.play('tap');
-          if (i === 0) this.showSettings();
-          else if (i === 1) this.showCustomerService();
+          if (i === 0) this.showPersonalSettings();
+          else if (i === 1) this.showSettings();
+          else if (i === 2) this.showCustomerService();
           else this.showAnnouncements();
         },
         true,
       );
-      if (i === 0) P.sprite(b, 'Gear', this.utilityFrames[1], -77, -5, 42, 42);
-      else P.icon(b, i === 1 ? 'contact' : 'sound', -77, -4, 20, C.white);
-      P.text(b, 'Label', label, 23, -5, 28, C.white, 154, true, 'center', 2);
+      P.sprite(
+        b,
+        'MenuIcon',
+        [this.frames[3], this.utilityFrames[1], ...this.menuFrames][i],
+        -77,
+        -5,
+        52,
+        52,
+      );
+      P.text(b, 'Label', label, 25, -5, 27, C.white, 152, true, 'center', 2);
     });
+  }
+  private showPersonalSettings(): void {
+    const modal = this.dialog('PersonalSettings', '个人设置', 1010);
+    this.profileDialog = modal.addComponent(PlayerProfileDialog);
+    this.profileDialog.configure(
+      typeof wx === 'undefined' ? null : this.online,
+      this.frames[3],
+      (message) => this.toast(message),
+    );
   }
   private showRules(tutorial = true): void {
     const g = this.game!;
@@ -1453,7 +1490,7 @@ export class StarIsle extends Component {
   private customerServiceFallback(unavailable: boolean): void {
     if (!this.isValid) return;
     const m = this.dialog('CustomerService', '联系客服', 620);
-    P.icon(m, 'contact', 360, 683, 65, C.deep);
+    P.sprite(m, 'SupportHeadset', this.menuFrames[0], 360, 683, 140, 140);
     P.text(
       m,
       'ContactDescription',
@@ -1479,7 +1516,8 @@ export class StarIsle extends Component {
   }
   private showAnnouncements(): void {
     const m = this.dialog('Announcements', '更新公告', 930);
-    P.text(m, 'Version', '快乐萌宠消 · 森林木作', 360, 467, 27, C.deep, 555, true);
+    P.sprite(m, 'AnnouncementHorn', this.menuFrames[1], 152, 476, 80, 80);
+    P.text(m, 'Version', '快乐萌宠消 · 森林木作', 405, 467, 26, C.deep, 402, true);
     const rows = [
       ['三种玩法，一起开玩', '经典三消、极限四消、趣味规则消现已开放'],
       ['一口气，连闯两关', '从第一关直接开始，过关后自动进入第二关'],
@@ -1488,8 +1526,9 @@ export class StarIsle extends Component {
     ];
     rows.forEach(([title, detail], i) => {
       const y = 580 + i * 130;
-      P.text(m, 'NewsTitle', title, 360, y, 27, C.ink, 540, true);
-      P.text(m, 'NewsDetail', detail, 360, y + 45, 20, C.muted, 550);
+      P.rounded(m, 'NewsCard', 360, y + 18, 528, 110, '#F1E5CC', 18, '#D3BC93');
+      P.text(m, 'NewsTitle', title, 360, y - 5, 26, C.ink, 478, true, 'left');
+      P.text(m, 'NewsDetail', detail, 360, y + 38, 19, C.muted, 478, false, 'left');
     });
     P.button(m, 'NewsDone', '开始新的冒险', 360, 1152, 470, 88, () => this.closeModal(), true, 28);
   }
@@ -1719,38 +1758,12 @@ export class StarIsle extends Component {
       }
   }
   private toast(message: string): void {
-    if (this.toastNode?.isValid) {
-      this.toastNode.active = false;
-      this.toastNode.destroy();
-    }
-    const n = P.rounded(
-      this.stage,
-      'Toast',
-      360,
-      this.currentScreen === 'home' ? 1005 : 1000,
-      656,
-      this.currentScreen === 'home' ? 57 : 48,
-      '#4E3A27',
-      22,
-      '#DBB474',
-      245,
-    );
-    P.text(n, 'ToastMessage', message, 0, 0, 22, C.white, 626, true);
-    this.toastNode = n;
-    const resting = n.position.clone();
-    n.setPosition(resting.x, resting.y - 7);
-    tween(n).to(0.16, { position: resting }, { easing: 'cubicOut' }).start();
-    tween(P.opacity(n, 0))
-      .to(0.14, { opacity: 255 })
-      .delay(2)
-      .to(0.25, { opacity: 0 })
-      .call(() => {
-        if (n.isValid) n.destroy();
-        if (this.toastNode === n) this.toastNode = null;
-      })
-      .start();
+    this.toasts.show(message);
+    this.levelTransition.bringToFront();
   }
   onDestroy(): void {
+    this.disposeProfileDialog();
+    this.toasts?.reset();
     this.levelTransition?.reset();
     this.online?.detach();
     this.modals?.reset();

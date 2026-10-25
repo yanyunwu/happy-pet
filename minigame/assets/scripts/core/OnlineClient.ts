@@ -1,5 +1,11 @@
 import { ModeId, GameStatus, Tile } from './MatchGame';
 import { ToolId } from './Profile';
+import { normalizeWechatAvatarUrl } from './WechatProfile';
+export interface CloudProfile {
+  id: string;
+  nickname: string;
+  avatarUrl: string;
+}
 export interface CloudAssets {
   coins: number;
   bag: Record<ToolId, number>;
@@ -66,11 +72,12 @@ interface Pending {
   events: CloudAction[];
   outcome?: string;
 }
+type RequestMethod = 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE' | 'CONNECT';
 interface WxAPI {
   login(options: { success: (r: { code: string }) => void; fail: () => void }): void;
   request(options: {
     url: string;
-    method: string;
+    method: RequestMethod;
     data?: unknown;
     header: Record<string, string>;
     timeout: number;
@@ -83,6 +90,16 @@ const QUEUE_KEY = 'happy-pet-upload-v1';
 const LEGACY_LOCAL_API = 'http://127.0.0.1:8080/api/v1';
 const requestID = () =>
   `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+function readCloudProfile(value: unknown): CloudProfile | null {
+  if (!value || typeof value !== 'object') return null;
+  const profile = value as Partial<CloudProfile>;
+  return typeof profile.id === 'string' &&
+    !!profile.id &&
+    typeof profile.nickname === 'string' &&
+    typeof profile.avatarUrl === 'string'
+    ? { id: profile.id, nickname: profile.nickname, avatarUrl: profile.avatarUrl }
+    : null;
+}
 export class OnlineError extends Error {
   sessionId?: string;
   constructor(
@@ -97,6 +114,8 @@ export class OnlineError extends Error {
 export class OnlineClient {
   private token = '';
   private userId = '';
+  private confirmedProfile: CloudProfile | null = null;
+  private identityGeneration = 0;
   private queue: Pending[] = [];
   private pumping: Promise<void> | null = null;
   private session: CloudSession | null = null;
@@ -109,6 +128,7 @@ export class OnlineClient {
   private loginTask: Promise<void> | null = null;
   private readonly storageScope: string;
   onAssets: (assets: CloudAssets) => void = () => {};
+  onProfile: (profile: CloudProfile | null) => void = () => {};
   constructor(
     public readonly baseURL: string,
     private storage: Storage,
@@ -150,13 +170,20 @@ export class OnlineClient {
   get active(): CloudSession | null {
     return this.session;
   }
+  get profile(): CloudProfile | null {
+    return this.confirmedProfile ? { ...this.confirmedProfile } : null;
+  }
+  private cacheProfile(profile: CloudProfile | null): void {
+    this.confirmedProfile = profile ? { ...profile } : null;
+    this.onProfile(this.profile);
+  }
   get pending(): boolean {
     return this.queue.some((p) => p.userId === this.userId && (p.events.length > 0 || !!p.outcome));
   }
   private save(): void {
     this.storage.setItem(this.storageScope + QUEUE_KEY, JSON.stringify(this.queue));
   }
-  async request<T>(path: string, method = 'GET', data?: unknown): Promise<T> {
+  async request<T>(path: string, method: RequestMethod = 'GET', data?: unknown): Promise<T> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     return new Promise<T>((resolve, reject) => {
@@ -179,7 +206,7 @@ export class OnlineClient {
           header: headers,
           timeout: 12000,
           success: (r) => receive(r.statusCode, r.data),
-          fail: () => reject(new OnlineError('网络连接中断，操作已保存在本机')),
+          fail: () => reject(new OnlineError('网络连接中断，操作已保存在本机', 0, 'NETWORK_ERROR')),
         });
       else {
         const xhr = new XMLHttpRequest();
@@ -195,7 +222,8 @@ export class OnlineClient {
           }
           receive(xhr.status, body);
         };
-        xhr.onerror = xhr.ontimeout = () => reject(new OnlineError('暂时连接不上服务器'));
+        xhr.onerror = xhr.ontimeout = () =>
+          reject(new OnlineError('暂时连接不上服务器', 0, 'NETWORK_ERROR'));
         xhr.send(data === undefined ? undefined : JSON.stringify(data));
       }
     });
@@ -219,13 +247,16 @@ export class OnlineClient {
           },
         });
       });
-      const result = await this.request<{ accessToken: string; user: { id: string } }>(
-        '/auth/wechat',
-        'POST',
-        { code },
-      );
+      const result = await this.request<{
+        accessToken: string;
+        user: { id: string; nickname?: string; avatarUrl?: string };
+      }>('/auth/wechat', 'POST', { code });
+      const accountChanged = this.userId !== result.user.id;
+      if (accountChanged) this.identityGeneration++;
       this.token = result.accessToken;
       this.userId = result.user.id;
+      const profile = readCloudProfile(result.user);
+      if (profile || accountChanged) this.cacheProfile(profile);
       await this.refreshAssets();
     })().finally(() => {
       this.loginTask = null;
@@ -240,7 +271,77 @@ export class OnlineClient {
     this.onAssets(await this.request<CloudAssets>('/user/signin', 'POST', {}));
   }
   private async ready(): Promise<void> {
-    if (!this.token) await this.login();
+    if (this.loginTask) await this.loginTask;
+    else if (!this.token) await this.login();
+  }
+  async getProfile(): Promise<CloudProfile> {
+    return this.requestProfile('GET');
+  }
+  async updateProfile(input: { nickname: string; avatarUrl?: string }): Promise<CloudProfile> {
+    const nickname = typeof input.nickname === 'string' ? input.nickname.trim() : '';
+    if (!nickname || Array.from(nickname).length > 32)
+      throw new OnlineError('昵称需要填写 1–32 个字符', 0, 'PROFILE_NICKNAME_INVALID');
+    const data: { nickname: string; avatarUrl?: string } = { nickname };
+    if (input.avatarUrl !== undefined) data.avatarUrl = normalizeWechatAvatarUrl(input.avatarUrl);
+    return this.requestProfile('PUT', data);
+  }
+  private async requestProfile(
+    method: 'GET' | 'PUT',
+    data?: { nickname: string; avatarUrl?: string },
+  ): Promise<CloudProfile> {
+    try {
+      return await this.performProfileRequest(method, data);
+    } catch (error) {
+      if (error instanceof OnlineError && error.code === 'NETWORK_ERROR')
+        throw new OnlineError(
+          method === 'PUT' ? '网络连接中断，资料尚未保存，请重试' : '暂时无法读取资料，请稍后重试',
+          0,
+          'NETWORK_ERROR',
+        );
+      throw error;
+    }
+  }
+  private async performProfileRequest(
+    method: 'GET' | 'PUT',
+    data?: { nickname: string; avatarUrl?: string },
+  ): Promise<CloudProfile> {
+    const previousUserId = this.userId;
+    const previousGeneration = this.identityGeneration;
+    await this.ready();
+    const owner = previousUserId || this.userId;
+    const generation = previousUserId ? previousGeneration : this.identityGeneration;
+    const checkAccount = () => {
+      if (owner !== this.userId || generation !== this.identityGeneration)
+        throw new OnlineError(
+          '登录账号已变化，请重新打开个人设置后再试',
+          0,
+          'PROFILE_ACCOUNT_CHANGED',
+        );
+    };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      checkAccount();
+      const token = this.token;
+      let response: unknown;
+      try {
+        response = await this.request<unknown>('/user/me', method, data);
+      } catch (error) {
+        checkAccount();
+        if (error instanceof OnlineError && error.status === 401 && attempt === 0) {
+          if (this.token === token) this.token = '';
+          await this.ready();
+          checkAccount();
+          continue;
+        }
+        throw error;
+      }
+      checkAccount();
+      const profile = readCloudProfile(response);
+      if (!profile || profile.id !== owner)
+        throw new OnlineError('玩家资料暂时无法读取，请重试', 0, 'PROFILE_INVALID');
+      this.cacheProfile(profile);
+      return { ...profile };
+    }
+    throw new OnlineError('请重新登录后再试', 401);
   }
   async start(
     mode: ModeId,

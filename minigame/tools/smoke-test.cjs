@@ -135,7 +135,7 @@ fs.mkdirSync(output, { recursive: true });
     await shot('01-home');
     await click(56, 75);
     assert.equal((await state()).modal, 'HomeMenu');
-    await click(199, 178);
+    await click(199, 283);
     await click(360, 888);
     assert.equal((await state()).save.sound, false);
     await close();

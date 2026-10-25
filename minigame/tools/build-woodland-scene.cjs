@@ -245,6 +245,9 @@ s.component(root, compress(uuid('assets/scripts/StarIsle.ts')), {
     frame(`assets/resources/cartoon/home-ui/${name}.png`),
   ),
   skinFrames: skinNames.map((name) => frame(`assets/resources/cartoon/ui/${name}.png`)),
+  menuFrames: ['menu-support', 'menu-announcement'].map((name) =>
+    frame(`assets/resources/cartoon/ui/${name}.png`),
+  ),
 });
 s.finish('assets/scenes/main.scene');
 console.log(

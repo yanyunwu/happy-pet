@@ -45,6 +45,14 @@ fs.mkdirSync(output, { recursive: true });
           .map((n) => ({ id: Number(n.name.slice(5)), x: n.position.x, y: n.position.y })),
         moving: a.trayMotions?.size || 0,
         clearing: a.clearingGroups?.size || 0,
+        tools: ['undo', 'shovel', 'hint', 'shuffle'].map((key) => {
+          const node = a.gameRoot.getChildByName('Toolbar').getChildByName(`Tool-${key}`);
+          return {
+            key,
+            interactable: node.getComponent('cc.Button').interactable,
+            opacity: node.getChildByName('Icon').getComponent('cc.UIOpacity').opacity,
+          };
+        }),
       };
     });
   const ready = () =>
@@ -129,11 +137,57 @@ fs.mkdirSync(output, { recursive: true });
     await fixture();
     let open = await openTiles();
     await tap(open[0]);
-    assert.equal((await read()).busy, true, 'first card is still moving');
+    const inFlight = await read();
+    assert.equal(inFlight.busy, true, 'first card is still moving');
+    for (const tool of inFlight.tools) {
+      assert.equal(tool.interactable, false, `${tool.key} stays locked during tile flight`);
+      assert.equal(tool.opacity, 255, `${tool.key} must not dim for a short tile animation`);
+    }
     await tap(open[1]);
     assert.equal((await read()).moves, 2, 'second click is accepted during first flight');
     await assertRack();
+    assert.deepEqual(
+      (await read()).tools.map((tool) => tool.opacity),
+      inFlight.tools.map((tool) => tool.opacity),
+      'finishing tile flight must not flash the toolbar back to full brightness',
+    );
     checks.push('second click during flight');
+    checks.push('stable tool brightness while tile flight locks tool input');
+
+    await fixture();
+    const lockedTools = await page.evaluate(() => {
+      const a = window.__qaApp,
+        id = a.game.availableTiles()[0].id;
+      a.tileNodes.get(id).emit(cc.Node.EventType.TOUCH_END);
+      const snapshot = () => ({
+        moves: a.game.moves,
+        tray: a.game.tray.slice(),
+        reserve: a.game.reserve.slice(),
+        remaining: a.game.remaining,
+        uses: [a.game.undoLeft, a.game.shovelLeft, a.game.hintLeft, a.game.shuffleLeft],
+        bag: { ...a.save.bag },
+      });
+      const before = snapshot();
+      for (const action of ['undo', 'shovel', 'hint', 'shuffle']) a.onGameAction(null, action);
+      return { busy: a.busy, before, after: snapshot() };
+    });
+    assert.equal(lockedTools.busy, true);
+    assert.deepEqual(
+      lockedTools.after,
+      lockedTools.before,
+      'locked tool actions cannot mutate play',
+    );
+    await assertRack();
+    await page.evaluate(() => {
+      const a = window.__qaApp;
+      a.game.hintLeft = 0;
+      a.save.bag.hint = 0;
+      a.updateControls();
+    });
+    const exhausted = (await read()).tools.find((tool) => tool.key === 'hint');
+    assert.equal(exhausted.interactable, false, 'exhausted tools remain disabled');
+    assert.equal(exhausted.opacity, 130, 'exhausted tools retain the dim appearance');
+    checks.push('tool lock blocks consumption and exhausted tools still look disabled');
 
     await fixture();
     open = await openTiles();

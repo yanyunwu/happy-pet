@@ -39,7 +39,7 @@
             "_value": false
           },
           "mask": {
-            "_value": false
+            "_value": true
           },
           "graphics": {
             "_value": true
@@ -202,6 +202,7 @@
           "intersection-2d",
           "legacy-pipeline",
           "light-probe",
+          "mask",
           "primitive",
           "profiler",
           "tween",
