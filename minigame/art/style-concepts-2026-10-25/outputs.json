@@ -1,0 +1,15 @@
+{
+  "generator": "built-in image_gen",
+  "date": "2026-10-25",
+  "purpose": "已选定的 B 森林木作概念参考：包含首页和游戏界面",
+  "promptFile": "prompts.json",
+  "runtimeAssetsChanged": false,
+  "outputs": [
+    {
+      "key": "B",
+      "name": "森林木作",
+      "file": "B-woodland-workshop.png"
+    }
+  ],
+  "status": "selected-for-production"
+}

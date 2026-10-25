@@ -1,6 +1,0 @@
-{
-  "generator": "built-in image_gen",
-  "prompt": "Use case: logo-brand. Asset type: original transparent startup logo for a Chinese casual pet puzzle game. The input cat and rabbit sprites are character/style references. Create one polished cohesive game logo: three happy rounded cartoon pet heads (the white pink-eared bunny, yellow chick, and cyan kitten) peeking over a playful chunky golden-yellow Chinese title. Exact title text, large and perfectly readable: 快乐萌宠消. Keep exactly these five Chinese characters, no other words. Soft glossy 2D cartoon shading, warm brown outlines, cream highlights, cheerful sky blue accent ribbon beneath, tiny paw and sparkle accents. A few small rounded white animal matching tiles tucked beside the title connect it to a tile matching game. Centered wide composition around 3:2, entire design fully visible with generous transparent padding. Real transparent background, no rectangular background, no watermark, no Cocos logo. Match the project's cute cartoon style.",
-  "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-ade3df5e-e481-4524-b733-99e51c0e86eb.png",
-  "output": "assets/startup/logo.png"
-}

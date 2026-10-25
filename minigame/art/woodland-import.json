@@ -1,0 +1,10 @@
+{
+  "theme": "森林木作",
+  "pets": 15,
+  "utilityIcons": 7,
+  "homeIcons": 3,
+  "skins": 14,
+  "sources": "art/source-woodland",
+  "generator": "built-in image_gen",
+  "adminPetIconsSynced": true
+}

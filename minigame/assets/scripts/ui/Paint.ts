@@ -2,9 +2,9 @@ import { Color, Graphics, Label, Layers, Node, Sprite, SpriteFrame, UITransform,
 import { WIDTH, HEIGHT, SKIN_NAMES } from './Layout';
 
 export const PALETTE = {
-    ink: '#245B70', muted: '#6D8B98', purple: '#16B8F3', deep: '#176B96',
-    cream: '#FFFDF3', lavender: '#E3F6FA', mint: '#D7F8D5', peach: '#FFF0CC',
-    pink: '#FF79AD', border: '#53C9E6', white: '#FFFFFF', gold: '#FFDA57', danger: '#EB4E78',
+    ink: '#51351F', muted: '#87735B', purple: '#6F8C4B', deep: '#426034',
+    cream: '#FFF6DF', lavender: '#EAE8D5', mint: '#E2EBCF', peach: '#F4DEB5',
+    pink: '#D98558', border: '#C99C61', white: '#FFF9ED', gold: '#E6B64E', danger: '#BC5936',
 };
 const skins = new Map<string, SpriteFrame>();
 export function configureSkin(frames: SpriteFrame[]): void { SKIN_NAMES.forEach((name, i) => skins.set(name, frames[i])); }
@@ -26,7 +26,7 @@ export function layer(parent: Node, name: string): Node {
 export function rounded(parent: Node, name: string, x: number, y: number, w: number, h: number,
     fill: string, radius = 24, stroke?: string, alpha = 255, shadow = false): Node {
     const n = node(parent, name, x, y, w, h); const g = n.addComponent(Graphics);
-    if (shadow) { g.fillColor = color('#075069', 45); g.roundRect(-w / 2, -h / 2 - 7, w, h, radius); g.fill(); }
+    if (shadow) { g.fillColor = color('#3D2918', 55); g.roundRect(-w / 2, -h / 2 - 7, w, h, radius); g.fill(); }
     g.fillColor = color(fill, alpha); g.roundRect(-w / 2, -h / 2, w, h, radius); g.fill();
     if (stroke) { g.strokeColor = color(stroke); g.lineWidth = 2; g.roundRect(-w / 2, -h / 2, w, h, radius); g.stroke(); }
     return n;
@@ -53,9 +53,9 @@ export function opacity(n: Node, value: number): UIOpacity {
     const o = n.getComponent(UIOpacity) || n.addComponent(UIOpacity); o.opacity = value; return o;
 }
 export function button(parent: Node, name: string, label: string, x: number, y: number, w: number, h: number,
-    onClick: () => void, primary = false, fontSize = 28): Node {
-    const n = skin(parent, name, primary ? 'button-blue' : 'button-gold', x, y, w, h);
-    if (label) text(n, `${name}-label`, label, 0, -5, fontSize, PALETTE.white, w - 24, true, 'center', 3, primary ? '#176083' : '#A95B1F');
+    onClick: () => void, primary = false, fontSize = 28, skinKey?: string): Node {
+    const n = skin(parent, name, skinKey || (primary ? 'button-blue' : 'button-gold'), x, y, w, h);
+    if (label) text(n, `${name}-label`, label, 0, -5, fontSize, PALETTE.white, w - 28, true, 'center', 2, primary ? '#3B562D' : '#9A4D25');
     n.on(Node.EventType.TOUCH_START, () => { n.setScale(0.96, 0.96, 1); });
     n.on(Node.EventType.TOUCH_CANCEL, () => { n.setScale(1, 1, 1); });
     n.on(Node.EventType.TOUCH_END, () => { n.setScale(1, 1, 1); onClick(); });

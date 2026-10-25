@@ -27,7 +27,7 @@ fs.mkdirSync(output, { recursive: true });
     await page.evaluate(({ level, seed }) => { const a = window.cc.director.getScene().getChildByName('StarIsleGame').getComponent('StarIsle'); window.__qaApp = a; a.startLevel(level, seed); a.closeModal(); }, { level, seed });
     await page.waitForTimeout(40);
   };
-  const openTiles = () => page.evaluate(() => window.__qaApp.game.availableTiles().map(t => ({ id: t.id, kind: t.kind, x: 360 + t.x, y: 590 + t.y })));
+  const openTiles = () => page.evaluate(() => { const a = window.__qaApp; return a.game.availableTiles().map(t => { const n = a.reserveNodes.get(t.id) || a.tileNodes.get(t.id); return { id: t.id, kind: t.kind, x: n.position.x, y: -n.position.y }; }); });
   const tap = tile => click(tile.x, tile.y);
   const settle = () => page.waitForFunction(() => !window.__qaApp.busy);
   const assertRack = async () => {
@@ -77,23 +77,23 @@ fs.mkdirSync(output, { recursive: true });
     checks.push('duplicate event ignored');
 
     await fixture(); open = await openTiles();
-    await tap(open[0]); await click(145, 77);
+    await tap(open[0]); await click(664, 77);
     assert.equal((await read()).modal, 'Pause'); await tap(open[1]);
     assert.equal((await read()).moves, 1, 'modal still blocks board input'); await settle();
     await click(360, 850); await tap(open[1]); await assertRack(); assert.equal((await read()).moves, 2);
     checks.push('pause responds during flight; modal blocks input');
 
     await fixture(); open = await openTiles();
-    await tap(open[0]); await click(145, 77); await click(360, 1070);
+    await tap(open[0]); await click(664, 77); await click(360, 1070);
     await page.waitForTimeout(500); state = await read(); assert.equal(state.screen, 'home'); assert.equal(state.busy, false);
     assert.equal(state.visual.length, 0); assert.ok(!state.modal);
     await fixture(); open = await openTiles();
-    await tap(open[0]); await click(145, 77); await click(360, 962); await page.evaluate(() => window.__qaApp.closeModal());
+    await tap(open[0]); await click(664, 77); await click(360, 962); await page.evaluate(() => window.__qaApp.closeModal());
     await page.waitForTimeout(500); state = await read(); assert.equal(state.moves, 0); assert.equal(state.remaining, 18);
     await assertRack(); checks.push('home and restart cancel stale animation callbacks');
 
     await fixture(); const coinsBefore = (await read()).coins;
-    const route = await page.evaluate(() => { const g = window.__qaApp.game; return g.solution.map(id => ({ id, x: 360 + g.tiles[id].x, y: 590 + g.tiles[id].y })); });
+    const route = await page.evaluate(() => { const a = window.__qaApp; return a.game.solution.map(id => { const n = a.tileNodes.get(id); return { id, x: n.position.x, y: -n.position.y }; }); });
     for (const t of route) await tap(t);
     assert.equal((await read()).moves, 18, 'a fast full solution drops no taps');
     await page.waitForFunction(() => window.__qaApp.game?.level.id === 2); await assertRack();
@@ -102,7 +102,7 @@ fs.mkdirSync(output, { recursive: true });
 
     await fixture(2, 42); let last;
     for (let move = 0; move < 108 && (await read()).status === 'playing'; move++) {
-      last = await page.evaluate(() => { const g = window.__qaApp.game, count = k => g.tray.filter(id => g.tiles[id].kind === k).length; const t = g.availableTiles().sort((a, b) => count(a.kind) - count(b.kind))[0]; return { id: t.id, x: 360 + t.x, y: 590 + t.y }; });
+      last = await page.evaluate(() => { const a = window.__qaApp, g = a.game, count = k => g.tray.filter(id => g.tiles[id].kind === k).length; const t = g.availableTiles().sort((a, b) => count(a.kind) - count(b.kind))[0], n = a.tileNodes.get(t.id); return { id: t.id, x: n.position.x, y: -n.position.y }; });
       await tap(last);
     }
     state = await read(); assert.equal(state.status, 'lost'); assert.equal(state.tray.length, 7);

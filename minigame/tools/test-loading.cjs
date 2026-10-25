@@ -15,7 +15,8 @@ const {chromium}=require('C:/Users/kirito/.cache/codex-runtimes/codex-primary-ru
   await page.screenshot({path:'output/custom-loading.png'});
   await page.waitForFunction(()=>window.cc?.director?.getScene()?.getChildByName('StarIsleGame')?.getComponent('StarIsle')?.frames.length===15,null,{timeout:30000});
   await page.waitForFunction(()=>cc.director.getScene().getChildByName('StarIsleGame').getComponent('StarIsle').onlineReady);
-  await page.mouse.click(216,629);
+  const start=await page.evaluate(()=>{const n=cc.director.getScene().getChildByName('StarIsleGame').getComponent('StarIsle').homeRoot.getChildByName('WelcomePanel').getChildByName('Mode-classic');return {x:n.position.x,y:-n.position.y};});
+  await page.mouse.click(start.x*.6,start.y*.6);
   assert.equal(await page.evaluate(()=>cc.director.getScene().getChildByName('StarIsleGame').getComponent('StarIsle').modal?.name),'Rules');
   await page.close();
   const retry=await browser.newPage({viewport:{width:432,height:936}});let fail=true; const retryLogs=[];

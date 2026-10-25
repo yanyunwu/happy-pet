@@ -612,9 +612,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 247,
+      "g": 227,
+      "b": 179,
       "a": 255
     },
     "_string": "·",
@@ -636,9 +636,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 89,
-      "g": 130,
-      "b": 141,
+      "r": 97,
+      "g": 67,
+      "b": 40,
       "a": 255
     },
     "_outlineWidth": 1,
@@ -726,9 +726,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 247,
+      "g": 227,
+      "b": 179,
       "a": 255
     },
     "_string": "·",
@@ -750,9 +750,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 89,
-      "g": 130,
-      "b": 141,
+      "r": 97,
+      "g": 67,
+      "b": 40,
       "a": 255
     },
     "_outlineWidth": 1,
@@ -840,9 +840,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 247,
+      "g": 227,
+      "b": 179,
       "a": 255
     },
     "_string": "·",
@@ -864,9 +864,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 89,
-      "g": 130,
-      "b": 141,
+      "r": 97,
+      "g": 67,
+      "b": 40,
       "a": 255
     },
     "_outlineWidth": 1,
@@ -1167,8 +1167,8 @@
     "_color": {
       "__type__": "cc.Color",
       "r": 255,
-      "g": 255,
-      "b": 255,
+      "g": 245,
+      "b": 222,
       "a": 255
     },
     "_string": "0%",
@@ -1190,9 +1190,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 43,
-      "g": 105,
-      "b": 135,
+      "r": 97,
+      "g": 67,
+      "b": 40,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -1256,7 +1256,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 620,
-      "height": 46
+      "height": 44
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1280,9 +1280,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 81,
+      "g": 53,
+      "b": 31,
       "a": 255
     },
     "_string": "萌宠们正在集合…",
@@ -1304,12 +1304,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 150,
-      "g": 83,
-      "b": 57,
+      "r": 255,
+      "g": 240,
+      "b": 209,
       "a": 255
     },
-    "_outlineWidth": 3,
+    "_outlineWidth": 2,
     "_id": "476c8aa1-6b37-5324-d804-8ed85a95ba0a"
   },
   {
@@ -1594,7 +1594,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 686,
-      "height": 32.8
+      "height": 30.8
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1618,9 +1618,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 81,
+      "g": 53,
+      "b": 31,
       "a": 255
     },
     "_string": "抵制不良游戏，拒绝盗版游戏。注意自我保护，谨防受骗上当。",
@@ -1642,12 +1642,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 153,
-      "g": 86,
-      "b": 58,
+      "r": 255,
+      "g": 240,
+      "b": 209,
       "a": 255
     },
-    "_outlineWidth": 2,
+    "_outlineWidth": 1,
     "_id": "9ebb5579-c3e7-b424-e935-bb5f744a4e06"
   },
   {
@@ -1708,7 +1708,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 686,
-      "height": 32.8
+      "height": 30.8
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1732,9 +1732,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 81,
+      "g": 53,
+      "b": 31,
       "a": 255
     },
     "_string": "适度游戏益脑，沉迷游戏伤身。合理安排时间，享受健康生活。",
@@ -1756,12 +1756,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 153,
-      "g": 86,
-      "b": 58,
+      "r": 255,
+      "g": 240,
+      "b": 209,
       "a": 255
     },
-    "_outlineWidth": 2,
+    "_outlineWidth": 1,
     "_id": "946ada12-1d33-f6ac-28ca-ddec0e8da59c"
   },
   {

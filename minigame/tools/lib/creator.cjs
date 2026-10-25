@@ -2,7 +2,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '../..');
-const write = (file, data) => { const out = path.join(root, file); fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, JSON.stringify(data, null, 2) + '\n'); };
+const write = (file, data) => {
+  const out = path.join(root, file), text = JSON.stringify(data, null, 2) + '\n';
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  if (fs.existsSync(out) && fs.readFileSync(out, 'utf8') === text) return;
+  // Creator may memory-map a live .meta file on Windows; replace it atomically.
+  const staging = path.join(root, 'temp/asset-preparation'); fs.mkdirSync(staging, { recursive: true });
+  const temporary = path.join(staging, crypto.createHash('sha256').update(out).digest('hex') + '.json');
+  fs.writeFileSync(temporary, text); fs.renameSync(temporary, out);
+};
 const uuid = name => { const h = crypto.createHash('md5').update('star-isle/' + name).digest('hex'); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`; };
 const compress = id => { const h=id.replace(/-/g,''),a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';let s=h.slice(0,5);for(let i=5;i<32;i+=3){const n=parseInt(h.slice(i,i+3),16);s+=a[n>>6]+a[n&63];}return s; };
 const frame = file => ({ __uuid__: uuid(file) + '@f9941', __expectedType__: 'cc.SpriteFrame' });

@@ -37,8 +37,7 @@
     "displayRatio": 1,
     "totalTime": 700,
     "logo": {
-      "type": "none",
-      "image": "project://settings/logo.png"
+      "type": "none"
     },
     "background": {
       "type": "custom",

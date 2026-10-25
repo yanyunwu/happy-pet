@@ -15,6 +15,13 @@ const output = path.resolve(__dirname, '../output/qa-tools'); fs.mkdirSync(outpu
       game: a.game && { level: a.game.level.id, mode: a.game.mode.id, status: a.game.status, remaining: a.game.remaining, tray: a.game.tray.slice(), reserve: a.game.reserve.slice(), cleared: a.game.cleared, matches: a.game.matches, moves: a.game.moves, hint: a.game.hintLeft, undo: a.game.undoLeft, shovel: a.game.shovelLeft } };
   });
   const click = (x, y) => page.mouse.click(x * .6, y * .6);
+  const homeClick = async path => {
+    const p = await page.evaluate(path => {
+      const n = path.split('/').reduce((node, name) => node.getChildByName(name), window.__qaApp.homeRoot);
+      return { x: n.position.x, y: -n.position.y };
+    }, path);
+    await click(p.x, p.y);
+  };
   const shot = async name => { await page.waitForTimeout(350); await page.screenshot({ path: path.join(output, `${name}.png`) }); };
   const settle = () => page.waitForFunction(() => !window.__qaApp.busy);
   const close = async () => { const p = await page.evaluate(() => { const n = window.__qaApp.modal.getChildByName('Close'); return { x: n.position.x, y: -n.position.y }; }); await click(p.x, p.y); };
@@ -38,13 +45,13 @@ const output = path.resolve(__dirname, '../output/qa-tools'); fs.mkdirSync(outpu
   try {
     await page.goto(process.env.PREVIEW_URL || 'http://127.0.0.1:7457', { waitUntil: 'networkidle' }); await ready(); await state(); await shot('01-home');
     await click(56, 75); assert.equal((await state()).modal, 'HomeMenu'); await click(199, 178); await click(360, 888); assert.equal((await state()).save.sound, false); await close();
-    await click(92, 370); await click(360, 1203); assert.equal((await state()).save.coins, 20); await click(360, 1203); assert.equal((await state()).save.coins, 20); await close();
-    await click(92, 555); assert.equal((await state()).modal, 'Bag'); await shot('02-four-tool-bag'); await click(360, 1210);
-    await click(628, 370); assert.equal((await state()).modal, 'Album');
+    await homeClick('Shortcuts/SignInButton'); await click(360, 1203); assert.equal((await state()).save.coins, 20); await click(360, 1203); assert.equal((await state()).save.coins, 20); await close();
+    await homeClick('Shortcuts/BagButton'); assert.equal((await state()).modal, 'Bag'); await shot('02-four-tool-bag'); await click(360, 1210);
+    await homeClick('Shortcuts/AlbumButton'); assert.equal((await state()).modal, 'Album');
     assert.equal(await page.evaluate(() => window.__qaApp.modal.children.filter(n => /^PetCard\d+$/.test(n.name)).length), 15);
     await shot('03-fifteen-pets'); await click(360, 1240); checks.push('15 pet album, four-tool bag, existing sign-in and sound');
-    for (const [index, mode] of ['classic', 'quartet', 'fun'].entries()) {
-      await click(360, 1048 + index * 124); let s = await state();
+    for (const mode of ['classic', 'quartet', 'fun']) {
+      await homeClick(`WelcomePanel/Mode-${mode}`); let s = await state();
       assert.equal(s.modal, 'Rules'); assert.equal(s.game.level, 1); assert.equal(s.game.mode, mode);
       await click(360, 590); assert.equal((await state()).game.moves, 0); assert.equal((await state()).time, 0);
       await shot(`04-${mode}-rules`); await click(360, 1203); await shot(`05-${mode}-first-stage`);
@@ -79,7 +86,7 @@ const output = path.resolve(__dirname, '../output/qa-tools'); fs.mkdirSync(outpu
       checks.push(`${mode}: entry starts stage 1, automatic stage 2, both stages solved, all 15 pets appear in hard stage`);
     }
     // Failed hard stage exposes exactly restart/home; restart preserves mode and starts at stage 1.
-    await click(360,1296); await click(360,1203); await solve();
+    await homeClick('WelcomePanel/Mode-fun'); await click(360,1203); await solve();
     while ((await state()).game.status==='playing') {
       const id=await page.evaluate(()=>{const g=window.__qaApp.game,held=k=>g.tray.filter(id=>g.tiles[id].kind===k).length;return g.availableTiles().sort((a,b)=>held(a.kind)-held(b.kind))[0].id;}); await pick(id);
     }
@@ -88,15 +95,15 @@ const output = path.resolve(__dirname, '../output/qa-tools'); fs.mkdirSync(outpu
     assert.ok(!labels.some(s=>s.includes('撤回'))); assert.ok(labels.includes('重新开始 · 第一关')); assert.ok(labels.includes('返回主页'));
     assert.equal(await page.evaluate(()=>window.__qaApp.game.canUndo),false);
     await click(360,1020); let s=await state(); assert.equal(s.game.mode,'fun'); assert.equal(s.game.level,1); assert.equal(s.modal,'Rules');
-    await click(360,1203); await click(145,77); await click(360,1070); checks.push('failure has no undo, same-mode restart begins stage 1, pause offers home');
+    await click(360,1203); await click(664,77); await click(360,1070); checks.push('failure has no undo, same-mode restart begins stage 1, pause offers home');
     // A leaving transition cannot later resurrect the previous board.
-    await click(360,1048); await click(360,1203); await click(600,1434); await click(145,77); await click(360,1070); await page.waitForTimeout(1400);
+    await homeClick('WelcomePanel/Mode-classic'); await click(360,1203); await click(600,1434); await click(664,77); await click(360,1070); await page.waitForTimeout(1400);
     assert.equal((await state()).screen,'home'); assert.equal((await state()).transition,false); checks.push('leaving during rotation cancels stale animation callbacks');
     await page.reload({waitUntil:'networkidle'}); await ready(); s=await state();
     for(const mode of ['classic','quartet','fun']) assert.equal(s.save.modes[mode].completed,true);
     assert.equal(s.save.sound,false); assert.equal(s.save.bag.shovel,0);
     const entries=await page.evaluate(()=>window.__qaApp.homeRoot.getChildByName('WelcomePanel').children.filter(n=>n.getComponent(cc.Button)).map(n=>n.name));assert.deepEqual(entries,['Mode-classic','Mode-quartet','Mode-fun','CampaignButton']);
-    await click(360,1442);assert.equal((await state()).modal,'Campaign');await click(360,570);assert.equal((await state()).game,null);assert.equal((await state()).modal,'Campaign');await close();checks.push('four home entries; offline campaign does not masquerade as a standard game');
+    await homeClick('WelcomePanel/CampaignButton');assert.equal((await state()).modal,'Campaign');await click(360,570);assert.equal((await state()).game,null);assert.equal((await state()).modal,'Campaign');await close();checks.push('four home entries; offline campaign does not masquerade as a standard game');
     await page.setViewportSize({width:432,height:768}); await shot('12-short-phone');
     assert.deepEqual(errors,[]); fs.writeFileSync(path.join(output,'result.json'),JSON.stringify({success:true,checks,errors,state:await state()},null,2));
     console.log(`PASS — ${checks.length} flows; all six stages, shovel/rotation/failure/15 pets and persistent state, no runtime errors.`);

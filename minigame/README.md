@@ -1,12 +1,12 @@
 # 快乐萌宠消
 
-使用 **Cocos Creator 3.8.8** 的卡通萌宠收纳消除游戏，设计分辨率 **720 × 1560**。参考提供的三张游戏截图重新设计，采用暖色萌宠房间主页、蓝绿天空游戏背景、白色立体牌块、蓝金粉三色入口和局内道具栏。
+使用 **Cocos Creator 3.8.8** 的萌宠收纳消除游戏，设计分辨率 **720 × 1560**。当前采用已选定的 **B · 森林木作** 概念方案：木雕动物、森林工坊、奶白木牌、嵌入式收纳槽，以及绿、橙、蓝、金四色木作入口。
 
 ## 打开项目
 
 在 Cocos Dashboard 添加本文件夹，使用 Creator 3.8.8 打开 `assets/scenes/loading.scene`，点击预览可看到完整启动流程；编辑主页与游戏页则打开 `assets/scenes/main.scene`。
 
-主页和游戏页均有实际的 Sprite、Label、Button 节点，共 142 个节点、15 个原生按钮。层级为：
+主页和游戏页均有实际的 Sprite、Label、Button 节点，共 150 个节点、15 个原生按钮。层级为：
 
 ```text
 Canvas
@@ -25,7 +25,7 @@ Canvas
 
 编辑器默认显示主页。查看游戏布局时，隐藏 `HomePage` 并显示 `GamePage`；`BoardPreview` 提供编辑态的入门牌面示例。运行时首页始终为入口，示例牌面自动隐藏，由规则生成实际牌局。
 
-日常布局直接修改场景。普通构建不会覆盖场景。`tools/build-home-scene.cjs` 是重建原始布局的工具，会覆盖 `main.scene`，只在需要重新生成布局时运行。
+日常布局直接修改场景。普通构建不会覆盖场景。`tools/build-woodland-scene.cjs` 可重建当前森林木作布局，会覆盖 `main.scene`，只在需要重新生成布局时运行。
 
 已有浏览器构建时，执行 `node tools/serve.cjs`，打开 <http://127.0.0.1:7457>。
 
@@ -33,21 +33,21 @@ Canvas
 
 完整启动流程为：自定义插屏海报 → 原生 `loading.scene` → 游戏主页。构建配置包含 `loading.scene` 和 `main.scene`，以前者为入口。
 
-- `assets/startup/poster.jpg`：夕阳海岛、萌宠帆船、书本前景和“快乐萌宠消”标题的完整插画。
+- `assets/startup/poster.jpg`：森林工坊、四只木雕萌宠和“快乐萌宠消”木牌标题的完整插画。
 - `assets/scenes/loading.scene`：编辑器可见的加载界面，包含动画圆点、底部进度条、状态提示、重试按钮和健康游戏提示。
 - `assets/scripts/LoadingScreen.ts`：预加载主场景，进度来自真实资源回调，完成后进入主页。
 - `settings/v2/packages/builder.json` 的 `splash-setting`：使用完整海报作自定义背景；海报自带标题，无需重复叠加 Logo。通过 Creator 官方自定义插屏功能启用。
 - `settings/loading-poster.jpg`：供原生插屏使用的同一张海报。
-- `build-templates/wechatgame/first-screen.js`：基于 Creator 3.8.8 的项目构建模板，将小游戏首屏进度条移到画面底部并匹配蓝色样式。进度刷新最多等一帧或 120 毫秒，绘制中断不会无限阻塞启动；结束时仅释放实际创建的图形资源。它使用构建器生成的 `background.jpg`；升级 Creator 或更改插屏图片方案时应核对模板。
+- `build-templates/wechatgame/first-screen.js`：基于 Creator 3.8.8 的项目构建模板，将小游戏首屏进度条移到画面底部并匹配金色木作样式。进度刷新最多等一帧或 120 毫秒，绘制中断不会无限阻塞启动；结束时仅释放实际创建的图形资源。它使用构建器生成的 `background.jpg`；升级 Creator 或更改插屏图片方案时应核对模板。
 - `build-templates/wechatgame/game.ejs` 与 `preload-resources.js`：在首屏结束前下载 resources 分包并显示原生下载进度，完成后交给引擎使用缓存。失败或 45 秒无回调会给出提示；启动阶段记录在 `[pet-startup]` 日志及 `globalThis.__petStartup` 中，便于真机定位。
 
-Logo、冒险背景、最终海报均用内置 image_gen 生成。提示词与原图记录在 `art/loading-manifest.json`、`art/loading-adventure-manifest.json`，原图保留在 `art/source-loading`。`tools/build-loading-scene.cjs` 可重建加载场景；日常构建不覆盖手工调整的场景。
+当前 Logo、背景、海报均用内置 image_gen 按森林木作参考图生成。提示词记录在 `art/woodland-manifest.json`，原图保留在 `art/source-woodland`。`tools/build-loading-scene.cjs` 可重建加载场景；日常构建不覆盖手工调整的场景。
 
 若复制到其他账号后构建提示“自定义插屏启用失败”，应在 Creator 的项目设置 → 插屏设置完成官方启用流程；不要通过修改信息登记标记或引擎校验绕过。只复制图片不会替代该启用步骤。
 
 ## 可玩内容
 
-首页保留左上角菜单和一条萌宠金币余额，两侧为 7 日签到、萌宠图鉴、背包道具、声音设置。原首页底部五项导航已移除。菜单点击后弹出系统设置、联系客服、更新公告三项，点击外部即可关闭。
+首页保留左上角菜单和右上角萌宠金币余额。木雕动物下方横排展示 7 日签到、萌宠图鉴、背包道具、声音设置，四个玩法入口使用下方双列布局。菜单点击后弹出系统设置、联系客服、更新公告三项，点击外部即可关闭。
 
 首页前三个入口直接进入对应玩法的固定两关，第一关简单、第二关为 15 种萌宠的挑战关；第四个“闯关模式”是独立入口，再选择三种规则，使用后台发布的关卡。未连接服务器时前三种仍可离线游玩，闯关模式显示准备中。联网对局会分别记录入口，但共用用户金币和背包。
 
@@ -78,17 +78,17 @@ Logo、冒险背景、最终海报均用内置 image_gen 生成。提示词与�
 
 ## 原创资产
 
-- `assets/resources/cartoon/home.jpg`：暖色兔子阅读室背景。
-- `assets/resources/cartoon/game.jpg`：蓝绿天空游戏背景。
+- `assets/resources/cartoon/home.jpg`：森林工坊与兔、熊猫、牛、猴四只木雕萌宠。
+- `assets/resources/cartoon/game.jpg`：干净的鼠尾草绿森林与原木桌面。
 - `assets/resources/cartoon/pets/`：15 种原创萌宠牌面，编号 0–14 依次为鼠、牛、虎、兔、龙、蛇、马、羊、猴、鸡、狗、猪、猫、熊猫、狮子。
-- `assets/resources/cartoon/icons/`：10 种原创导航、道具图标，含新增铲子。
-- `assets/resources/cartoon/home-ui/`：新生成的金币、7 日签到礼盒、背包透明图标。原图在 `art/source-v3`，完整提示词在 `art/home-v3-manifest.json`。
-- `assets/resources/cartoon/ui/`：原创渐变、高光、描边与立体边缘的按钮和面板。
+- `assets/resources/cartoon/icons/`：7 种木作图鉴、闯关、设置和道具图标；运行时弹窗绑定其中 6 种。
+- `assets/resources/cartoon/home-ui/`：木牌 Logo、爪印金币、签到日历、背包透明图标。
+- `assets/resources/cartoon/ui/`：木纹按钮、厚实奶白牌块、木框面板与嵌槽皮肤。
 - `assets/resources/audio/`：五份程序原创合成音频，包括 16 秒循环背景音乐。
 
-背景与插画图标使用内置 image_gen 生成。原始图集在 `art/source-v2`，完整提示词和处理记录在 `art/cartoon-v2-manifest.json`。参考截图在 `art/references-v2`，不进入构建包。上一版的相关源文件和图片备份在 `art/archive-v1`。
+背景与插画图标使用内置 image_gen 生成。美术目录只保留当前森林木作原图、提示词和选定的 B 概念参考；历史素材、未采用的方案和旧版导入工具已清理。
 
-当前角色采用十二生肖加猫、熊猫、狮子。保留兔、羊、狗、猪、猫、狮子的既有原创头像，其余九种使用内置 image_gen 按相同风格生成，保留透明通道。可复用原图在 `art/source-zodiac`，完整提示词、名称和编号在 `art/pets-zodiac-manifest.json`。执行 `node tools/prepare-zodiac-pets.cjs` 可重新规范尺寸并同步小游戏和后台图片；后台关卡配比和回放采用同一编号。旧版原图及铲子仍保留在 `art/source-v4`。
+当前 15 种角色全部改为木雕头像，仍按十二生肖加猫、熊猫、狮子的顺序使用编号 0–14。概念参考在 `art/style-concepts-2026-10-25/B-woodland-workshop.png`，配套原图在 `art/source-woodland`，完整提示词在 `art/woodland-manifest.json`。执行 `node tools/prepare-woodland-art.cjs` 会拆分透明图集、规范尺寸、同步后台图片并更新启动海报；不改变种类编号、关卡规则或存档。后台关卡预览和回放同步采用木雕头像。
 
 ## 构建
 
@@ -114,7 +114,7 @@ node tools/test-wechat-startup.cjs
 
 经典规则回归覆盖 400 个初始牌局、200 个重排和 50 个死局恢复。三模式规则测试另覆盖 900 个初始牌局、450 个重排，以及四消/两对消除、第七格结算、精确进度、撤回、提示、剩余牌失败、旧存档迁移和签到防重复领取。所有初始牌局保留完整可验证解法；第二关筛选简单策略容易解出的局面，机器人结果不代表真人通关率。
 
-浏览器测试针对 Creator 导出版本，真实点击完成三种玩法的连续两关，检查无选关页、自动进入第二关、失败从第一关开始、铲出取回和撤回、顺时针动画、离场取消动画、15 种动物、签到和道具库存。截图与结果在 `output/qa-tools`。此前 `output/快乐萌宠消_介绍截图` 属于旧版微信截图，不能代表当前三模式版本。
+浏览器测试针对 Creator 导出版本，真实点击完成三种玩法的连续两关，检查无选关页、自动进入第二关、失败从第一关开始、铲出取回和撤回、顺时针动画、离场取消动画、15 种动物、签到和道具库存。当前截图与结果在 `output/qa-tools`。
 
 连续输入测试覆盖移动中继续点牌、消除中继续点牌、动画重排、重复事件、暂停、切换页面、快速通关只奖励一次、满槽拒绝第八张、失败不允许撤回复活及移动端触屏连点。结果在 `output/qa-rapid`。
 

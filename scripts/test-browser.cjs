@@ -148,6 +148,15 @@ const server = http.createServer((req, res) => {
     );
     await game.screenshot({ path: path.join(out, 'game-campaign-home.png') });
     const tap = (x, y) => game.mouse.click(x * 0.6, y * 0.6);
+    const tapHome = async (path) => {
+      const p = await game.evaluate((path) => {
+        const n = path
+          .split('/')
+          .reduce((node, name) => node.getChildByName(name), window.qaApp.homeRoot);
+        return { x: n.position.x, y: -n.position.y };
+      }, path);
+      await tap(p.x, p.y);
+    };
     const settle = () =>
       game.waitForFunction(() => !window.qaApp.busy && !window.qaApp.networkBusy);
     assert.deepEqual(
@@ -159,8 +168,8 @@ const server = http.createServer((req, res) => {
       ),
       ['Mode-classic', 'Mode-quartet', 'Mode-fun', 'CampaignButton'],
     );
-    for (const [index, mode] of ['classic', 'quartet', 'fun'].entries()) {
-      await tap(360, 1048 + index * 124);
+    for (const mode of ['classic', 'quartet', 'fun']) {
+      await tapHome(`WelcomePanel/Mode-${mode}`);
       await game.waitForFunction(() => window.qaApp.modal?.name === 'Rules');
       assert.deepEqual(
         await game.evaluate(() => ({
@@ -177,7 +186,7 @@ const server = http.createServer((req, res) => {
       await game.waitForFunction(() => window.qaApp.currentScreen === 'home');
     }
     checks.push('three direct home entries start independent standard games');
-    await tap(360, 1442);
+    await tapHome('WelcomePanel/CampaignButton');
     await game.waitForFunction(() => window.qaApp.modal?.name === 'Campaign');
     await tap(360, 570);
     await game.waitForFunction(() => window.qaApp.modal?.name === 'Rules');
@@ -276,7 +285,7 @@ const server = http.createServer((req, res) => {
     await game.waitForFunction(() => window.qaApp.modal?.name === 'Settings');
     await tap(360, 1080);
     await game.waitForFunction(() => window.qaApp.currentScreen === 'home');
-    await tap(360, 1442);
+    await tapHome('WelcomePanel/CampaignButton');
     await tap(360, 920);
     await game.waitForFunction(() => window.qaApp.modal?.name === 'Rules');
     await tap(360, 1203);

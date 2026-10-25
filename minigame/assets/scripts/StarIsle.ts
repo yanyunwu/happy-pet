@@ -10,10 +10,10 @@ const { ccclass, property } = _decorator;
 const C = P.PALETTE;
 const SAVE_KEY = 'star-isle-v1';
 const TOOL_INFO: { id: ToolId; name: string; icon: number; detail: string }[] = [
-    { id: 'undo', name: '撤回', icon: 5, detail: '收回上一步，恢复消除前的萌宠' },
-    { id: 'shovel', name: '铲出', icon: 9, detail: '槽内萌宠移到上方，点击可放回' },
-    { id: 'hint', name: '提示', icon: 7, detail: '点亮可以优先收集的小伙伴' },
-    { id: 'shuffle', name: '重排', icon: 6, detail: '所有剩余方块转一圈，重新落位' },
+    { id: 'undo', name: '撤回', icon: 2, detail: '收回上一步，恢复消除前的萌宠' },
+    { id: 'shovel', name: '铲出', icon: 5, detail: '槽内萌宠移到上方，点击可放回' },
+    { id: 'hint', name: '提示', icon: 4, detail: '点亮可以优先收集的小伙伴' },
+    { id: 'shuffle', name: '重排', icon: 3, detail: '所有剩余方块转一圈，重新落位' },
 ];
 declare const wx: undefined | { openCustomerServiceConversation?: (options: { sessionFrom: string; showMessageCard: boolean; fail: () => void }) => void };
 
@@ -67,8 +67,8 @@ export class StarIsle extends Component {
     onLoad(): void {
         profiler.hideStats();
         view.setDesignResolutionSize(WIDTH, HEIGHT, ResolutionPolicy.SHOW_ALL);
-        if (!this.stageRoot || !this.homeRoot || !this.gameRoot || this.petFrames.length !== KIND_NAMES.length || this.utilityFrames.length !== 10) {
-            throw new Error('Bind the native pages, all 15 pet frames and 10 utility frames in main.scene.');
+        if (!this.stageRoot || !this.homeRoot || !this.gameRoot || this.petFrames.length !== KIND_NAMES.length || this.utilityFrames.length !== 6) {
+            throw new Error('Bind the native pages, all 15 pet frames and 6 utility frames in main.scene.');
         }
         try {
             const raw = JSON.parse(sys.localStorage.getItem(SAVE_KEY) || '{}');
@@ -210,7 +210,7 @@ export class StarIsle extends Component {
         this.reserveRoot = this.at(this.gameRoot!, 'ReserveArea/ReserveTiles');
         this.disposeChildren(this.board); this.disposeChildren(this.rack);
         this.setText(this.gameRoot!, 'TopBar/Chapter', `第 ${game.level.id} 关`);
-        this.setText(this.gameRoot!, 'TopBar/LevelName', `${this.selectedEntry === 'campaign' ? '闯关 · ' : ''}${this.game.mode.title} · ${this.game.level.title}`);
+        this.setText(this.gameRoot!, 'TopBar/LevelName', `${this.selectedEntry === 'campaign' ? '闯关 · ' : ''}${this.game.mode.title}`);
         this.setText(this.gameRoot!, 'Instruction', this.game.mode.rule);
         this.buildBoard(); this.syncReserve(); this.updateHud(); this.updateControls();
         if (rules) {
@@ -271,7 +271,7 @@ export class StarIsle extends Component {
         this.setText(root, 'TopBar/Remaining', `剩余 ${g.remaining}`);
         const title = this.at(root, 'TrayTitle').getComponent(Label)!;
         title.string = `收纳槽 ${g.tray.length} / 7 · ${g.tray.length >= 5 ? '空位不多啦，优先凑齐！' : g.mode.shortRule}`;
-        title.color = P.color(g.tray.length >= 5 ? '#FFF08A' : '#FFFFFF');
+        title.color = P.color(g.tray.length >= 5 ? '#A64D25' : C.ink);
     }
     private updateControls(): void {
         const g = this.game!;
@@ -292,7 +292,7 @@ export class StarIsle extends Component {
     }
     private makeTile(parent: Node, tile: Tile, x: number, y: number, scale = 1): Node {
         const n = P.skin(parent, `pet-${tile.id}`, 'tile', x, y, TILE_W, TILE_H);
-        P.sprite(n, 'Pet', this.frames[tile.kind], 0, -6, 83, 83);
+        P.sprite(n, 'Pet', this.frames[tile.kind], 0, -9, 81, 81);
         n.setScale(scale, scale, 1); return n;
     }
     private syncBoard(): void {
@@ -302,7 +302,7 @@ export class StarIsle extends Component {
             // it on every rapid tap can leave extra active shades on exposed tiles.
             const covered = !this.game!.isAvailable(id);
             let shade = n.getChildByName('Covered');
-            if (covered && !shade) shade = P.rounded(n, 'Covered', 0, -5, TILE_W - 2, TILE_H - 10, '#183F49', 16, undefined, 116);
+            if (covered && !shade) shade = P.rounded(n, 'Covered', 0, -5, TILE_W - 2, TILE_H - 10, '#30271D', 16, undefined, 110);
             if (shade) shade.active = covered;
         }
     }
@@ -526,23 +526,23 @@ export class StarIsle extends Component {
     private closeModal(): void { if (this.modal?.isValid) { this.modal.active = false; this.modal.destroy(); } this.modal = null; }
     private dialog(name: string, title: string, height = 900): Node {
         this.closeModal(); const m = P.layer(this.stage, name); this.modal = m;
-        P.rounded(m, 'Backdrop', 360, HEIGHT / 2, WIDTH, HEIGHT, '#0B3B5B', 0, undefined, 170).addComponent(BlockInputEvents);
+        P.rounded(m, 'Backdrop', 360, HEIGHT / 2, WIDTH, HEIGHT, '#251F15', 0, undefined, 162).addComponent(BlockInputEvents);
         P.skin(m, 'Panel', 'panel', 360, 780, 626, height);
         P.skin(m, 'Banner', 'button-blue', 360, 780 - height / 2 + 65, 545, 88);
         P.text(m, 'Title', title, 360, 780 - height / 2 + 58, 33, C.white, 490, true, 'center', 3);
-        P.button(m, 'Close', '×', 640, 780 - height / 2 + 25, 58, 62, () => { this.play('tap'); this.closeModal(); }, false, 38);
+        P.button(m, 'Close', '×', 640, 780 - height / 2 + 25, 58, 62, () => { this.play('tap'); this.closeModal(); }, true, 38, 'round-blue');
         return m;
     }
     private showMenu(): void {
         this.closeModal(); const m = P.layer(this.stage, 'HomeMenu'); this.modal = m;
-        const shade = P.rounded(m, 'Backdrop', 360, HEIGHT / 2, WIDTH, HEIGHT, '#092C47', 0, undefined, 155);
+        const shade = P.rounded(m, 'Backdrop', 360, HEIGHT / 2, WIDTH, HEIGHT, '#251F15', 0, undefined, 155);
         shade.addComponent(BlockInputEvents); shade.on(Node.EventType.TOUCH_END, () => this.closeModal());
-        P.rounded(m, 'MenuPanel', 199, 283, 312, 330, '#286A91', 29, '#9BE7FF').addComponent(BlockInputEvents);
+        P.skin(m, 'MenuPanel', 'panel', 199, 283, 312, 330).addComponent(BlockInputEvents);
         [['SystemSettings', '系统设置'], ['CustomerService', '联系客服'], ['Announcements', '更新公告']].forEach(([name, label], i) => {
             const b = P.button(m, name, '', 199, 178 + i * 102, 282, 84, () => {
                 this.play('tap'); if (i === 0) this.showSettings(); else if (i === 1) this.showCustomerService(); else this.showAnnouncements();
             }, true);
-            if (i === 0) P.sprite(b, 'Gear', this.utilityFrames[4], -99, -5, 47, 47);
+            if (i === 0) P.sprite(b, 'Gear', this.utilityFrames[1], -99, -5, 47, 47);
             else P.icon(b, i === 1 ? 'contact' : 'sound', -99, -4, 23, C.white);
             P.text(b, 'Label', label, 23, -5, 29, C.white, 205, true, 'center', 2);
         });
@@ -576,7 +576,7 @@ export class StarIsle extends Component {
         SIGN_IN_REWARDS.forEach((reward, i) => {
             const x = i < 4 ? 144 + i * 144 : 216 + (i - 4) * 144, y = i < 4 ? 568 : 808;
             const done = i < day || (claimed && i === day), current = !claimed && i === day;
-            P.rounded(m, `Day${i + 1}`, x, y, 131, 205, current ? '#FFF0B5' : done ? '#DDF2EA' : '#E6F4FA', 20, current ? '#E8AE35' : '#B8DFE9');
+            P.rounded(m, `Day${i + 1}`, x, y, 131, 205, current ? '#F8E2AE' : done ? '#E1E8CD' : '#F1E4C9', 20, current ? '#C39442' : '#D2B98C');
             P.text(m, `DayLabel${i}`, `第 ${i + 1} 天`, x, y - 72, 22, C.deep, 120, true);
             P.sprite(m, `DayCoin${i}`, this.homeFrames[0], x, y - 20, 70, 70);
             P.text(m, `CoinReward${i}`, `+${reward.coins} 金币`, x, y + 30, 20, '#AE6A1E', 122, true);
@@ -599,7 +599,7 @@ export class StarIsle extends Component {
         P.text(m, 'BagIntro', '签到获得的道具，三种玩法都能用', 360, 390, 24, C.ink, 560, true);
         TOOL_INFO.forEach((tool, i) => {
             const y = 500 + i * 158;
-            P.rounded(m, `Bag-${tool.id}`, 360, y, 534, 135, '#E6F5FA', 23, '#BFDFEA');
+            P.rounded(m, `Bag-${tool.id}`, 360, y, 534, 135, '#F1E5CE', 23, '#D3BB91');
             P.sprite(m, 'ToolIcon', this.utilityFrames[tool.icon], 167, y, 101, 101);
             P.text(m, 'ToolName', `${tool.name}  ×${this.save.bag[tool.id]}`, 421, y - 30, 30, C.deep, 355, true, 'left');
             P.text(m, 'ToolDetail', tool.detail, 421, y + 25, 18, C.muted, 355, false, 'left');
@@ -625,11 +625,11 @@ export class StarIsle extends Component {
     }
     private showAnnouncements(): void {
         const m = this.dialog('Announcements', '更新公告', 930);
-        P.text(m, 'Version', '快乐萌宠消 · 0.3.0', 360, 467, 27, C.deep, 555, true);
+        P.text(m, 'Version', '快乐萌宠消 · 森林木作', 360, 467, 27, C.deep, 555, true);
         const rows = [
             ['三种玩法，一起开玩', '经典三消、极限四消、趣味规则消现已开放'],
             ['一口气，连闯两关', '从第一关直接开始，过关后自动进入第二关'],
-            ['十二生肖来报到', '和猫、熊猫、狮子一起，15 位萌宠陪你冒险'],
+            ['森林木作，新装登场', '十二生肖和猫、熊猫、狮子，变身木雕小伙伴'],
             ['四种道具，帮你过关', '撤回、铲出、提示和顺时针转动重排'],
         ];
         rows.forEach(([title, detail], i) => { const y = 580 + i * 130; P.text(m, 'NewsTitle', title, 360, y, 27, C.ink, 540, true); P.text(m, 'NewsDetail', detail, 360, y + 45, 20, C.muted, 550); });
@@ -653,7 +653,7 @@ export class StarIsle extends Component {
     private showSettings(): void {
         const inGame = this.currentScreen === 'game';
         const m = this.dialog('Settings', '系统设置', inGame ? 840 : 690);
-        P.sprite(m, 'Gear', this.utilityFrames[4], 360, inGame ? 635 : 665, 140, 140);
+        P.sprite(m, 'Gear', this.utilityFrames[1], 360, inGame ? 635 : 665, 140, 140);
         P.text(m, 'SettingsDescription', '轻松的音乐，陪小可爱们一起出发', 360, inGame ? 752 : 782, 23, C.ink, 550, true);
         const b = P.button(m, 'SoundToggle', this.save.sound ? '音乐与音效：开启' : '音乐与音效：关闭', 360, inGame ? 858 : 888, 480, 92, () => {
             this.toggleSound(); b.children.find(n => !!n.getComponent(Label))!.getComponent(Label)!.string = this.save.sound ? '音乐与音效：开启' : '音乐与音效：关闭';
@@ -673,10 +673,10 @@ export class StarIsle extends Component {
         const g = this.game!; this.play(won ? 'win' : 'lose');
         const m = this.dialog(won ? 'Victory' : 'TryAgain', won ? '闯关成功！' : '就差一点点！', 960);
         m.getChildByName('Close')!.active = false;
-        P.sprite(m, 'ResultPet', won ? this.utilityFrames[3] : this.frames[3], 360, 545, 168, 168);
+        P.sprite(m, 'ResultPet', won ? this.utilityFrames[0] : this.frames[3], 360, 545, 168, 168);
         P.text(m, 'ResultTitle', won ? g.level.id === 1 ? '这一关，轻松拿下！' : '小可爱们都到家啦！' : g.stranded ? '剩余萌宠无法成组' : '收纳槽装满啦', 360, 695, 34, C.deep, 570, true);
         P.text(m, 'ResultSubtitle', won ? `${g.mode.title}挑战完成，试试其他玩法吧！` : '优先凑齐槽里已有的萌宠，再收新种类。', 360, 753, 22, C.muted, 570);
-        P.rounded(m, 'StatsPanel', 360, 860, 522, 125, '#E6F5F9', 22, '#C0E4EE');
+        P.rounded(m, 'StatsPanel', 360, 860, 522, 125, '#F1E5CE', 22, '#D3BB91');
         const seconds = Math.floor(this.playTime), stats = [['消除方块', String(g.cleared)], ['消除组数', String(g.matches)], ['本次用时', `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`]];
         stats.forEach(([name, value], i) => { P.text(m, 'StatName', name, 186 + i * 174, 829, 20, C.muted, 160, true); P.text(m, 'StatValue', value, 186 + i * 174, 880, 34, C.deep, 160, true); });
         if (won) P.text(m, 'CoinReward', this.rewardCoins ? `萌宠金币 +${this.rewardCoins}` : '本关首次通关奖励已领取', 360, 944, 23, '#B87C1E', 540, true);
@@ -690,7 +690,7 @@ export class StarIsle extends Component {
     }
     private toast(message: string): void {
         if (this.toastNode?.isValid) { this.toastNode.active = false; this.toastNode.destroy(); }
-        const n = P.rounded(this.stage, 'Toast', 360, this.currentScreen === 'home' ? 1005 : 1000, 656, this.currentScreen === 'home' ? 57 : 48, '#165B77', 22, '#8DDDEB', 245);
+        const n = P.rounded(this.stage, 'Toast', 360, this.currentScreen === 'home' ? 1005 : 1000, 656, this.currentScreen === 'home' ? 57 : 48, '#4E3A27', 22, '#DBB474', 245);
         P.text(n, 'ToastMessage', message, 0, 0, 22, C.white, 626, true); this.toastNode = n;
         tween(P.opacity(n, 255)).delay(2.1).to(.25, { opacity: 0 }).call(() => { if (n.isValid) n.destroy(); if (this.toastNode === n) this.toastNode = null; }).start();
     }
