@@ -195,6 +195,9 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 			if !ok {
 				return EventResult{}, users.Invalid("未知道具")
 			}
+			if session.Entry == "standard" && state.Tools[act.Type] <= 0 {
+				return EventResult{}, users.Invalid("挑战模式仅可使用本关免费道具次数")
+			}
 			e = state.Tool(act.Type, uint32(session.Seed)^uint32(act.Seq)*2654435761)
 			if e == nil {
 				if state.Tools[act.Type] > 0 {

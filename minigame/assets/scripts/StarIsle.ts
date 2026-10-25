@@ -438,6 +438,11 @@ export class StarIsle extends Component {
     if (!g || this.modal || this.networkBusy || this.slotAdPending || g.status !== 'playing')
       return;
     if (this.busy && ['undo', 'shovel', 'shuffle', 'hint'].includes(action)) return;
+    if (
+      ['undo', 'shovel', 'shuffle', 'hint'].includes(action) &&
+      this.toolUses(action as ToolId) <= 0
+    )
+      return;
     if (action === 'pause' || action === 'settings') this.play('tap');
     if (action === 'pause') this.showPause();
     else if (action === 'settings') this.showSettings();
@@ -670,12 +675,13 @@ export class StarIsle extends Component {
       // Transient input locks are checked on tap; cloud mounting can finish without a HUD refresh.
       g.status === 'playing',
     );
-    for (const [key, left, enabled] of [
-      ['undo', g.undoLeft + this.save.bag.undo, g.hasUndo],
-      ['shovel', g.shovelLeft + this.save.bag.shovel, g.canShovel],
-      ['hint', g.hintLeft + this.save.bag.hint, true],
-      ['shuffle', g.shuffleLeft + this.save.bag.shuffle, true],
-    ] as [string, number, boolean][]) {
+    for (const [key, enabled] of [
+      ['undo', g.hasUndo],
+      ['shovel', g.canShovel],
+      ['hint', true],
+      ['shuffle', true],
+    ] as [ToolId, boolean][]) {
+      const left = this.toolUses(key);
       const n = this.at(this.gameRoot!, `Toolbar/Tool-${key}`);
       const available = enabled && left > 0 && g.status === 'playing';
       // Short animations lock input without flashing the tool's availability appearance.
@@ -1068,6 +1074,7 @@ export class StarIsle extends Component {
     this.toast('已暂存到上方，点击萌宠可放回收纳槽');
   }
   private reshuffle(): void {
+    if (this.toolUses('shuffle') <= 0) return;
     if (this.online && !this.practice) {
       const g = this.game!;
       this.networkBusy = true;
@@ -1182,7 +1189,12 @@ export class StarIsle extends Component {
       })
       .start();
   }
+  private toolUses(tool: ToolId): number {
+    const key = `${tool}Left` as 'undoLeft' | 'shovelLeft' | 'shuffleLeft' | 'hintLeft';
+    return this.game![key] + (this.selectedEntry === 'campaign' ? this.save.bag[tool] : 0);
+  }
   private useTool(tool: ToolId, action: () => boolean): boolean {
+    if (this.toolUses(tool) <= 0) return false;
     const g = this.game!,
       key = `${tool}Left` as 'undoLeft' | 'shovelLeft' | 'shuffleLeft' | 'hintLeft';
     const fromBag = g[key] === 0;

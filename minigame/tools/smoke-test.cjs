@@ -244,9 +244,10 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(s.game.tray.length, 0);
         assert.equal(s.game.remaining, 108);
         await shot('09-rearranged-board');
+        const bagHintsBefore = s.save.bag.hint;
         for (let n = 0; n < 4; n++) await click(440, 1434);
         assert.equal((await state()).game.hint, 0);
-        assert.equal((await state()).save.bag.hint, 0);
+        assert.equal((await state()).save.bag.hint, bagHintsBefore);
         checks.push(
           'shovel transfers all cards, returns and undoes correctly; 108 cards rotate clockwise; input blocked during reshuffle; inventory consumed correctly',
         );

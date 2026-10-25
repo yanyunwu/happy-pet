@@ -164,7 +164,7 @@ export function paintBag(
   art: RewardArt,
   onClose: () => void,
 ): void {
-  P.text(parent, 'BagIntro', '签到攒补给，闯关更从容', 360, 369, 25, C.deep, 520, true);
+  P.text(parent, 'BagIntro', '背包补给，仅限闯关模式使用', 360, 369, 25, C.deep, 520, true);
   tools.forEach((tool, index) => {
     const count = save.bag[tool.id];
     const x = index % 2 === 0 ? 220 : 500;
@@ -184,7 +184,7 @@ export function paintBag(
   P.text(
     parent,
     'FreeTools',
-    online ? '每关免费次数以关卡配置为准' : '每局免费：撤回1 · 铲出1 · 提示3 · 重排1',
+    online ? '挑战仅用本关免费次数，不消耗背包' : '挑战免费：撤回1 · 铲出1 · 提示3 · 重排1',
     360,
     1087,
     22,
@@ -192,6 +192,15 @@ export function paintBag(
     540,
     true,
   );
-  P.text(parent, 'BagUsage', '免费次数用完后，再消耗背包库存', 360, 1124, 21, C.muted, 530);
+  P.text(
+    parent,
+    'BagUsage',
+    '闯关先用免费次数，再用背包，直至库存用完',
+    360,
+    1124,
+    21,
+    C.muted,
+    550,
+  );
   P.button(parent, 'BagDone', '收好背包', 360, 1223, 526, 94, onClose, true, 30);
 }
