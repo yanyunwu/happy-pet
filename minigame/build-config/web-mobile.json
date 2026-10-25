@@ -1,0 +1,28 @@
+{
+  "name": "快乐萌宠消",
+  "platform": "web-mobile",
+  "startScene": "639d1644-1519-838c-e3e1-4a6c8a5a12af",
+  "scenes": [
+    {
+      "url": "db://assets/scenes/loading.scene",
+      "uuid": "639d1644-1519-838c-e3e1-4a6c8a5a12af"
+    },
+    {
+      "url": "db://assets/scenes/main.scene",
+      "uuid": "29e1fc1a-853b-54b4-8dda-68f674cf8ecc"
+    }
+  ],
+  "buildPath": "project://build",
+  "outputName": "web-mobile",
+  "debug": true,
+  "sourceMaps": false,
+  "md5Cache": false,
+  "mainBundleCompressionType": "merge_dep",
+  "useSplashScreen": true,
+  "packages": {
+    "web-mobile": {
+      "orientation": "portrait",
+      "__version__": "1.0.1"
+    }
+  }
+}

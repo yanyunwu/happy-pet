@@ -1,0 +1,57 @@
+{
+  "__version__": "1.3.9",
+  "textureCompressConfig": {
+    "genMipmaps": false
+  },
+  "bundleConfig": {
+    "custom": {
+      "starIsleResources": {
+        "displayName": "快乐萌宠消美术与音频",
+        "configs": {
+          "web": {
+            "preferredOptions": {
+              "compressionType": "merge_dep",
+              "isRemote": false
+            }
+          },
+          "native": {
+            "preferredOptions": {
+              "compressionType": "merge_dep",
+              "isRemote": false
+            }
+          },
+          "miniGame": {
+            "configMode": "overwrite",
+            "overwriteSettings": {
+              "wechatgame": {
+                "compressionType": "subpackage",
+                "isRemote": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "splash-setting": {
+    "displayRatio": 1,
+    "totalTime": 700,
+    "logo": {
+      "type": "none",
+      "image": "project://settings/logo.png"
+    },
+    "background": {
+      "type": "custom",
+      "image": "project://settings/loading-poster.jpg",
+      "color": {
+        "x": 1,
+        "y": 0.9,
+        "z": 0.8,
+        "w": 1
+      }
+    },
+    "watermarkLocation": "default",
+    "autoFit": true
+  },
+  "hasSetSplash": true
+}

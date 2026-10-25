@@ -1,0 +1,24 @@
+{
+  "generator": "built-in image_gen",
+  "date": "2026-10-25",
+  "assets": [
+    {
+      "name": "coin",
+      "prompt": "Use case: stylized-concept. Asset type: original mobile casual pet puzzle game UI icon. Primary request: one plump shiny golden coin facing the viewer at a very slight three-quarter angle, with an embossed cute paw print in the center, thick golden rim, tiny subtle glint. Style: polished colorful 2D cartoon game illustration, soft rounded glossy shapes, gently shaded, warm dark outline, cheerful and toy-like, matching a Chinese casual pet tile game. Single isolated object centered and fully visible with 12% padding on all sides. Transparent background. Square composition. No labels, no words, no watermark, no surrounding button or frame.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-888bcdd6-e58e-458e-9ed3-583b3dbf37ee.png",
+      "output": "assets/resources/cartoon/home-ui/coin.png"
+    },
+    {
+      "name": "signin",
+      "prompt": "Use case: stylized-concept. Asset type: original mobile casual pet puzzle game UI icon. Primary request: one cute seven-day daily check-in reward icon: a plump coral pink gift box with an oversized golden bow and a small rounded cream calendar badge on its front bearing a clear numeral 7. Style: polished colorful 2D cartoon game illustration, soft rounded glossy shapes, gently shaded, warm dark outline, cheerful and toy-like, matching a Chinese casual pet tile game. Single isolated object centered and fully visible with 12% padding on all sides. Transparent background. Square composition. No labels, no words, no watermark, no surrounding button or frame.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-8ca8e517-2359-4ee8-bee0-9377a929e365.png",
+      "output": "assets/resources/cartoon/home-ui/signin.png"
+    },
+    {
+      "name": "backpack",
+      "prompt": "Use case: stylized-concept. Asset type: original mobile casual pet puzzle game UI icon. Primary request: one cute plump turquoise and sky-blue backpack with a coral pink front pocket bearing a cream paw emblem, small golden zipper pulls. Style: polished colorful 2D cartoon game illustration, soft rounded glossy shapes, gently shaded, warm dark outline, cheerful and toy-like, matching a Chinese casual pet tile game. Single isolated object centered and fully visible with 12% padding on all sides. Transparent background. Square composition. No labels, no words, no watermark, no surrounding button or frame.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-3a17ae9d-aace-4814-8836-ab781d1d66fd.png",
+      "output": "assets/resources/cartoon/home-ui/backpack.png"
+    }
+  ]
+}

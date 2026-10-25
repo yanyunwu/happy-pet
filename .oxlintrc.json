@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "unicorn", "oxc"],
+  "categories": { "correctness": "error" },
+  "env": { "browser": true, "node": true },
+  "globals": {
+    "defineAppConfig": "readonly",
+    "definePageConfig": "readonly",
+    "__REWARDED_AD_UNIT_ID__": "readonly",
+    "__API_BASE_URL__": "readonly",
+    "__ADMIN_CONFIG__": "readonly"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "artifacts/**",
+    "backend/internal/dbgen/**"
+  ],
+  "rules": { "eslint/no-unused-vars": "error", "react/jsx-key": "error" }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@happy-pet/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --strictPort",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "6.3.4",
+    "@fontsource-variable/noto-sans-sc": "5.3.1",
+    "antd": "6.6.7",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}

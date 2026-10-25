@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "endOfLine": "lf",
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    ".agents/**",
+    ".claude/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.swc/**",
+    "**/.build/**",
+    "artifacts/**",
+    "backend/internal/dbgen/**",
+    "backend/data/**",
+    "pnpm-lock.yaml",
+    "**/*.log",
+    "miniapp/src/assets/**"
+  ]
+}

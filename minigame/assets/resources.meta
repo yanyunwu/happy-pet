@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "a3f4a67f-8a03-2bf5-1d19-c9cba5051c9b",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "isBundle": true,
+    "bundleConfigID": "starIsleResources",
+    "bundleName": "resources",
+    "priority": 8
+  }
+}

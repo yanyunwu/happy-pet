@@ -1,0 +1,21 @@
+{
+  "name": "happy-pet-match",
+  "displayName": "快乐萌宠消",
+  "version": "0.3.0",
+  "description": "快乐萌宠消 — 经典三消、极限四消与趣味规则消",
+  "creator": {
+    "version": "3.8.8"
+  },
+  "type": "3d",
+  "uuid": "20a421a7-851c-48a2-9fa9-ecac8cd349f6",
+  "scripts": {
+    "test": "node tools/test-game.cjs && node tools/test-modes.cjs",
+    "test:input": "node tools/test-rapid-input.cjs",
+    "preview": "node tools/serve.cjs",
+    "test:ui": "node tools/smoke-test.cjs",
+    "test:loading": "node tools/test-loading.cjs",
+    "test:wechat-startup": "node tools/test-wechat-startup.cjs",
+    "analyze:difficulty": "node tools/analyze-difficulty.cjs && node tools/audit-fun-remainders.cjs && node tools/build-difficulty-report.cjs",
+    "test:win-probability": "node tools/test-win-probability.cjs"
+  }
+}

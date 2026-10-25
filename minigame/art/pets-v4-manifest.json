@@ -1,0 +1,56 @@
+{
+  "generator": "built-in image_gen",
+  "date": "2026-10-25",
+  "referenceRole": "existing cat and rabbit sprites are style references; nine previous animals retained",
+  "assets": [
+    {
+      "index": 9,
+      "name": "fox",
+      "prompt": "Use case: stylized-concept. Asset type: single original animal tile sprite for a polished casual pet puzzle game. The two input images are STYLE REFERENCES ONLY. Create an adorable orange fox head, large pointed ears with cream interiors, fluffy cream cheeks and muzzle, tiny dark nose, gentle smile. Closely match their rounded 2D cartoon illustration, soft airbrushed gradients, clean subtle brown outline, glossy dark eyes with little white highlights, and friendly kawaii expression. Front-facing symmetrical head only, no body, no accessories. Keep the head centered and completely visible, 8% transparent padding. Transparent background, no square tile, no text, no logo. Output one single new animal; do not reproduce the reference cat or rabbit.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-d8bf7544-e16f-452e-82e2-7750f1ae150b.png",
+      "output": "assets/resources/cartoon/pets/9.png"
+    },
+    {
+      "index": 10,
+      "name": "sheep",
+      "prompt": "Use case: stylized-concept. Asset type: single original animal tile sprite for a polished casual pet puzzle game. The two input images are STYLE REFERENCES ONLY. Create an adorable sheep head with round fluffy ivory wool surrounding a small cream face, tiny pink ears, rosy cheeks and a gentle smile. Closely match their rounded 2D cartoon illustration, soft airbrushed gradients, clean subtle brown outline, glossy dark eyes with little white highlights, and friendly kawaii expression. Front-facing symmetrical head only, no body, no accessories. Keep the head centered and completely visible, 8% transparent padding. Transparent background, no square tile, no text, no logo. Output one single new animal; do not reproduce the reference cat or rabbit.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-6c5a5f1f-0dc8-488f-9fbf-256cad150dd9.png",
+      "output": "assets/resources/cartoon/pets/10.png"
+    },
+    {
+      "index": 11,
+      "name": "penguin",
+      "prompt": "Use case: stylized-concept. Asset type: single original animal tile sprite for a polished casual pet puzzle game. The two input images are STYLE REFERENCES ONLY. Create an adorable round black-and-white penguin head, white heart-shaped face patch, tiny golden yellow beak, a small black feather tuft. Closely match their rounded 2D cartoon illustration, soft airbrushed gradients, clean subtle brown outline, glossy dark eyes with little white highlights, and friendly kawaii expression. Front-facing symmetrical head only, no body, no accessories. Keep the head centered and completely visible, 8% transparent padding. Transparent background, no square tile, no text, no logo. Output one single new animal; do not reproduce the reference cat or rabbit.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-822a8cea-f350-482a-bba8-0a498d3c48d9.png",
+      "output": "assets/resources/cartoon/pets/11.png"
+    },
+    {
+      "index": 12,
+      "name": "hamster",
+      "prompt": "Use case: stylized-concept. Asset type: single original animal tile sprite for a polished casual pet puzzle game. The two input images are STYLE REFERENCES ONLY. Create an adorable golden tan hamster head, tiny round ears, cream cheeks and muzzle, small pink nose, two tiny front teeth and rosy cheek pouches. Closely match their rounded 2D cartoon illustration, soft airbrushed gradients, clean subtle brown outline, glossy dark eyes with little white highlights, and friendly kawaii expression. Front-facing symmetrical head only, no body, no accessories. Keep the head centered and completely visible, 8% transparent padding. Transparent background, no square tile, no text, no logo. Output one single new animal; do not reproduce the reference cat or rabbit.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-789004eb-1cb4-4b76-ba1a-a4193c13c08d.png",
+      "output": "assets/resources/cartoon/pets/12.png"
+    },
+    {
+      "index": 13,
+      "name": "koala",
+      "prompt": "Use case: stylized-concept. Asset type: single original animal tile sprite for a polished casual pet puzzle game. The two input images are STYLE REFERENCES ONLY. Create an adorable soft silver-gray koala head, large fluffy circular ears with pale pink interiors, a plump dark oval nose, rosy cheeks. Closely match their rounded 2D cartoon illustration, soft airbrushed gradients, clean subtle brown outline, glossy dark eyes with little white highlights, and friendly kawaii expression. Front-facing symmetrical head only, no body, no accessories. Keep the head centered and completely visible, 8% transparent padding. Transparent background, no square tile, no text, no logo. Output one single new animal; do not reproduce the reference cat or rabbit.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-75824458-e22a-4ffa-9495-e87115d33f24.png",
+      "output": "assets/resources/cartoon/pets/13.png"
+    },
+    {
+      "index": 14,
+      "name": "elephant",
+      "prompt": "Use case: stylized-concept. Asset type: single original animal tile sprite for a polished casual pet puzzle game. The two input images are STYLE REFERENCES ONLY. Create an adorable lavender elephant head with oversized rounded ears and pink interiors, a short curled trunk, rosy cheeks and a happy expression. Closely match their rounded 2D cartoon illustration, soft airbrushed gradients, clean subtle brown outline, glossy dark eyes with little white highlights, and friendly kawaii expression. Front-facing symmetrical head only, no body, no accessories. Keep the head centered and completely visible, 8% transparent padding. Transparent background, no square tile, no text, no logo. Output one single new animal; do not reproduce the reference cat or rabbit.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-b871696f-bea7-443a-845b-f29eadd96d3d.png",
+      "output": "assets/resources/cartoon/pets/14.png"
+    },
+    {
+      "index": "shovel",
+      "name": "shovel",
+      "prompt": "Use case: stylized-concept. Asset type: original casual cartoon game utility icon. One small friendly shovel, golden-yellow rounded spade blade and glossy turquoise handle with a coral pink D-shaped grip, diagonally tilted, cute chunky proportions, colorful soft 2D cartoon gradients and clean outline, matching polished blue-and-gold casual pet game buttons. Single isolated shovel centered, full object with 10% padding. Transparent background, no button frame, no ground, no text, no logo.",
+      "source": "C:\\Users\\kirito\\.codex\\generated_images\\01a16e5c-d2bf-72b2-ad79-7cef39cca664\\exec-435b6d54-5fcb-461f-b20b-a075ff2bc5ad.png",
+      "output": "assets/resources/cartoon/icons/9.png"
+    }
+  ]
+}

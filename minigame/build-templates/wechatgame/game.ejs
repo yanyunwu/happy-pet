@@ -1,0 +1,108 @@
+function __initApp () {  // init app
+globalThis.__wxRequire = require;  // FIX: require cannot work in separate engine 
+require('./web-adapter');
+const firstScreen = require('./first-screen');
+const preloadResources = require('./preload-resources');
+const bootState = globalThis.__petStartup = { revision: 'ios-startup-2', phase: 'splash-start', error: '' };
+const stage = name => { bootState.phase = name; console.log('[pet-startup]', name); };
+
+<%- include(cocosTemplate, {}) %>
+
+// Adapt for IOS, swap if opposite
+const info = wx.getSystemInfoSync();
+if (canvas){
+    var _w = canvas.width;
+    var _h = canvas.height;
+    if (info.screenWidth < info.screenHeight) {
+        if (canvas.width > canvas.height) {
+            _w = canvas.height;
+            _h = canvas.width;
+        }
+    } else {
+        if (canvas.width < canvas.height) {
+            _w = canvas.height;
+            _h = canvas.width;
+        }
+    }
+    canvas.width = _w;
+    canvas.height = _h;
+}
+// Adjust initial canvas size
+if (canvas && window.devicePixelRatio >= 2) {canvas.width *= info.devicePixelRatio; canvas.height *= info.devicePixelRatio;}
+
+const importMap = require("<%= importMapFile%>").default;
+System.warmup({
+    importMap,
+    importMapUrl: '<%= importMapFile%>',
+    defaultHandler: (urlNoSchema) => {
+        require('.' + urlNoSchema);
+    },
+    handlers: {
+        'plugin:': (urlNoSchema) => {
+            requirePlugin(urlNoSchema);
+        },
+        'project:': (urlNoSchema) => {
+            require(urlNoSchema);
+        },
+    },
+});
+
+firstScreen.start('<%= alpha %>', '<%= antialias %>', '<%= useWebgl2 %>').then(() => {
+    stage('application');
+    return System.import('<%= applicationJs %>');
+}).then((module) => {
+    return firstScreen.setProgress(0.2).then(() => Promise.resolve(module));
+}).then(({ Application }) => {
+    return new Application();
+}).then((application) => {
+    return firstScreen.setProgress(0.4).then(() => Promise.resolve(application));
+}).then((application) => {
+    return onApplicationCreated(application);
+}).catch((err) => {
+    bootState.error = String(err && err.message || err);
+    console.error('[pet-startup]', bootState.phase, err);
+    if (typeof wx.showModal === 'function') wx.showModal({title:'加载暂未完成',content:'请检查网络后重新打开小游戏。\n诊断阶段：' + bootState.phase,showCancel:false});
+});
+
+function onApplicationCreated(application) {
+    stage('engine-code');
+    return System.import('cc').then((module) => {
+        return firstScreen.setProgress(0.6).then(() => Promise.resolve(module));
+    }).then((cc) => {
+        require('./engine-adapter');
+        cc.director.on(cc.Director.EVENT_AFTER_SCENE_LAUNCH, scene => {
+            stage('scene-ready:' + (scene && scene.name || 'unknown'));
+        });
+        // Use the unique scene name and validate it before the first frame.
+        // Error 1209 on device was reported for the full asset-database URL.
+        cc.game.onPostBaseInitDelegate.add(() => {
+            cc.settings.overrideSettings('launch', 'launchScene', 'loading');
+        });
+        cc.game.onPostProjectInitDelegate.add(() => {
+            const main = cc.assetManager.getBundle('main');
+            const entry = main && main.getSceneInfo('loading');
+            const bundles = [];
+            cc.assetManager.bundles.forEach(bundle => bundles.push(bundle.name));
+            bootState.sceneRegistry = { bundles, loading: !!entry, main: !!(main && main.getSceneInfo('main')) };
+            console.log('[pet-startup] scene-registry', JSON.stringify(bootState.sceneRegistry));
+            if (!entry) throw new Error('SCENE_NOT_REGISTERED: loading; bundles=' + bundles.join(','));
+        });
+        return application.init(cc);
+    }).then(() => {
+        stage('resource-package');
+        return preloadResources(wx, value => { firstScreen.setProgress(0.6 + value * 0.35); }).then(() => {
+            stage('engine-start');
+            return firstScreen.end();
+        }).then(() => application.start()).then(() => stage('engine-ready'));
+    });
+}
+
+}  // init app
+
+// NOTE: on WeChat Android end, we can only get the correct screen size at the second tick of game.
+var sysInfo = wx.getSystemInfoSync();
+if (sysInfo.platform.toLocaleLowerCase() === 'android') {
+    GameGlobal.requestAnimationFrame (__initApp);
+} else {
+    __initApp();
+}

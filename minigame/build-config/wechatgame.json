@@ -1,0 +1,29 @@
+{
+  "name": "快乐萌宠消",
+  "platform": "wechatgame",
+  "startScene": "639d1644-1519-838c-e3e1-4a6c8a5a12af",
+  "scenes": [
+    {
+      "url": "db://assets/scenes/loading.scene",
+      "uuid": "639d1644-1519-838c-e3e1-4a6c8a5a12af"
+    },
+    {
+      "url": "db://assets/scenes/main.scene",
+      "uuid": "29e1fc1a-853b-54b4-8dda-68f674cf8ecc"
+    }
+  ],
+  "buildPath": "project://build",
+  "outputName": "wechatgame",
+  "debug": false,
+  "sourceMaps": false,
+  "md5Cache": true,
+  "mainBundleCompressionType": "merge_dep",
+  "useSplashScreen": true,
+  "packages": {
+    "wechatgame": {
+      "appid": "wx5f84ab7af535815d",
+      "orientation": "portrait",
+      "separationEngine": false
+    }
+  }
+}
