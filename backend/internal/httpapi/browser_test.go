@@ -9,6 +9,15 @@ import (
 )
 
 func TestBrowserIntegration(t *testing.T) {
+	runBrowserIntegration(t, "scripts/test-browser.cjs")
+}
+
+func TestAnnouncementBrowserIntegration(t *testing.T) {
+	runBrowserIntegration(t, "scripts/test-settings-browser.cjs")
+}
+
+func runBrowserIntegration(t *testing.T, script string) {
+	t.Helper()
 	if os.Getenv("BROWSER_QA") != "1" {
 		t.Skip("run make test-browser for built admin + Cocos integration")
 	}
@@ -19,7 +28,7 @@ func TestBrowserIntegration(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	command := exec.Command("node", "scripts/test-browser.cjs")
+	command := exec.Command("node", script)
 	command.Dir = root
 	command.Env = append(os.Environ(), "QA_API_ORIGIN="+server.URL)
 	output, e := command.CombinedOutput()

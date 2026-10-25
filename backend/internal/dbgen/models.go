@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+type AppSetting struct {
+	Key       string
+	Value     json.RawMessage
+	Version   int32
+	UpdatedAt time.Time
+}
+
 type AssetLedger struct {
 	ID         int64
 	UserID     string

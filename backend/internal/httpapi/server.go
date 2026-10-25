@@ -79,6 +79,7 @@ func New(service *users.Service, cfg config.Config, logger *slog.Logger) *gin.En
 	user.PATCH("/me", s.updateProfile)
 	user.PUT("/me", s.updateProfile)
 	s.registerGame(router, admin, user)
+	s.registerSettings(router, admin)
 	user.POST("/logout", func(c *gin.Context) {
 		if err := service.Logout(c.Request.Context(), currentUser(c).ID); err != nil {
 			s.respondError(c, err)

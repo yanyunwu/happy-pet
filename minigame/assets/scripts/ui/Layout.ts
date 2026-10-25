@@ -7,8 +7,18 @@ export const TRAY_X = 84;
 export const TRAY_STEP = 92;
 export const TRAY_Y = 1244;
 export const TRAY_SCALE = 0.95;
-export const RESERVE_Y = 1115;
+export const RESERVE_X = 64;
+export const RESERVE_STEP = 76;
+export const RESERVE_Y = 1090;
 export const RESERVE_SCALE = 0.78;
+export const EXTRA_SLOT_X = 636;
+export const EXTRA_SLOT_Y = RESERVE_Y;
+/** The eighth pocket lives above the main rack, beside the shoveled tiles. */
+export function trayPosition(index: number): { x: number; y: number; scale: number } {
+  return index < 7
+    ? { x: TRAY_X + index * TRAY_STEP, y: TRAY_Y - 3, scale: TRAY_SCALE }
+    : { x: EXTRA_SLOT_X, y: EXTRA_SLOT_Y, scale: RESERVE_SCALE };
+}
 /** White face is y=4..98 in the 132px tile; its 26px slice borders stay fixed. */
 export function tileFaceCenterY(height: number): number {
   const faceTop = 4;

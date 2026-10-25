@@ -26,12 +26,14 @@ import Users from './pages/Users';
 import Levels from './pages/Levels';
 import LevelTemplates from './pages/LevelTemplates';
 import Sessions from './pages/Sessions';
+import Settings from './pages/Settings';
 import Navigation from './components/Navigation';
 const names: Record<string, string> = {
   users: '用户管理',
   levels: '关卡管理',
   'level-templates': '关卡模板',
   sessions: '对局记录',
+  settings: '设置',
 };
 function ConsoleLayout() {
   const auth = useAuth(),
@@ -92,7 +94,13 @@ function ConsoleLayout() {
               items={[
                 {
                   title:
-                    key === 'users' ? '用户与账号' : key === 'sessions' ? '用户数据' : '内容配置',
+                    key === 'users'
+                      ? '用户与账号'
+                      : key === 'sessions'
+                        ? '用户数据'
+                        : key === 'settings'
+                          ? '系统管理'
+                          : '内容配置',
                 },
                 { title: names[key] },
               ]}
@@ -127,6 +135,7 @@ function ConsoleLayout() {
             <Route path="/levels" element={<Levels />} />
             <Route path="/level-templates" element={<LevelTemplates />} />
             <Route path="/sessions" element={<Sessions />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/users" replace />} />
           </Routes>
         </Layout.Content>

@@ -274,7 +274,9 @@ export default function Sessions() {
                     ? '初始棋盘'
                     : action.type === 'pick'
                       ? `收集 ${petNames[state.tiles[action.tileId ?? 0].kind]} · 方块 ${action.tileId ?? 0}`
-                      : toolNames[action.type] || action.type}
+                      : action.type === 'unlock_slot'
+                        ? '广告奖励：解锁本关额外收纳槽'
+                        : toolNames[action.type] || action.type}
                 </Typography.Paragraph>
                 <Space wrap>
                   <Button

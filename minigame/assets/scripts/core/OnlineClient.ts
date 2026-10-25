@@ -56,7 +56,7 @@ export interface CloudSession {
 }
 export interface CloudAction {
   seq: number;
-  type: 'pick' | ToolId;
+  type: 'pick' | 'unlock_slot' | ToolId;
   tileId?: number;
   at: number;
 }
@@ -179,6 +179,13 @@ export class OnlineClient {
   }
   get profile(): CloudProfile | null {
     return this.confirmedProfile ? { ...this.confirmedProfile } : null;
+  }
+  async announcement(): Promise<string> {
+    // Announcements are public and must remain available before WeChat login succeeds.
+    const value = await this.request<{ content?: unknown }>('/settings/announcement');
+    if (!value || typeof value.content !== 'string')
+      throw new OnlineError('公告内容暂时无法读取', 0, 'INVALID_ANNOUNCEMENT');
+    return value.content;
   }
   private cacheProfile(profile: CloudProfile | null): void {
     this.confirmedProfile = profile ? { ...profile } : null;
@@ -432,7 +439,7 @@ export class OnlineClient {
     this.lastAt = 0;
     return session;
   }
-  record(type: 'pick' | ToolId, tileId?: number): void {
+  record(type: CloudAction['type'], tileId?: number): void {
     const s = this.session;
     if (!s) throw new OnlineError('对局尚未开始');
     let pending = this.queue.find((q) => q.sessionId === s.id && q.userId === this.userId);

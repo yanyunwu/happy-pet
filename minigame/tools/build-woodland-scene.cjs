@@ -98,14 +98,35 @@ s.sprite(
   'assets/resources/cartoon/home-ui/woodland-logo.png',
 );
 const shortcuts = group(home, 'Shortcuts');
+let gameClubButton;
 for (const [x, name, title, file, action] of [
   [110, 'SignInButton', '7日签到', 'home-ui/signin', 'signin'],
   [277, 'AlbumButton', '萌宠图鉴', 'icons/1', 'album'],
   [443, 'BagButton', '背包道具', 'home-ui/backpack', 'bag'],
-  [610, 'SettingsButton', '声音设置', 'icons/4', 'settings'],
+  [610, 'GameClubButton', '游戏圈', 'pets/3', 'game-club'],
 ]) {
-  const b = s.button(shortcuts, name, x, 1036, 138, 142, 'side-badge', 'onHomeNav', action);
-  s.sprite(b, 'Icon', 0, -18, 104, 104, `assets/resources/cartoon/${file}.png`);
+  const club = action === 'game-club';
+  const b = s.button(
+    shortcuts,
+    name,
+    x,
+    1036,
+    club ? 154 : 138,
+    club ? 154 : 142,
+    'side-badge',
+    'onHomeNav',
+    action,
+  );
+  s.sprite(
+    b,
+    'Icon',
+    club ? -23 : 0,
+    -18,
+    club ? 84 : 104,
+    club ? 84 : 104,
+    `assets/resources/cartoon/${file}.png`,
+  );
+  if (club) gameClubButton = b;
   s.skin(b, 'Nameplate', 0, 49, 154, 47, 'nav');
   label(b, 'Label', title, 0, 45, 24, { width: 148 });
   if (action === 'signin') s.skin(b, 'Notice', 54, -65, 21, 21, 'badge-red');
@@ -179,7 +200,7 @@ label(gameTop, 'LevelName', '经典三消', 360, 80, 32, { width: 276, tint: '#F
 label(gameTop, 'Chapter', '第 1 关', 360, 157, 27, { width: 222 });
 s.inactive(label(gameTop, 'Remaining', '剩余 18', 620, 184, 19, { width: 130, tint: '#FFF5DA' }));
 s.skin(game, 'InstructionPlaque', 360, 224, 360, 54, 'nav');
-label(game, 'Instruction', '收集 3 个相同萌宠', 360, 220, 23, { width: 340 });
+label(game, 'Instruction', '点击查看规则', 360, 220, 23, { width: 340 });
 const boardPreview = group(game, 'BoardPreview');
 for (let layer = 0; layer < 2; layer++)
   for (let row = 0; row < 3; row++)
@@ -194,12 +215,8 @@ for (let layer = 0; layer < 2; layer++)
 group(game, 'Board');
 const reserve = group(game, 'ReserveArea');
 s.inactive(reserve);
-s.skin(reserve, 'ReservePanel', 360, 1115, 680, 104, 'tray');
-label(reserve, 'ReserveTitle', '铲出暂存 · 点击萌宠放回收纳槽', 360, 1045, 22, {
-  width: 660,
-  stroke: 1,
-});
 group(reserve, 'ReserveTiles');
+group(game, 'ExtraSlot');
 s.inactive(
   label(game, 'TrayTitle', '空位不多啦，优先凑齐！', 360, 1351, 21, { width: 680, stroke: 1 }),
 );
@@ -249,6 +266,8 @@ s.component(root, compress(uuid('assets/scripts/StarIsle.ts')), {
     frame(`assets/resources/cartoon/ui/${name}.png`),
   ),
 });
+// Append the second carved friend after the existing nodes to keep unrelated scene IDs stable.
+pet(gameClubButton, 'Companion', 12, 28, -15, 77);
 s.finish('assets/scenes/main.scene');
 console.log(
   `Native woodland scene: ${s.items.filter((i) => i.__type__ === 'cc.Node').length} nodes, ${s.items.filter((i) => i.__type__ === 'cc.Button').length} buttons.`,

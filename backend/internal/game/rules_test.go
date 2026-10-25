@@ -86,6 +86,7 @@ func TestParityFixtures(t *testing.T) {
 		stage   int
 		config  Config
 		shuffle bool
+		unlock  bool
 	}
 	cases := []fixtureCase{}
 	for _, mode := range []string{"classic", "quartet", "fun"} {
@@ -114,7 +115,9 @@ func TestParityFixtures(t *testing.T) {
 		legacy := DefaultConfig(mode, 1)
 		legacy.RulesVersion, legacy.Rules = LegacyRulesVersion, nil
 		cases = append(cases, fixtureCase{name: "legacy-" + mode, mode: mode, stage: 1, config: legacy})
+		cases = append(cases, fixtureCase{name: "extra-slot-" + mode, mode: mode, stage: 1, config: DefaultConfig(mode, 1), shuffle: true, unlock: true})
 	}
+	cases = append(cases, fixtureCase{name: "extra-slot-custom", mode: "classic", stage: 3, config: customConfig(t, [][]int{{3, 2}}, []int{6, 4, 3, 2}), shuffle: true, unlock: true})
 	for _, tc := range cases {
 		s, route, e := NewBoard(tc.config, 97)
 		if e != nil {
@@ -128,6 +131,8 @@ func TestParityFixtures(t *testing.T) {
 			t.Helper()
 			if kind == "pick" {
 				e = s.Pick(id)
+			} else if kind == "unlock_slot" {
+				e = s.UnlockExtraSlot()
 			} else {
 				e = s.Tool(kind, 2026)
 				if e == nil {
@@ -140,6 +145,9 @@ func TestParityFixtures(t *testing.T) {
 			events = append(events, map[string]any{"type": kind, "tileId": id, "state": json.RawMessage(raw(s.Public()))})
 		}
 		apply("pick", route[0])
+		if tc.unlock {
+			apply("unlock_slot", 0)
+		}
 		apply("undo", 0)
 		apply("pick", route[0])
 		apply("shovel", 0)

@@ -84,6 +84,13 @@ fs.mkdirSync(output, { recursive: true });
     }, path);
     await click(p.x, p.y);
   };
+  const modalClick = async (name) => {
+    const p = await page.evaluate((name) => {
+      const n = window.__qaApp.modal.getChildByName(name);
+      return { x: n.position.x, y: -n.position.y };
+    }, name);
+    await click(p.x, p.y);
+  };
   const shot = async (name) => {
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(output, `${name}.png`) });
@@ -140,15 +147,15 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal((await state()).save.sound, false);
     await close();
     await homeClick('Shortcuts/SignInButton');
-    await click(360, 1203);
+    await modalClick('ClaimSignIn');
     assert.equal((await state()).save.coins, 20);
-    await click(360, 1203);
+    await modalClick('ClaimSignIn');
     assert.equal((await state()).save.coins, 20);
     await close();
     await homeClick('Shortcuts/BagButton');
     assert.equal((await state()).modal, 'Bag');
     await shot('02-four-tool-bag');
-    await click(360, 1210);
+    await modalClick('BagDone');
     await homeClick('Shortcuts/AlbumButton');
     assert.equal((await state()).modal, 'Album');
     assert.equal(

@@ -188,6 +188,8 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 		}
 		if act.Type == "pick" {
 			e = state.Pick(act.TileID)
+		} else if act.Type == "unlock_slot" {
+			e = state.UnlockExtraSlot()
 		} else {
 			_, ok := state.Tools[act.Type]
 			if !ok {

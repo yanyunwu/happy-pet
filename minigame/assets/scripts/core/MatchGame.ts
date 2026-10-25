@@ -343,6 +343,7 @@ export class MatchGame {
   tray: number[] = [];
   reserve: number[] = [];
   status: GameStatus = 'playing';
+  capacity = CAPACITY;
   matches = 0;
   moves = 0;
   undoLeft = 1;
@@ -371,7 +372,10 @@ export class MatchGame {
     return g;
   }
   applyCloud(state: CloudState): void {
-    if (!['pet-rules-1', 'pet-rules-2'].includes(state.rulesVersion) || state.capacity !== CAPACITY)
+    if (
+      !['pet-rules-1', 'pet-rules-2'].includes(state.rulesVersion) ||
+      ![CAPACITY, CAPACITY + 1].includes(state.capacity)
+    )
       throw new Error('当前版本不支持该关卡规则');
     const rules = canonicalRules(
       state.rules || (state.rulesVersion === 'pet-rules-1' ? defaultRules(state.mode) : []),
@@ -382,6 +386,7 @@ export class MatchGame {
     )
       throw new Error('旧版本不支持自定义消除规则');
     this.rules = rules;
+    this.capacity = state.capacity;
     this.tiles = state.tiles.map((t) => ({ ...t }));
     this.tray = state.tray.slice();
     this.reserve = state.reserve.slice();
@@ -570,6 +575,14 @@ export class MatchGame {
   get score(): number {
     return this.matches * 100;
   }
+  get extraSlotUnlocked(): boolean {
+    return this.capacity === CAPACITY + 1;
+  }
+  unlockExtraSlot(): boolean {
+    if (this.status !== 'playing' || this.capacity !== CAPACITY) return false;
+    this.capacity = CAPACITY + 1;
+    return true;
+  }
   get canUndo(): boolean {
     return this.undoLeft > 0 && this.hasUndo;
   }
@@ -584,7 +597,7 @@ export class MatchGame {
     );
   }
   get stranded(): boolean {
-    return this.status === 'lost' && this.remaining === 0 && this.tray.length < CAPACITY;
+    return this.status === 'lost' && this.remaining === 0 && this.tray.length < this.capacity;
   }
   availableTiles(): Tile[] {
     return [...available(this.tiles), ...this.reserve.map((id) => this.tiles[id])];
@@ -631,7 +644,7 @@ export class MatchGame {
     }
     // Matches resolve before capacity. Empty boards with leftover cards fail explicitly.
     if (this.remaining === 0 && this.tray.length === 0) this.status = 'won';
-    else if (this.tray.length >= CAPACITY || this.remaining === 0) this.status = 'lost';
+    else if (this.tray.length >= this.capacity || this.remaining === 0) this.status = 'lost';
     return { tile: { ...tile }, displayTray, matched, insertion, source };
   }
   undo(): boolean {
@@ -728,14 +741,14 @@ export class MatchGame {
       let pending = held.slice();
       for (const id of ids) {
         pending = afterPick(pending, this.tiles[id].kind, this.rules);
-        if (pending.length >= CAPACITY) enough = false;
+        if (pending.length >= this.capacity) enough = false;
       }
       if (enough && ids.length) options.push(ids);
     }
     options.sort((a, b) => a.length - b.length);
     let ids = options[0];
     if (!ids) {
-      const safe = open.filter((t) => afterPick(held, t.kind, this.rules).length < CAPACITY);
+      const safe = open.filter((t) => afterPick(held, t.kind, this.rules).length < this.capacity);
       safe.sort(
         (a, b) => held.filter((k) => k === b.kind).length - held.filter((k) => k === a.kind).length,
       );
@@ -784,7 +797,7 @@ export class MatchGame {
             const next = afterPick(pending, this.tiles[id].kind, this.rules);
             cleared ||= next.length < pending.length + 1;
             pending = next;
-            if (pending.length >= CAPACITY) return;
+            if (pending.length >= this.capacity) return;
           }
           if (cleared) {
             const rest = counts.slice();
@@ -812,7 +825,9 @@ export class MatchGame {
     let best =
       options.find((option) => customGroups(option.rest, this.rules, 2000) !== null)?.ids || [];
     if (!best.length) {
-      const safe = open.filter((tile) => afterPick(held, tile.kind, this.rules).length < CAPACITY);
+      const safe = open.filter(
+        (tile) => afterPick(held, tile.kind, this.rules).length < this.capacity,
+      );
       safe.sort(
         (a, b) =>
           held.filter((kind) => kind === b.kind).length -

@@ -115,7 +115,9 @@ fs.mkdirSync(output, { recursive: true });
           .getChildByName('StarIsleGame')
           .getComponent('StarIsle')),
     );
-    await click(610, 1036);
+    await click(56, 75);
+    await opening('HomeMenu');
+    await click(199, 283);
     await opening('Settings');
     await bounds('Settings', ['Banner', 'SoundToggle', 'SettingsDone']);
     const closeGlyph = await page.evaluate(

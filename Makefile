@@ -17,7 +17,7 @@ EXE :=
 endif
 
 .PHONY: help env-init setup install db-up db-down db-init migration-status dev dev-api dev-admin sqlc sqlc-check test test-api test-game typecheck build-admin build-api build-game build-wechat verify
-.PHONY: configure-game test-browser test-startup test-audio test-environments preview-game test-ui format format-check lint tools go-version ci-check typecheck-admin build-services test-api-race verify-services images image-backend image-admin image-gateway images-push registry-login
+.PHONY: configure-game test-browser test-announcement-browser test-startup test-audio test-environments preview-game test-ui format format-check lint tools go-version ci-check typecheck-admin build-services test-api-race verify-services images image-backend image-admin image-gateway images-push registry-login
 ## make setup          安装依赖并初始化独立开发数据库
 ## make dev            同时启动 API :8080、后台 :5173
 ## make dev-api        启动 API
@@ -68,6 +68,13 @@ test-api:
 test-api-race:
 	go -C backend test -race -count=1 -timeout=15m $(GO_TEST_FLAGS) ./...
 test-game:
+	node minigame/tools/test-rewarded-ad.cjs
+	node minigame/tools/test-extra-slot-controller.cjs
+	node minigame/tools/test-extra-slot-rules.cjs
+	node minigame/tools/test-extra-slot-online.cjs
+	node minigame/tools/test-customer-service.cjs
+	node minigame/tools/test-announcement.cjs
+	node minigame/tools/test-game-club.cjs
 	node minigame/tools/test-player-profile.cjs
 	node minigame/tools/test-custom-rules.cjs
 	node minigame/tools/test-game.cjs
@@ -76,6 +83,8 @@ test-game:
 test: test-api test-game
 test-browser:
 	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestBrowserIntegration -v -count=1 -timeout=4m
+test-announcement-browser:
+	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestAnnouncementBrowserIntegration -v -count=1 -timeout=2m
 typecheck:
 	@$(MAKE) --no-print-directory typecheck-admin
 	node scripts/check-game.cjs
@@ -107,6 +116,9 @@ test-environments:
 preview-game:
 	node minigame/tools/serve.cjs
 test-ui:
+	cd minigame && node tools/test-extra-slot-ui.cjs
+	cd minigame && node tools/test-announcement-ui.cjs
+	cd minigame && node tools/test-rewards-ui.cjs
 	cd minigame && node tools/test-profile-ui.cjs
 	cd minigame && node tools/test-toasts.cjs
 	cd minigame && node tools/test-level-transition.cjs

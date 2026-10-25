@@ -99,7 +99,7 @@ fs.mkdirSync(output, { recursive: true });
       'Shortcuts/SignInButton/Nameplate',
       'Shortcuts/AlbumButton/Nameplate',
       'Shortcuts/BagButton/Nameplate',
-      'Shortcuts/SettingsButton/Nameplate',
+      'Shortcuts/GameClubButton/Nameplate',
       'WelcomePanel/Mode-classic',
       'WelcomePanel/Mode-quartet',
       'WelcomePanel/Mode-fun',

@@ -32,6 +32,7 @@ for (const fixture of fixtures) {
   });
   for (const event of fixture.events) {
     if (event.type === 'pick') assert(g.pick(event.tileId));
+    else if (event.type === 'unlock_slot') assert(g.unlockExtraSlot());
     else if (event.type === 'undo') assert(g.undo());
     else if (event.type === 'shovel') assert(g.shovel());
     else if (event.type === 'hint') assert(g.hint().length);
@@ -46,6 +47,7 @@ for (const fixture of fixtures) {
           moves: g.moves,
           matches: g.matches,
           cleared: g.cleared,
+          capacity: g.capacity,
           tools: {
             undo: g.undoLeft,
             shovel: g.shovelLeft,
@@ -55,10 +57,17 @@ for (const fixture of fixtures) {
         }),
       ),
       Object.fromEntries(
-        ['tiles', 'tray', 'reserve', 'status', 'moves', 'matches', 'cleared', 'tools'].map((k) => [
-          k,
-          event.state[k],
-        ]),
+        [
+          'tiles',
+          'tray',
+          'reserve',
+          'status',
+          'moves',
+          'matches',
+          'cleared',
+          'capacity',
+          'tools',
+        ].map((k) => [k, event.state[k]]),
       ),
       `${fixture.mode} stage ${fixture.stage} step ${steps}`,
     );

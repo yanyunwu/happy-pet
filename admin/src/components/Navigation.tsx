@@ -5,6 +5,7 @@ import {
   CompassOutlined,
   FlagOutlined,
   HistoryOutlined,
+  SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -64,6 +65,7 @@ export default function Navigation({
             label: '用户与账号',
             children: [{ key: '/users', icon: <TeamOutlined />, label: '用户管理' }],
           },
+          { key: '/settings', icon: <SettingOutlined aria-hidden />, label: '设置' },
         ]}
         onClick={({ key }) => {
           navigate(key);

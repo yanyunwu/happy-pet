@@ -343,6 +343,16 @@ func (s *State) Pick(id int) error {
 	}
 	return nil
 }
+func (s *State) UnlockExtraSlot() error {
+	if s.Status != "playing" {
+		return fmt.Errorf("对局已结束")
+	}
+	if s.Capacity != 7 {
+		return fmt.Errorf("本关额外收纳槽已解锁或容量无效")
+	}
+	s.Capacity = 8
+	return nil
+}
 func (s *State) Tool(kind string, seed uint32) error {
 	if s.Status != "playing" {
 		return fmt.Errorf("对局已结束")

@@ -36,7 +36,7 @@
             "_value": false
           },
           "rich-text": {
-            "_value": false
+            "_value": true
           },
           "mask": {
             "_value": true
@@ -205,6 +205,7 @@
           "mask",
           "primitive",
           "profiler",
+          "rich-text",
           "tween",
           "ui",
           "ui-skew"
