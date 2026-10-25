@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"happy-pet/api/internal/admins"
 	"happy-pet/api/internal/config"
 	"happy-pet/api/internal/users"
 	schema "happy-pet/api/sql"
@@ -23,14 +24,14 @@ func Open(ctx context.Context, cfg config.Config) (*sql.DB, schema.Result, error
 		return nil, schema.Result{}, err
 	}
 	result, err := runner.Apply(ctx, db, func(ctx context.Context, tx *sql.Tx, fresh bool) error {
-		service := users.New(db, cfg.JWTSecret, nil)
+		service := admins.New(db, cfg.JWTSecret)
 		service.Q = service.Q.WithTx(tx)
 		if !fresh {
-			admins, e := service.Q.CountAllAdmins(ctx)
+			count, e := service.Q.CountAllAdminAccounts(ctx)
 			if e != nil {
 				return e
 			}
-			if admins == 0 {
+			if count == 0 {
 				return fmt.Errorf("已有数据库缺少管理员，迁移已停止")
 			}
 			return nil
@@ -38,7 +39,7 @@ func Open(ctx context.Context, cfg config.Config) (*sql.DB, schema.Result, error
 		if cfg.AdminUsername == "" || cfg.AdminPassword == "" {
 			return fmt.Errorf("首次初始化需要设置 ADMIN_USERNAME 和 ADMIN_PASSWORD")
 		}
-		_, e := service.Create(ctx, users.CreateInput{Username: cfg.AdminUsername, Password: cfg.AdminPassword, Nickname: "管理员"}, "admin")
+		_, e := service.Create(ctx, admins.CreateInput{Username: cfg.AdminUsername, Password: cfg.AdminPassword, Nickname: "管理员"})
 		return e
 	})
 	if err != nil {

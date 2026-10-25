@@ -51,7 +51,7 @@ import {
   type UserQuery,
   type UserStats,
 } from '../api';
-import { useAuth } from '../auth';
+import { passwordRule } from '../credentials';
 
 const initialQuery: UserQuery = { q: '', status: '', source: '', page: 1, pageSize: 20 };
 const date = (value: string | null) =>
@@ -79,7 +79,6 @@ function UserStatus({ user }: { user: User }) {
 
 export default function Users() {
   const { message, modal } = App.useApp();
-  const auth = useAuth();
   const [query, setQueryState] = useState<UserQuery>(initialQuery);
   const [search, setSearch] = useState('');
   const [data, setData] = useState<UserPage | null>(null);
@@ -188,7 +187,7 @@ export default function Users() {
           nickname: values.nickname,
           remark: values.remark || '',
         });
-      void message.success(editing ? '用户资料已更新' : '管理账号已创建');
+      void message.success(editing ? '用户资料已更新' : '玩家账号已创建');
       setEditing(undefined);
       reload();
     } catch (error) {
@@ -214,11 +213,6 @@ export default function Users() {
             <Button type="link" className="user-name" onClick={() => setDetails(user)}>
               {user.nickname}
             </Button>
-            {user.id === auth.user?.id && (
-              <div className="user-account-meta">
-                <span className="self-label">当前账号</span>
-              </div>
-            )}
           </div>
         </div>
       ),
@@ -234,20 +228,10 @@ export default function Users() {
             color={user.source === 'wechat' ? 'green' : 'default'}
             icon={user.source === 'wechat' ? <WechatOutlined /> : <SafetyCertificateOutlined />}
           >
-            {user.source === 'wechat' ? '微信小游戏' : '管理账号'}
+            {user.source === 'wechat' ? '微信小游戏' : '人工创建'}
           </Tag>
           <div className="table-secondary">{user.username || '微信授权登录'}</div>
         </div>
-      ),
-    },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      width: 100,
-      render: (role: User['role']) => (
-        <Tag color={role === 'admin' ? 'blue' : 'default'} variant="filled">
-          {role === 'admin' ? '管理员' : '用户'}
-        </Tag>
       ),
     },
     { title: '状态', key: 'status', width: 100, render: (_, user) => <UserStatus user={user} /> },
@@ -341,7 +325,7 @@ export default function Users() {
       <div className="page-heading">
         <div>
           <Typography.Title level={2}>用户管理</Typography.Title>
-          <Typography.Text type="secondary">查看用户资料，管理账号与访问状态。</Typography.Text>
+          <Typography.Text type="secondary">查看玩家资料，管理游戏资产与访问状态。</Typography.Text>
         </div>
         <Space>
           <Tooltip title="刷新数据">
@@ -351,8 +335,12 @@ export default function Users() {
               onClick={reload}
             />
           </Tooltip>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>
-            新增管理账号
+          <Button
+            type="primary"
+            icon={<PlusOutlined aria-hidden />}
+            onClick={() => openEditor(null)}
+          >
+            新增玩家账号
           </Button>
         </Space>
       </div>
@@ -437,7 +425,7 @@ export default function Users() {
             options={[
               { value: '', label: '全部来源' },
               { value: 'wechat', label: '微信小游戏' },
-              { value: 'manual', label: '管理账号' },
+              { value: 'manual', label: '人工创建' },
             ]}
           />
           <Button
@@ -472,7 +460,7 @@ export default function Users() {
         />
       </Card>
       <Modal
-        title={editing ? '编辑用户资料' : '新增管理账号'}
+        title={editing ? '编辑用户资料' : '新增玩家账号'}
         open={editing !== undefined}
         onCancel={() => setEditing(undefined)}
         onOk={() => void save()}
@@ -488,7 +476,7 @@ export default function Users() {
           {!editing && (
             <>
               <div className="form-hint">
-                管理账号可以登录后台；微信用户会在首次登录小游戏时自动创建。
+                此处创建玩家账号；微信玩家会在首次登录小游戏时自动创建。
               </div>
               <Form.Item
                 name="username"
@@ -501,20 +489,17 @@ export default function Users() {
                   },
                 ]}
               >
-                <Input autoComplete="off" maxLength={32} placeholder="请输入管理账号" />
+                <Input autoComplete="off" maxLength={32} placeholder="请输入玩家账号" />
               </Form.Item>
               <Form.Item
                 name="password"
                 label="初始密码"
-                rules={[
-                  { required: true, message: '请输入初始密码' },
-                  { min: 10, message: '密码至少 10 个字符' },
-                ]}
+                rules={[{ required: true, message: '请输入初始密码' }, passwordRule]}
               >
                 <Input.Password
                   autoComplete="new-password"
                   maxLength={72}
-                  placeholder="至少 10 个字符"
+                  placeholder="10–72 个 UTF-8 字节"
                 />
               </Form.Item>
             </>
@@ -563,8 +548,6 @@ export default function Users() {
                 await api.resetPassword(passwordUser.id, password);
                 void message.success('密码已重置，原登录凭证已失效');
                 setPasswordUser(null);
-                if (passwordUser.id === auth.user?.id)
-                  window.dispatchEvent(new Event('happy-pet-auth-expired'));
               } catch (error) {
                 void message.error(errorMessage(error));
               } finally {
@@ -578,10 +561,7 @@ export default function Users() {
           <Form.Item
             name="password"
             label="新密码"
-            rules={[
-              { required: true, message: '请输入新密码' },
-              { min: 10, message: '密码至少 10 个字符' },
-            ]}
+            rules={[{ required: true, message: '请输入新密码' }, passwordRule]}
           >
             <Input.Password autoComplete="new-password" maxLength={72} />
           </Form.Item>
@@ -614,7 +594,7 @@ export default function Users() {
                 {
                   key: 'role',
                   label: '角色',
-                  children: details.role === 'admin' ? '管理员' : '普通用户',
+                  children: '玩家',
                 },
                 { key: 'created', label: '注册时间', children: date(details.createdAt) },
                 { key: 'login', label: '最近登录', children: date(details.lastLoginAt) },
@@ -631,7 +611,7 @@ export default function Users() {
             >
               编辑资料
             </Button>
-            {details.role === 'user' && <UserAssets key={details.id} userId={details.id} />}
+            <UserAssets key={details.id} userId={details.id} />
           </>
         )}
       </Drawer>

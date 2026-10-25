@@ -82,17 +82,9 @@
   padding: 16px;
   min-width: 0;
 }
-.rule-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.rule-priority {
-  width: 22px;
-  flex-shrink: 0;
-  color: var(--admin-ink);
-  text-align: center;
+.rule-custom-input {
+  display: block;
+  margin-top: 12px;
 }
 .rule-help {
   margin-top: 12px;
@@ -386,6 +378,139 @@
 .settings-secret textarea {
   font-family: monospace;
   word-break: break-all;
+}
+.personal-settings-modal .ant-modal-body {
+  padding-top: 16px;
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.personal-account-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-layout);
+}
+.personal-account-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #315c46;
+  color: #f0f2db;
+  font-size: 20px;
+}
+.personal-account-summary strong,
+.personal-account-summary .ant-typography {
+  display: block;
+  line-height: 1.8;
+}
+.personal-account-summary .ant-typography,
+.personal-section-description {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.personal-settings-modal .section-heading {
+  margin-bottom: 8px;
+}
+.personal-settings-modal h5.ant-typography {
+  margin: 0 0 8px;
+}
+.personal-settings-modal .section-heading h5 {
+  margin-bottom: 0;
+}
+.personal-password-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.personal-token-meta,
+.personal-token-loading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 12px 0 20px;
+  color: #88978b;
+  font-size: 12px;
+}
+.personal-token-meta code {
+  font-size: 13px;
+  color: var(--admin-ink);
+}
+.personal-token-secret {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--admin-border);
+}
+.personal-token-secret textarea {
+  font-family: monospace;
+  overflow-wrap: anywhere;
+}
+.personal-token-secret > .ant-btn {
+  justify-self: start;
+}
+.account-management-note {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--admin-ink);
+}
+.account-management-note > .anticon {
+  color: #6b8d74;
+  font-size: 18px;
+}
+.account-load-error {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 0 24px 20px;
+}
+.api-docs-notice {
+  margin-bottom: 22px;
+}
+.api-docs-card {
+  overflow: hidden;
+  border-color: var(--admin-border);
+}
+.api-docs-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 150px;
+}
+.api-docs-error {
+  padding: 24px;
+}
+.api-docs-frame {
+  display: block;
+  border: 0;
+  width: 100%;
+  height: 76vh;
+  min-height: 620px;
+  background: #fff;
+}
+@media (max-width: 600px) {
+  .personal-password-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .api-docs-frame {
+    min-height: 520px;
+  }
 }
 .dark {
   --admin-ink: #dce8dd;

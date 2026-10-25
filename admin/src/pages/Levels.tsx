@@ -40,7 +40,7 @@ import LayoutEditor from '../components/LayoutEditor';
 import RuleEditor, { ruleIssue } from '../components/RuleEditor';
 const copy = <T,>(v: T): T => structuredClone(v);
 function fresh(entry: Entry, mode: Mode, ordinal: number): Level {
-  const count = mode === 'quartet' ? 4 : 3;
+  const count = mode === 'classic' ? 3 : 4;
   return {
     id: '',
     entry,
@@ -63,7 +63,7 @@ function fresh(entry: Entry, mode: Mode, ordinal: number): Level {
           cells: Array.from({ length: count }, (_, i) => ({ x: i * 2, y: 0 })),
         },
       ],
-      counts: [count, ...Array(14).fill(0)],
+      counts: mode === 'fun' ? [2, 2, ...Array(13).fill(0)] : [count, ...Array(14).fill(0)],
       capacity: 7,
       freeTools: { undo: 1, shovel: 1, hint: 3, shuffle: 1 },
       rewardCoins: 20,
@@ -202,8 +202,8 @@ export default function Levels() {
         showIcon
         title={
           entry === 'standard'
-            ? '挑战模式：三种规则各有两关起步关卡，每轮从第 1 关开始；后续可新增关卡扩展。'
-            : '闯关模式：三种规则独立保存进度，重进或失败后继续当前未通关关卡；可持续发布后续关卡。'
+            ? '挑战模式：三个玩法入口各有两关起步关卡，每轮从第 1 关开始；后续可新增关卡扩展。'
+            : '闯关模式：三个玩法入口独立保存进度，重进或失败后继续当前未通关关卡；可持续发布后续关卡。'
         }
         className="level-notice"
       />
@@ -273,7 +273,11 @@ export default function Levels() {
                   <Button type="link" onClick={() => edit(l)}>
                     编辑
                   </Button>
-                  <Button type="link" onClick={() => publish(l)}>
+                  <Button
+                    type="link"
+                    disabled={!!ruleIssue(l.config.rules || defaultRules(l.mode))}
+                    onClick={() => publish(l)}
+                  >
                     发布
                   </Button>
                   {l.revisionId && (
@@ -321,7 +325,7 @@ export default function Levels() {
             <Button
               type="primary"
               loading={busy}
-              disabled={!!editing && !!ruleIssue(editing.config.rules || [])}
+              disabled={busy || (!!editing && !!ruleIssue(editing.config.rules || []))}
               onClick={() => void save()}
             >
               保存草稿
@@ -366,6 +370,7 @@ export default function Levels() {
                   <label>
                     所属入口
                     <Select
+                      aria-label="所属入口"
                       value={editing.mode}
                       disabled={busy || !!editing.id}
                       onChange={(mode: Mode) =>
@@ -477,7 +482,7 @@ export default function Levels() {
                   type={total === counts ? 'success' : 'warning'}
                   showIcon
                   title={`格子 ${total} 个 · 萌宠 ${counts} 块 · ${editing.config.counts.filter((n) => n > 0).length} 种`}
-                  description="发布时总数必须相等，并按上方的自定义组合校验数量与真实通关路径。所属入口只决定首页按钮，不会覆盖消除规则。"
+                  description="发布时总数必须相等，并按上方所选组合校验数量与真实通关路径。所属入口只决定首页按钮，不会覆盖消除规则。"
                 />
               </Col>
               <Col xs={24} lg={10}>

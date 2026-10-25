@@ -27,10 +27,15 @@ const CLIPS = [
 ];
 type MusicMode = 'home' | 'game';
 type VoiceCue = 'start' | 'next' | 'win' | 'lose';
+const VOLUME_EPSILON = 0.0001;
 interface MusicSlot {
   source: AudioSource;
   name: string;
   target: number;
+  started: boolean;
+  retryAt: number;
+  resumingAt: number;
+  resetAttempted: boolean;
 }
 
 /** Bounded audio channels, gentle music transitions and occasional spoken cues. */
@@ -67,11 +72,27 @@ export class WoodlandAudio extends Component {
       return audio;
     };
     this.effects = Array.from({ length: 4 }, (_, i) => source(`WoodFoley${i}`));
-    this.musicSlots = [0, 1].map((i) => ({
-      source: source(`ForestMusic${i}`, true),
-      name: '',
-      target: 0,
-    }));
+    this.musicSlots = [0, 1].map((i) => {
+      const slot: MusicSlot = {
+        source: source(`ForestMusic${i}`, true),
+        name: '',
+        target: 0,
+        started: false,
+        retryAt: 0,
+        resumingAt: -1,
+        resetAttempted: false,
+      };
+      slot.source.node.on(
+        AudioSource.EventType.STARTED,
+        () => {
+          slot.started = true;
+          slot.resumingAt = -1;
+          slot.resetAttempted = false;
+        },
+        this,
+      );
+      return slot;
+    });
     this.voice = source('ForestVoice');
     this.voice.node.on(
       AudioSource.EventType.ENDED,
@@ -175,8 +196,8 @@ export class WoodlandAudio extends Component {
     }
     if (this.suspended) {
       this.suspended = false;
-      this.refreshMusic();
     }
+    this.refreshMusic();
     if (this.ducking) {
       this.voiceRemaining -= dt;
       if (this.voiceRemaining <= 0) {
@@ -187,7 +208,14 @@ export class WoodlandAudio extends Component {
     const gain = (this.mode === 'home' ? 0.28 : 0.22) * (this.ducking ? 0.3 : 1);
     for (const slot of this.musicSlots) {
       const target = slot.target * gain;
-      slot.source.volume += (target - slot.source.volume) * (1 - Math.exp(-dt / 0.18));
+      const volume = slot.source.volume;
+      if (Math.abs(volume - target) >= VOLUME_EPSILON) {
+        const next = volume + (target - volume) * (1 - Math.exp(-dt / 0.18));
+        // InnerAudioContext forwards every volume write to native audio, even
+        // identical values. Finish the fade and tolerate native float rounding
+        // so steady music needs no writes.
+        slot.source.volume = Math.abs(next - target) < VOLUME_EPSILON ? target : next;
+      }
       if (!slot.target && slot.name && slot.source.volume < 0.002) {
         slot.source.stop();
         slot.source.volume = 0;
@@ -203,7 +231,44 @@ export class WoodlandAudio extends Component {
     const clip = this.clips.get(name);
     if (!clip) return;
     const current = this.musicSlots[this.activeMusic];
-    if (current?.name === name && current.target === 1) return;
+    if (current?.name === name && current.target === 1) {
+      // A selected loop can still be paused/stopped by the platform or audio manager.
+      // Leave initial loading/autoplay and active platform interruptions to Cocos;
+      // otherwise resume the same source without resetting its position or fade.
+      const state = current.source.state;
+      if (current.source.playing) {
+        current.resumingAt = -1;
+        current.resetAttempted = false;
+      }
+      if (
+        current.started &&
+        current.resumingAt >= 0 &&
+        !current.resetAttempted &&
+        state !== AudioSource.AudioState.INTERRUPTED &&
+        this.clock - current.resumingAt >= 5
+      ) {
+        // A missing native onPlay can wedge Cocos' operation queue. Recreate this
+        // player once; repeated resets would race slow loads of the same clip.
+        const position = current.source.currentTime;
+        current.resetAttempted = true;
+        current.source.clip = null;
+        current.source.clip = clip;
+        if (Number.isFinite(position) && position >= 0) current.source.currentTime = position;
+        current.source.play();
+        return;
+      }
+      if (
+        current.started &&
+        current.resumingAt < 0 &&
+        (state === AudioSource.AudioState.PAUSED || state === AudioSource.AudioState.STOPPED) &&
+        this.clock >= current.retryAt
+      ) {
+        current.retryAt = this.clock + 1;
+        current.resumingAt = this.clock;
+        current.source.play();
+      }
+      return;
+    }
     if (current) current.target = 0;
     this.activeMusic = this.activeMusic === 0 ? 1 : 0;
     const incoming = this.musicSlots[this.activeMusic];
@@ -212,6 +277,10 @@ export class WoodlandAudio extends Component {
     incoming.source.volume = 0;
     incoming.name = name;
     incoming.target = 1;
+    incoming.started = false;
+    incoming.retryAt = this.clock + 1;
+    incoming.resumingAt = -1;
+    incoming.resetAttempted = false;
     incoming.source.play();
   }
 
@@ -229,6 +298,9 @@ export class WoodlandAudio extends Component {
     for (const slot of this.musicSlots) {
       slot.name = '';
       slot.target = 0;
+      slot.started = false;
+      slot.resumingAt = -1;
+      slot.resetAttempted = false;
     }
     this.activeMusic = -1;
     this.ducking = false;

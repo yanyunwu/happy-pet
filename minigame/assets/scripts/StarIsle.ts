@@ -1403,7 +1403,17 @@ export class StarIsle extends Component {
     const g = this.game!;
     const m = this.dialog('Rules', '本关消除规则', 1110);
     m.getChildByName('Close')!.active = !tutorial;
-    P.text(m, 'Intro', '第 ' + g.level.id + ' 关 · 按顺序优先匹配', 360, 386, 25, C.ink, 560, true);
+    P.text(
+      m,
+      'Intro',
+      `第 ${g.level.id} 关 · ${g.rules.length === 1 ? '凑齐本关组合即可消除' : '按顺序优先匹配'}`,
+      360,
+      386,
+      25,
+      C.ink,
+      560,
+      true,
+    );
     const compact = g.rules.length > 3;
     g.rules.forEach((pattern, index) => {
       const y = compact
@@ -1414,7 +1424,7 @@ export class StarIsle extends Component {
       P.text(
         m,
         'Rule-' + index,
-        index + 1 + '. ' + ruleDescription(pattern),
+        (g.rules.length > 1 ? index + 1 + '. ' : '') + ruleDescription(pattern),
         360,
         y - 36,
         compact ? 22 : 25,

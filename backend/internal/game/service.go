@@ -242,7 +242,7 @@ func (s *Service) SaveLevel(ctx context.Context, id string, in DraftInput) (Leve
 	if !ValidEntry(in.Entry) || !ValidMode(in.Mode) || in.Ordinal < 1 || len(in.Title) > 180 || strings.TrimSpace(in.Title) == "" || in.Config.Mode != in.Mode {
 		return LevelView{}, users.Invalid("请检查关卡名称、模式和序号")
 	}
-	rules, err := CanonicalRules(in.Config.Mode, in.Config.RulesVersion, in.Config.Rules)
+	rules, err := AuthoringRules(in.Config)
 	if err != nil {
 		return LevelView{}, invalid(err)
 	}
@@ -288,6 +288,11 @@ func (s *Service) Publish(ctx context.Context, id, actor string, version int32) 
 		return LevelView{}, conflict("草稿版本已变化，请刷新")
 	}
 	c := levelView(l).Config
+	rules, err := AuthoringRules(c)
+	if err != nil {
+		return LevelView{}, invalid(err)
+	}
+	c.Rules = rules
 	if e = Validate(c); e != nil {
 		return LevelView{}, invalid(e)
 	}
@@ -311,7 +316,7 @@ func (s *Service) Publish(ctx context.Context, id, actor string, version int32) 
 		return LevelView{}, e
 	}
 	revision := users.NewID()
-	_, e = q.AddRevision(ctx, dbgen.AddRevisionParams{ID: revision, LevelID: id, Version: int32(len(revisions) + 1), Config: l.Draft, CreatedBy: actor, Title: l.Title})
+	_, e = q.AddRevision(ctx, dbgen.AddRevisionParams{ID: revision, LevelID: id, Version: int32(len(revisions) + 1), Config: raw(c), CreatedBy: actor, Title: l.Title})
 	if e != nil {
 		return LevelView{}, e
 	}
@@ -376,6 +381,9 @@ func Seed(ctx context.Context, db *sql.DB) error {
 			return e
 		}
 	}
+	if e = migrateFunRules(ctx, tx); e != nil {
+		return e
+	}
 	return tx.Commit()
 }
 func DefaultConfig(mode string, stage int) Config {
@@ -394,11 +402,10 @@ func DefaultConfig(mode string, stage int) Config {
 		if mode == "fun" {
 			c.Columns = 4
 			c.Rows = 2
-			c.Counts[0] = 3
+			c.Counts[0] = 4
 			c.Counts[1] = 2
 			c.Counts[2] = 2
-			add(0, 4, 1, 0, 0, 2)
-			c.Layers[0].Cells = append(c.Layers[0].Cells, Cell{0, 2}, Cell{2, 2}, Cell{4, 2})
+			add(0, 4, 2, 0, 0, 2)
 		} else if mode == "quartet" {
 			c.Columns = 4
 			c.Rows = 2
@@ -425,6 +432,11 @@ func DefaultConfig(mode string, stage int) Config {
 			if mode == "quartet" {
 				c.Counts[k] = 4
 				if k < 12 {
+					c.Counts[k] = 8
+				}
+			} else if mode == "fun" {
+				c.Counts[k] = 6
+				if k < 9 {
 					c.Counts[k] = 8
 				}
 			} else {

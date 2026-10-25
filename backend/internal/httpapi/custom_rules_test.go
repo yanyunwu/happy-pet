@@ -107,7 +107,7 @@ func TestLegacyV1SessionContinuesWithoutRulesField(t *testing.T) {
 	}
 }
 
-func TestCustomShuffleFailureDoesNotConsumeAssetsOrChangeSession(t *testing.T) {
+func TestHistoricalCustomShuffleFailureDoesNotConsumeAssetsOrChangeSession(t *testing.T) {
 	h := setup(t)
 	player := login(t, h, "qa-custom-shuffle-failure")
 	ctx := context.Background()
@@ -117,14 +117,21 @@ func TestCustomShuffleFailureDoesNotConsumeAssetsOrChangeSession(t *testing.T) {
 		}
 	}
 	cfg := game.DefaultConfig("classic", 1)
-	cfg.Rules = [][]int{{3, 1}, {2, 2}}
+	cfg.Rules = [][]int{{3, 1}}
 	cfg.Columns, cfg.Rows = 4, 2
 	cfg.Layers = []game.Layer{{Z: 0, Cells: []game.Cell{{X: 0}, {X: 2}, {X: 4}, {X: 6}, {X: 0, Y: 2}, {X: 2, Y: 2}, {X: 4, Y: 2}, {X: 6, Y: 2}}}}
 	cfg.Counts = make([]int, 15)
 	copy(cfg.Counts, []int{3, 3, 2})
 	cfg.FreeTools["shuffle"] = 0
 	draft := decode[catalogLevel](t, h.call("POST", "/api/v1/admin/levels", catalogDraft("campaign", "classic", 3, cfg), "admin"), 200)
-	publishCatalogLevel(t, h, draft)
+	published := publishCatalogLevel(t, h, draft)
+	// A historical multi-rule revision remains playable even though new writes
+	// no longer accept it. Construct that old snapshot only in this test schema.
+	cfg.Rules = [][]int{{3, 1}, {2, 2}}
+	data, _ := json.Marshal(cfg)
+	if _, err := h.db.ExecContext(ctx, "UPDATE level_revisions SET config=$2 WHERE id=$1", published.RevisionID, data); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := h.games.Adjust(ctx, player.User.ID, "test", game.Adjustment{RequestID: "qa-custom-shuffle-grant", Asset: "shuffle", Delta: 1, Reason: "验证失败重排"}); err != nil {
 		t.Fatal(err)
 	}
@@ -165,14 +172,10 @@ func TestCustomShuffleFailureDoesNotConsumeAssetsOrChangeSession(t *testing.T) {
 	}
 }
 
-func TestPriorityAwareFiveTileRulesPublish(t *testing.T) {
+func TestMultiplePriorityRulesCannotBeAuthored(t *testing.T) {
 	h := setup(t)
 	for i, rules := range [][][]int{{{3, 2}, {2, 2}}, {{3, 2}, {3}}} {
 		body := map[string]any{"entry": "campaign", "mode": "classic", "ordinal": 3 + i, "title": "优先五张消除", "config": customRulePayload(t, rules, []int{3, 2}), "draftVersion": 0}
-		draft := decode[catalogLevel](t, h.call("POST", "/api/v1/admin/levels", body, "admin"), 200)
-		published := publishCatalogLevel(t, h, draft)
-		if !published.Enabled || published.RevisionID == "" {
-			t.Fatal("playable priority-sensitive rules did not publish")
-		}
+		decode[map[string]any](t, h.call("POST", "/api/v1/admin/levels", body, "admin"), 400)
 	}
 }

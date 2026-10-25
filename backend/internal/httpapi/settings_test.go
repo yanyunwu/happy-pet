@@ -100,13 +100,13 @@ func TestAnnouncementAdminAuthorization(t *testing.T) {
 			}
 		}
 	}
-	// A valid admin-audience session must still be checked against the current role.
-	if _, err := h.db.ExecContext(context.Background(), "UPDATE users SET role='user' WHERE username='qa-admin'"); err != nil {
+	// Every request checks the independent administrator's current account state.
+	if _, err := h.db.ExecContext(context.Background(), "UPDATE admin_accounts SET status='disabled' WHERE username='qa-admin'"); err != nil {
 		t.Fatal(err)
 	}
 	for _, method := range []string{http.MethodGet, http.MethodPut} {
-		if w := h.call(method, "/api/v1/admin/settings", body, "admin"); w.Code != http.StatusForbidden {
-			t.Fatal("ordinary account retained admin settings access", method, w.Code, w.Body.String())
+		if w := h.call(method, "/api/v1/admin/settings", body, "admin"); w.Code != http.StatusUnauthorized {
+			t.Fatal("disabled administrator retained settings access", method, w.Code, w.Body.String())
 		}
 	}
 	public := decode[publicAnnouncement](t, h.call(http.MethodGet, "/api/v1/settings/announcement", nil, ""), http.StatusOK)

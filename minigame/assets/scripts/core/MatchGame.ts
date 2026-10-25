@@ -27,13 +27,15 @@ export const MODES: Mode[] = [
   {
     id: 'fun',
     title: '趣味规则消',
-    rule: '三个相同，或两种萌宠各两个',
-    shortRule: '三个相同 / 两对不同',
-    matchSize: 3,
+    rule: '两种不同萌宠各两个才能消除',
+    shortRule: '两种萌宠各两个',
+    matchSize: 4,
   },
 ];
 export const defaultRules = (mode: ModeId): number[][] =>
-  mode === 'quartet' ? [[4]] : mode === 'fun' ? [[3], [2, 2]] : [[3]];
+  mode === 'quartet' ? [[4]] : mode === 'fun' ? [[2, 2]] : [[3]];
+const legacyRules = (mode: ModeId): number[][] =>
+  mode === 'fun' ? [[3], [2, 2]] : defaultRules(mode);
 export function canonicalRules(rules: number[][]): number[][] {
   if (!Array.isArray(rules) || rules.length < 1 || rules.length > 6)
     throw new Error('关卡需要 1–6 条消除规则');
@@ -54,7 +56,8 @@ export function canonicalRules(rules: number[][]): number[][] {
     return next;
   });
 }
-function presetRuleMode(rules: number[][]): ModeId | null {
+function presetRuleMode(rules: number[][]): ModeId | 'legacy-fun' | null {
+  if (JSON.stringify(rules) === JSON.stringify(legacyRules('fun'))) return 'legacy-fun';
   return (
     MODES.find((mode) => JSON.stringify(defaultRules(mode.id)) === JSON.stringify(rules))?.id ||
     null
@@ -195,8 +198,7 @@ function afterPick(held: number[], kind: number, mode: ModeId | number[][]): num
     matched = matchIndices(all, mode);
   return all.filter((_, i) => !matched.includes(i));
 }
-/** Partition into valid groups. In fun mode AAA + BBB can become AABB + AB;
- * that remainder cannot be repaired by permuting cards. Never invent/discard it. */
+/** Partition actual quantities into complete groups, including historical mixed rules. */
 function groupsForCounts(
   counts: number[],
   rule: ModeId | number[][],
@@ -205,9 +207,10 @@ function groupsForCounts(
   const rules = typeof rule === 'string' ? defaultRules(rule) : rule;
   const mode = presetRuleMode(rules);
   if (!mode) return customGroups(counts, rules);
+  if (mode === 'fun') return pairGroups(counts);
   const size = mode === 'quartet' ? 4 : 3,
     result: number[][] = [];
-  if (mode !== 'fun') {
+  if (mode !== 'legacy-fun') {
     if (counts.some((n) => n % size !== 0)) return null;
     counts.forEach((n, k) => {
       for (let i = 0; i < n; i += size) result.push(Array(size).fill(k));
@@ -239,6 +242,30 @@ function groupsForCounts(
         .sort((a, b) => b.n - a.n),
       a = largest[0].k,
       b = largest[1].k;
+    result.push([a, a, b, b]);
+    pairs[a]--;
+    pairs[b]--;
+  }
+  return result;
+}
+
+function pairGroups(counts: number[]): number[][] | null {
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  if (
+    counts.some((count) => count < 0 || count % 2 !== 0) ||
+    total % 4 !== 0 ||
+    Math.max(0, ...counts) * 2 > total
+  )
+    return null;
+  const pairs = counts.map((count) => count / 2),
+    result: number[][] = [];
+  while (pairs.some((count) => count > 0)) {
+    const largest = pairs
+      .map((count, kind) => ({ count, kind }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count);
+    const a = largest[0].kind,
+      b = largest[1].kind;
     result.push([a, a, b, b]);
     pairs[a]--;
     pairs[b]--;
@@ -378,11 +405,11 @@ export class MatchGame {
     )
       throw new Error('当前版本不支持该关卡规则');
     const rules = canonicalRules(
-      state.rules || (state.rulesVersion === 'pet-rules-1' ? defaultRules(state.mode) : []),
+      state.rules || (state.rulesVersion === 'pet-rules-1' ? legacyRules(state.mode) : []),
     );
     if (
       state.rulesVersion === 'pet-rules-1' &&
-      JSON.stringify(rules) !== JSON.stringify(defaultRules(state.mode))
+      JSON.stringify(rules) !== JSON.stringify(legacyRules(state.mode))
     )
       throw new Error('旧版本不支持自定义消除规则');
     this.rules = rules;
@@ -416,8 +443,8 @@ export class MatchGame {
     this.rng = randomSource(this.seed);
     if (this.level.id === 1 && this.mode.id === 'fun') {
       this.level.kinds = 3;
-      this.level.total = 7;
-      [0, 1, 2].forEach((i) => this.addTile((i - 1) * 146, -130, 0));
+      this.level.total = 8;
+      [0, 1, 2, 3].forEach((i) => this.addTile((i - 1.5) * 130, -130, 0));
       [0, 1, 2, 3].forEach((i) => this.addTile((i - 1.5) * 130, 110, 0));
     } else if (this.level.id === 1) {
       const cols = this.mode.id === 'quartet' ? 4 : 3,
@@ -474,14 +501,14 @@ export class MatchGame {
   }
   private deal(): void {
     if (this.level.id === 1 && this.mode.id === 'fun') {
-      [0, 0, 0, 1, 1, 2, 2].forEach((kind, id) => (this.tiles[id].kind = kind));
+      [0, 0, 1, 1, 0, 0, 2, 2].forEach((kind, id) => (this.tiles[id].kind = kind));
       this.solution = this.tiles.map((t) => t.id);
       return;
     }
     this.solution = removalOrder(this.tiles, this.rng);
     // Allocate whole matching groups: 108 is not divisible by 15 species.
     // Every species appears and every starting count remains eliminable.
-    const size = this.mode.matchSize,
+    const size = this.mode.id === 'fun' ? 2 : this.mode.matchSize,
       groupsTotal = this.level.total / size;
     const counts = Array(this.level.kinds).fill(
       Math.floor(groupsTotal / this.level.kinds) * size,
@@ -715,9 +742,10 @@ export class MatchGame {
       .forEach((t) => counts[t.kind]++);
     const candidates: number[][] = [],
       options: number[][] = [];
-    for (let k = 0; k < this.level.kinds; k++)
-      candidates.push(Array(preset === 'quartet' ? 4 : 3).fill(k));
-    if (preset === 'fun')
+    if (preset !== 'fun')
+      for (let k = 0; k < this.level.kinds; k++)
+        candidates.push(Array(preset === 'quartet' ? 4 : 3).fill(k));
+    if (preset === 'fun' || preset === 'legacy-fun')
       for (let a = 0; a < this.level.kinds; a++)
         for (let b = a + 1; b < this.level.kinds; b++) candidates.push([a, a, b, b]);
     for (const group of candidates) {
@@ -748,7 +776,15 @@ export class MatchGame {
     options.sort((a, b) => a.length - b.length);
     let ids = options[0];
     if (!ids) {
-      const safe = open.filter((t) => afterPick(held, t.kind, this.rules).length < this.capacity);
+      const safe = open.filter((t) => {
+        const tray = [...held, t.kind],
+          matched = matchIndices(tray, this.rules);
+        if (tray.length - matched.length >= this.capacity) return false;
+        if (preset !== 'fun' || !matched.length) return true;
+        const rest = counts.slice();
+        matched.forEach((index) => rest[tray[index]]--);
+        return pairGroups(rest) !== null;
+      });
       safe.sort(
         (a, b) => held.filter((k) => k === b.kind).length - held.filter((k) => k === a.kind).length,
       );

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 	"happy-pet/api/internal/dbgen"
 )
 
@@ -40,6 +39,9 @@ func (s *Service) issue(ctx context.Context, user dbgen.User, audience string) (
 }
 func (s *Service) Authenticate(ctx context.Context, token, audience string) (dbgen.User, error) {
 	denied := fail(401, "UNAUTHORIZED", "登录已失效，请重新登录")
+	if audience != "miniapp" {
+		return dbgen.User{}, denied
+	}
 	parsed, err := jwt.ParseWithClaims(token, &Claims{}, func(_ *jwt.Token) (any, error) { return s.Secret, nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithIssuer("happy-pet"), jwt.WithAudience(audience), jwt.WithExpirationRequired())
 	if err != nil || !parsed.Valid {
 		return dbgen.User{}, denied
@@ -58,35 +60,7 @@ func (s *Service) Authenticate(ctx context.Context, token, audience string) (dbg
 	if user.DeletedAt.Valid || user.Status != "active" || user.SessionVersion != claims.Version {
 		return dbgen.User{}, denied
 	}
-	if audience == "admin" && user.Role != "admin" {
-		return dbgen.User{}, fail(403, "FORBIDDEN", "这个账号没有管理权限")
-	}
 	return user, nil
-}
-
-var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("not-a-real-account-password"), bcrypt.DefaultCost)
-
-func (s *Service) AdminLogin(ctx context.Context, username, password string) (Session, error) {
-	denied := fail(401, "INVALID_CREDENTIALS", "账号或密码不正确")
-	user, err := s.Q.GetUserByUsername(ctx, sql.NullString{String: strings.ToLower(strings.TrimSpace(username)), Valid: true})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
-			return Session{}, denied
-		}
-		return Session{}, err
-	}
-	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
-		return Session{}, denied
-	}
-	if user.DeletedAt.Valid || user.Status != "active" || user.Role != "admin" {
-		return Session{}, fail(403, "ACCOUNT_DISABLED", "账号未启用或没有管理权限")
-	}
-	user, err = s.Q.TouchLogin(ctx, user.ID)
-	if err != nil {
-		return Session{}, err
-	}
-	return s.issue(ctx, user, "admin")
 }
 func (s *Service) WechatLogin(ctx context.Context, code string) (Session, error) {
 	if strings.TrimSpace(code) == "" || len(code) > 256 {

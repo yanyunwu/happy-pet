@@ -152,7 +152,7 @@ func passwordHash(password string) (string, error) {
 
 var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]{3,32}$`)
 
-func (s *Service) Create(ctx context.Context, input CreateInput, role string) (User, error) {
+func (s *Service) Create(ctx context.Context, input CreateInput) (User, error) {
 	input.Username = strings.ToLower(strings.TrimSpace(input.Username))
 	if !usernamePattern.MatchString(input.Username) {
 		return User{}, Invalid("账号需为 3–32 位字母、数字、下划线、点或横线")
@@ -164,14 +164,11 @@ func (s *Service) Create(ctx context.Context, input CreateInput, role string) (U
 	if utf8.RuneCountInString(input.Remark) > 500 {
 		return User{}, Invalid("备注不能超过 500 字")
 	}
-	if role != "admin" && role != "user" {
-		return User{}, Invalid("无效角色")
-	}
 	hash, err := passwordHash(input.Password)
 	if err != nil {
 		return User{}, err
 	}
-	u, err := s.Q.CreateUser(ctx, dbgen.CreateUserParams{ID: NewID(), Username: sql.NullString{String: input.Username, Valid: true}, PasswordHash: hash, Nickname: nickname, Role: role, Status: "active", Remark: input.Remark})
+	u, err := s.Q.CreateUser(ctx, dbgen.CreateUserParams{ID: NewID(), Username: sql.NullString{String: input.Username, Valid: true}, PasswordHash: hash, Nickname: nickname, Role: "user", Status: "active", Remark: input.Remark})
 	if err != nil {
 		return User{}, classify(err)
 	}
@@ -247,7 +244,7 @@ func (s *Service) Get(ctx context.Context, id string) (User, error) {
 	return s.View(ctx, u, true)
 }
 
-func (s *Service) mutate(ctx context.Context, id string, dangerous bool, fn func(*dbgen.Queries, dbgen.User) error) error {
+func (s *Service) mutate(ctx context.Context, id string, fn func(*dbgen.Queries, dbgen.User) error) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -260,15 +257,6 @@ func (s *Service) mutate(ctx context.Context, id string, dangerous bool, fn func
 	user, err := q.GetUser(ctx, id)
 	if err != nil {
 		return classify(err)
-	}
-	if dangerous && user.Role == "admin" && user.Status == "active" && !user.DeletedAt.Valid {
-		count, err := q.CountActiveAdmins(ctx)
-		if err != nil {
-			return err
-		}
-		if count <= 1 {
-			return fail(409, "LAST_ADMIN", "至少保留一位正常使用的管理员")
-		}
 	}
 	if err = fn(q, user); err != nil {
 		return classify(err)
@@ -287,7 +275,7 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Use
 		return User{}, Invalid("备注不能超过 500 字")
 	}
 	var updated dbgen.User
-	err = s.mutate(ctx, id, input.Status == "disabled", func(q *dbgen.Queries, previous dbgen.User) error {
+	err = s.mutate(ctx, id, func(q *dbgen.Queries, previous dbgen.User) error {
 		var e error
 		updated, e = q.UpdateUser(ctx, dbgen.UpdateUserParams{ID: id, Nickname: nickname, Status: input.Status, Remark: input.Remark})
 		if e == nil && previous.Status != input.Status {
@@ -301,7 +289,7 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Use
 	return s.View(ctx, updated, true)
 }
 func (s *Service) Delete(ctx context.Context, id string) error {
-	return s.mutate(ctx, id, true, func(q *dbgen.Queries, u dbgen.User) error {
+	return s.mutate(ctx, id, func(q *dbgen.Queries, u dbgen.User) error {
 		if u.DeletedAt.Valid {
 			return fail(404, "NOT_FOUND", "用户已在回收站")
 		}
@@ -313,7 +301,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 }
 func (s *Service) Restore(ctx context.Context, id string) (User, error) {
 	var u dbgen.User
-	err := s.mutate(ctx, id, false, func(q *dbgen.Queries, _ dbgen.User) error {
+	err := s.mutate(ctx, id, func(q *dbgen.Queries, _ dbgen.User) error {
 		var e error
 		u, e = q.RestoreUser(ctx, id)
 		if e != nil {
@@ -331,7 +319,7 @@ func (s *Service) ResetPassword(ctx context.Context, id, password string) error 
 	if err != nil {
 		return err
 	}
-	return s.mutate(ctx, id, false, func(q *dbgen.Queries, u dbgen.User) error {
+	return s.mutate(ctx, id, func(q *dbgen.Queries, u dbgen.User) error {
 		if !u.Username.Valid || u.DeletedAt.Valid {
 			return Invalid("该用户没有可用的密码账号")
 		}

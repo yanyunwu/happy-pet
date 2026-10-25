@@ -19,11 +19,11 @@ func TestFirstDeploymentBaselineAndGenericInitialization(t *testing.T) {
 	if err := h.db.QueryRowContext(ctx, "SELECT string_agg(version::text,',' ORDER BY version) FROM schema_migrations").Scan(&versions); err != nil {
 		t.Fatal(err)
 	}
-	if versions != "0,1,2,3" {
-		t.Fatalf("first deployment must include the profile and settings migrations, got %s", versions)
+	if versions != "0,1,2,3,4" {
+		t.Fatalf("first deployment must include the profile, settings and admin migrations, got %s", versions)
 	}
 	var tables int
-	if err := h.db.QueryRowContext(ctx, "SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE'").Scan(&tables); err != nil || tables != 12 {
+	if err := h.db.QueryRowContext(ctx, "SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE'").Scan(&tables); err != nil || tables != 13 {
 		t.Fatal("baseline table inventory", tables, err)
 	}
 	var old sql.NullString
@@ -43,7 +43,7 @@ func TestFirstDeploymentBaselineAndGenericInitialization(t *testing.T) {
 	if err := h.db.QueryRowContext(ctx, "SELECT count(*) FROM levels").Scan(&count); err != nil || count != 12 {
 		t.Fatal("repeated startup changed levels", count, err)
 	}
-	if err := h.db.QueryRowContext(ctx, "SELECT count(*) FROM system_initializations").Scan(&count); err != nil || count != 3 {
+	if err := h.db.QueryRowContext(ctx, "SELECT count(*) FROM system_initializations").Scan(&count); err != nil || count != 4 {
 		t.Fatal("unrelated initialization record lost", count, err)
 	}
 }
@@ -60,14 +60,14 @@ func TestAdoptPopulatedFirstDeploymentBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := runner.Apply(ctx, db, nil)
-	if err != nil || !result.Adopted || result.Fresh || result.Version != 3 || len(result.Applied) != 2 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" {
-		t.Fatal("baseline adoption did not apply only the profile and settings upgrades", result, err)
+	if err != nil || !result.Adopted || result.Fresh || result.Version != 4 || len(result.Applied) != 3 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" || result.Applied[2] != "004_admin_accounts.sql" {
+		t.Fatal("baseline adoption did not apply the expected upgrades", result, err)
 	}
 	if err := game.Seed(ctx, db); err != nil {
 		t.Fatal(err)
 	}
 	var templates, levels, admins int
-	if err := db.QueryRowContext(ctx, "SELECT (SELECT count(*) FROM level_templates),(SELECT count(*) FROM levels),(SELECT count(*) FROM users WHERE role='admin')").Scan(&templates, &levels, &admins); err != nil {
+	if err := db.QueryRowContext(ctx, "SELECT (SELECT count(*) FROM level_templates),(SELECT count(*) FROM levels),(SELECT count(*) FROM admin_accounts)").Scan(&templates, &levels, &admins); err != nil {
 		t.Fatal(err)
 	}
 	if templates != 2 || levels != 12 || admins != 1 {
@@ -88,7 +88,7 @@ func TestProfileMigrationUpgradesTrackedBaselineOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := runner.Apply(ctx, db, nil)
-	if err != nil || result.Adopted || result.Fresh || result.Version != 3 || len(result.Applied) != 2 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" {
+	if err != nil || result.Adopted || result.Fresh || result.Version != 4 || len(result.Applied) != 3 || result.Applied[0] != "002_user_avatar_url.sql" || result.Applied[1] != "003_app_settings.sql" || result.Applied[2] != "004_admin_accounts.sql" {
 		t.Fatal("tracked baseline did not upgrade exactly once", result, err)
 	}
 	assertLegacyProfileRetained(t, db)
@@ -100,7 +100,7 @@ func TestProfileMigrationUpgradesTrackedBaselineOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err = runner.Apply(ctx, db, nil)
-	if err != nil || len(result.Applied) != 0 || result.Version != 3 {
+	if err != nil || len(result.Applied) != 0 || result.Version != 4 {
 		t.Fatal("repeated startup replayed migrations", result, err)
 	}
 	var avatar string
@@ -163,7 +163,10 @@ func assertLegacyProfileRetained(t *testing.T, db *sql.DB) {
 	t.Helper()
 	var nickname, avatar, media, remark string
 	var sessionVersion int
-	if err := db.QueryRowContext(context.Background(), "SELECT nickname,avatar_url,avatar_media_id,session_version,remark FROM users WHERE username='retained-admin'").Scan(&nickname, &avatar, &media, &sessionVersion, &remark); err != nil || nickname != "保留昵称" || avatar != "" || media != "retained-media" || sessionVersion != 7 || remark != "保留备注" {
+	if err := db.QueryRowContext(context.Background(), "SELECT nickname,avatar_url,avatar_media_id,session_version,remark FROM users WHERE username='retained-admin' AND role='user'").Scan(&nickname, &avatar, &media, &sessionVersion, &remark); err != nil || nickname != "保留昵称" || avatar != "" || media != "retained-media" || sessionVersion != 8 || remark != "保留备注" {
 		t.Fatal("profile migration lost legacy data", nickname, avatar, media, sessionVersion, remark, err)
+	}
+	if err := db.QueryRowContext(context.Background(), "SELECT nickname,remark,session_version FROM admin_accounts WHERE username='retained-admin'").Scan(&nickname, &remark, &sessionVersion); err != nil || nickname != "保留昵称" || remark != "保留备注" || sessionVersion != 7 {
+		t.Fatal("administrator profile was not preserved", err)
 	}
 }

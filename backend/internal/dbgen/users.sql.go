@@ -10,28 +10,6 @@ import (
 	"database/sql"
 )
 
-const countActiveAdmins = `-- name: CountActiveAdmins :one
-SELECT count(*) FROM users WHERE role = 'admin' AND status = 'active' AND deleted_at IS NULL
-`
-
-func (q *Queries) CountActiveAdmins(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countActiveAdmins)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countAllAdmins = `-- name: CountAllAdmins :one
-SELECT count(*) FROM users WHERE role = 'admin'
-`
-
-func (q *Queries) CountAllAdmins(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAllAdmins)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countUsers = `-- name: CountUsers :one
 SELECT count(*) FROM users
 WHERE ($1::boolean OR deleted_at IS NULL)

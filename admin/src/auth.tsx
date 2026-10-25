@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import { App } from 'antd';
-import { api, ApiError, errorMessage, type User } from './api';
+import { api, ApiError, errorMessage, type AdminAccount } from './api';
 
 interface Auth {
-  user: User | null;
+  user: AdminAccount | null;
   loading: boolean;
   login(values: { username: string; password: string }): Promise<void>;
   logout(): Promise<void>;
@@ -17,7 +17,7 @@ export function useAuth() {
 }
 export function AuthProvider({ children }: PropsWithChildren) {
   const { message } = App.useApp();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AdminAccount | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;

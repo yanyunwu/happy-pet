@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   App as AntApp,
   Avatar,
@@ -15,6 +15,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  SettingOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
@@ -28,12 +29,17 @@ import LevelTemplates from './pages/LevelTemplates';
 import Sessions from './pages/Sessions';
 import Settings from './pages/Settings';
 import Navigation from './components/Navigation';
+import PersonalSettings from './components/PersonalSettings';
+import Accounts from './pages/Accounts';
+const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const names: Record<string, string> = {
   users: '用户管理',
   levels: '关卡管理',
   'level-templates': '关卡模板',
   sessions: '对局记录',
   settings: '设置',
+  accounts: '管理员账号',
+  'api-docs': '接口文档',
 };
 function ConsoleLayout() {
   const auth = useAuth(),
@@ -42,6 +48,7 @@ function ConsoleLayout() {
   const mobile = screens.lg === false;
   const [collapsed, setCollapsed] = useState(false),
     [open, setOpen] = useState(false);
+  const [personalSettingsOpen, setPersonalSettingsOpen] = useState(false);
   const location = useLocation(),
     key = location.pathname.split('/')[1] || 'users';
   useEffect(() => {
@@ -94,11 +101,11 @@ function ConsoleLayout() {
               items={[
                 {
                   title:
-                    key === 'users'
+                    key === 'users' || key === 'accounts'
                       ? '用户与账号'
                       : key === 'sessions'
                         ? '用户数据'
-                        : key === 'settings'
+                        : key === 'settings' || key === 'api-docs'
                           ? '系统管理'
                           : '内容配置',
                 },
@@ -113,6 +120,13 @@ function ConsoleLayout() {
               trigger={['click']}
               menu={{
                 items: [
+                  {
+                    key: 'personal-settings',
+                    icon: <SettingOutlined aria-hidden />,
+                    label: '个人设置',
+                    onClick: () => setPersonalSettingsOpen(true),
+                  },
+                  { type: 'divider' },
                   {
                     key: 'logout',
                     icon: <LogoutOutlined />,
@@ -132,6 +146,21 @@ function ConsoleLayout() {
         <Layout.Content className="admin-content">
           <Routes>
             <Route path="/users" element={<Users />} />
+            <Route path="/accounts" element={<Accounts />} />
+            <Route
+              path="/api-docs"
+              element={
+                <Suspense
+                  fallback={
+                    <div className="api-docs-loading">
+                      <Spin />
+                    </div>
+                  }
+                >
+                  <ApiDocs />
+                </Suspense>
+              }
+            />
             <Route path="/levels" element={<Levels />} />
             <Route path="/level-templates" element={<LevelTemplates />} />
             <Route path="/sessions" element={<Sessions />} />
@@ -143,6 +172,7 @@ function ConsoleLayout() {
           快乐萌宠消 <span>·</span> 管理控制台
         </Layout.Footer>
       </Layout>
+      {personalSettingsOpen && <PersonalSettings onClose={() => setPersonalSettingsOpen(false)} />}
     </Layout>
   );
 }

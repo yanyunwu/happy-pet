@@ -96,6 +96,40 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
       ),
     );
     assert.equal(await page.evaluate(() => window.audioApp.soundscape.unlocked), false);
+    await page.waitForFunction(() =>
+      window.audioApp.soundscape.musicSlots.every(
+        (slot) => slot.source.volume === (slot.target ? 0.28 : 0),
+      ),
+    );
+    await page.evaluate(() => {
+      window.nativeVolumeWrites = 0;
+      window.steadyAudioClock = window.audioApp.soundscape.clock;
+      for (const slot of window.audioApp.soundscape.musicSlots) {
+        const source = slot.source;
+        const volume = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), 'volume');
+        Object.defineProperty(source, 'volume', {
+          configurable: true,
+          get() {
+            return volume.get.call(this);
+          },
+          set(value) {
+            window.nativeVolumeWrites++;
+            volume.set.call(this, value);
+          },
+        });
+      }
+    });
+    await page.waitForFunction(
+      () => window.audioApp.soundscape.clock > window.steadyAudioClock + 1,
+    );
+    assert.equal(
+      await page.evaluate(() => window.nativeVolumeWrites),
+      0,
+      'steady background music must not continually write the native audio volume',
+    );
+    await page.evaluate(() => {
+      for (const slot of window.audioApp.soundscape.musicSlots) delete slot.source.volume;
+    });
     assert(
       await page.evaluate(() =>
         window.audioApp.soundscape.effects.every((source) => !source.playing),
@@ -137,6 +171,61 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
       window.audioApp.soundscape.musicSlots.some(
         (slot) => slot.target === 1 && slot.source.volume > 0.18,
       ),
+    );
+    await page.evaluate(() => {
+      window.interruptedMusic = window.audioApp.soundscape.musicSlots.find(
+        (slot) => slot.target === 1,
+      ).source;
+      window.musicResumes = 0;
+      window.interruptedMusic.node.on(
+        window.interruptedMusic.constructor.EventType.STARTED,
+        () => window.musicResumes++,
+      );
+      window.interruptedMusic.currentTime = 5;
+      window.interruptedMusic.pause();
+    });
+    await page.waitForFunction(
+      () => window.interruptedMusic.playing && window.musicResumes === 1,
+      null,
+      { timeout: 5000 },
+    );
+    assert.ok(
+      await page.evaluate(() => window.interruptedMusic.currentTime >= 5),
+      'pause recovery must continue at the existing position',
+    );
+    await page.evaluate(() => window.interruptedMusic.stop());
+    await page.waitForFunction(
+      () => window.interruptedMusic.playing && window.musicResumes === 2,
+      null,
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(() => window.interruptedMusic.currentTime > 0.5, null, {
+      timeout: 5000,
+    });
+    assert.equal(
+      await page.evaluate(() => window.musicResumes),
+      2,
+      'healthy background music must not restart repeatedly',
+    );
+    await page.evaluate(() => {
+      const source = window.interruptedMusic;
+      source.currentTime = 8;
+      window.stalledAudioPlayer = source._player;
+      // Simulate a native play request that never reports onPlay or an error.
+      window.stalledAudioPlayer.play = () => new Promise(() => {});
+      source.pause();
+    });
+    await page.waitForFunction(
+      () =>
+        window.interruptedMusic.playing &&
+        window.musicResumes === 3 &&
+        window.interruptedMusic._player !== window.stalledAudioPlayer,
+      null,
+      { timeout: 10000 },
+    );
+    assert.ok(
+      await page.evaluate(() => window.interruptedMusic.currentTime >= 8),
+      'stalled-player fallback preserves the music position',
     );
     const ids = await page.evaluate(() => {
       const groups = new Map();
@@ -257,6 +346,9 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
             autoplayBlocked ? 'browser gesture fallback' : 'home music without interaction',
             'home/game music',
             'voice ducking and recovery',
+            'steady music and inactive channels stop writing native volume',
+            'unexpected pause/stop resumes the same music source without repeatedly restarting',
+            'missing native playback acknowledgement recovers through one player reset',
             'leaf match effects',
             'mute stops all channels',
             'background stops sound and foreground resumes game music',

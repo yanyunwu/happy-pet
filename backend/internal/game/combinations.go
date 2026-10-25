@@ -18,10 +18,19 @@ func defaultRules(mode string) [][]int {
 	case "quartet":
 		return [][]int{{4}}
 	case "fun":
-		return [][]int{{3}, {2, 2}}
+		return [][]int{{2, 2}}
 	default:
 		return [][]int{{3}}
 	}
+}
+
+// Historical snapshots without a rules field retain the original semantics.
+// This also identifies the original generator fast paths for deterministic replay.
+func legacyDefaultRules(mode string) [][]int {
+	if mode == "fun" {
+		return [][]int{{3}, {2, 2}}
+	}
+	return defaultRules(mode)
 }
 
 func equalRules(a, b [][]int) bool {
@@ -43,7 +52,7 @@ func CanonicalRules(mode, version string, rules [][]int) ([][]int, error) {
 		return nil, fmt.Errorf("规则或版本不支持")
 	}
 	if version == LegacyRulesVersion && len(rules) == 0 {
-		return defaultRules(mode), nil
+		return legacyDefaultRules(mode), nil
 	}
 	if len(rules) < 1 || len(rules) > 6 {
 		return nil, fmt.Errorf("请配置 1–6 条消除规则")
@@ -73,15 +82,27 @@ func CanonicalRules(mode, version string, rules [][]int) ([][]int, error) {
 		seen[key] = true
 		out = append(out, pattern)
 	}
-	if version == LegacyRulesVersion && !equalRules(out, defaultRules(mode)) {
+	if version == LegacyRulesVersion && !equalRules(out, legacyDefaultRules(mode)) {
 		return nil, fmt.Errorf("旧规则版本不支持自定义组合，请使用新规则版本")
 	}
 	return out, nil
 }
 
+// AuthoringRules constrains new writes without changing historical runtime rules.
+func AuthoringRules(c Config) ([][]int, error) {
+	rules, err := CanonicalRules(c.Mode, c.RulesVersion, c.Rules)
+	if err != nil {
+		return nil, err
+	}
+	if len(rules) != 1 {
+		return nil, fmt.Errorf("每关只能选择一种消除规则，请重新选择")
+	}
+	return rules, nil
+}
+
 func presetMode(rules [][]int) string {
 	for _, mode := range []string{"classic", "quartet", "fun"} {
-		if equalRules(rules, defaultRules(mode)) {
+		if equalRules(rules, legacyDefaultRules(mode)) {
 			return mode
 		}
 	}
@@ -186,6 +207,9 @@ func triggerablePatterns(rules [][]int) []triggerPattern {
 }
 
 func ruleGroups(counts []int, rules [][]int) ([][]int, error) {
+	if equalRules(rules, [][]int{{2, 2}}) {
+		return pairGroups(counts)
+	}
 	if mode := presetMode(rules); mode != "" {
 		result := groups(counts, mode)
 		if result == nil {
@@ -194,6 +218,39 @@ func ruleGroups(counts []int, rules [][]int) ([][]int, error) {
 		return result, nil
 	}
 	return decomposePatterns(counts, rules, combinationBudget)
+}
+
+// Pairing the two largest remaining species is sufficient precisely when each
+// count is even and no species owns more than half the tiles.
+func pairGroups(counts []int) ([][]int, error) {
+	pairs := make([]int, len(counts))
+	total, largest := 0, 0
+	for kind, count := range counts {
+		if count < 0 || count%2 != 0 {
+			return nil, errUnmatchableCounts
+		}
+		pairs[kind] = count / 2
+		total += count
+		largest = max(largest, count)
+	}
+	if total%4 != 0 || largest > total/2 {
+		return nil, errUnmatchableCounts
+	}
+	result := [][]int{}
+	for remaining := total; remaining > 0; remaining -= 4 {
+		kinds := []int{}
+		for kind, count := range pairs {
+			if count > 0 {
+				kinds = append(kinds, kind)
+			}
+		}
+		sort.SliceStable(kinds, func(i, j int) bool { return pairs[kinds[i]] > pairs[kinds[j]] })
+		a, b := kinds[0], kinds[1]
+		result = append(result, []int{a, a, b, b})
+		pairs[a]--
+		pairs[b]--
+	}
+	return result, nil
 }
 
 // Species labels do not affect feasibility. Sorting remaining counts provides

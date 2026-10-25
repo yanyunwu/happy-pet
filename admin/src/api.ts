@@ -3,10 +3,21 @@ export interface User {
   username: string;
   nickname: string;
   avatarUrl: string;
-  role: 'admin' | 'user';
+  role: 'user';
   status: 'active' | 'disabled';
   source: 'wechat' | 'manual';
   remark?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt: string | null;
+  deletedAt: string | null;
+}
+export interface AdminAccount {
+  id: string;
+  username: string;
+  nickname: string;
+  status: 'active' | 'disabled';
+  remark: string;
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
@@ -71,7 +82,9 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     const data = (await response.json().catch(() => null)) as {
       error?: { code?: string; message?: string };
     } | null;
-    if (response.status === 401 && path !== '/admin/auth/login')
+    const incorrectCurrentPassword =
+      path === '/admin/auth/password' && data?.error?.code === 'INVALID_CREDENTIALS';
+    if (response.status === 401 && path !== '/admin/auth/login' && !incorrectCurrentPassword)
       window.dispatchEvent(new Event('happy-pet-auth-expired'));
     throw new ApiError(
       response.status,
@@ -82,9 +95,9 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
 }
 export const api = {
-  me: () => request<User>('/admin/auth/me'),
+  me: () => request<AdminAccount>('/admin/auth/me'),
   login: (values: { username: string; password: string }) =>
-    request<User>('/admin/auth/login', { method: 'POST', body: JSON.stringify(values) }),
+    request<AdminAccount>('/admin/auth/login', { method: 'POST', body: JSON.stringify(values) }),
   logout: () => request<void>('/admin/auth/logout', { method: 'POST' }),
   users: (query: UserQuery, signal?: AbortSignal) =>
     request<UserPage>(

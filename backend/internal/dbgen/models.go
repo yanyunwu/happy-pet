@@ -10,6 +10,23 @@ import (
 	"time"
 )
 
+type AdminAccount struct {
+	ID                   string
+	Username             sql.NullString
+	PasswordHash         string
+	Nickname             string
+	Status               string
+	Remark               string
+	SessionVersion       int64
+	AccessTokenHash      sql.NullString
+	AccessTokenHint      string
+	AccessTokenUpdatedAt sql.NullTime
+	LastLoginAt          sql.NullTime
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	DeletedAt            sql.NullTime
+}
+
 type AppSetting struct {
 	Key       string
 	Value     json.RawMessage

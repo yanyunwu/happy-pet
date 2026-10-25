@@ -186,6 +186,11 @@ func TestCustomShuffleFailureLeavesStateUntouched(t *testing.T) {
 func TestLegacyRuleVersionStillBuildsOriginalBoard(t *testing.T) {
 	for _, mode := range []string{"classic", "quartet", "fun"} {
 		c := DefaultConfig(mode, 1)
+		if mode == "fun" {
+			c.Rules = [][]int{{3}, {2, 2}}
+			c.Counts[0] = 3
+			c.Layers[0].Cells = c.Layers[0].Cells[:7]
+		}
 		data := map[string]any{}
 		if err := json.Unmarshal(raw(c), &data); err != nil {
 			t.Fatal(err)

@@ -314,8 +314,8 @@ const server = http.createServer((req, res) => {
     await tap(360, 1203);
     const pairIds = await game.evaluate(() =>
       [
-        ...window.qaApp.game.tiles.filter((t) => t.kind === 0).slice(0, 2),
         ...window.qaApp.game.tiles.filter((t) => t.kind === 1).slice(0, 2),
+        ...window.qaApp.game.tiles.filter((t) => t.kind === 2).slice(0, 2),
       ].map((t) => t.id),
     );
     for (const id of pairIds) await pick(id);
@@ -410,9 +410,11 @@ const server = http.createServer((req, res) => {
     const challengeRow = admin.locator('tr[data-row-key="standard-classic-1"]');
     await challengeRow.getByRole('button', { name: '编辑', exact: true }).click();
     await admin.getByLabel('关卡名称', { exact: true }).fill('组合消除验证');
-    await admin.getByLabel('消除规则 1', { exact: true }).fill('3+2');
-    await admin.getByRole('button', { name: '添加规则', exact: true }).click();
-    await admin.getByLabel('消除规则 2', { exact: true }).fill('4');
+    await admin
+      .locator('.rule-editor label')
+      .filter({ hasText: /^其他$/ })
+      .click();
+    await admin.getByLabel('其他消除组合', { exact: true }).fill('3+2');
     await admin.getByLabel('鼠数量', { exact: true }).fill('3');
     await admin.getByLabel('牛数量', { exact: true }).fill('2');
     await admin.getByLabel('虎数量', { exact: true }).fill('0');
@@ -433,7 +435,7 @@ const server = http.createServer((req, res) => {
     await game.waitForFunction(
       () => !window.qaApp.networkBusy && window.qaApp.modal?.name === 'Rules',
     );
-    assert.deepEqual(await game.evaluate(() => window.qaApp.game.rules), [[3, 2], [4]]);
+    assert.deepEqual(await game.evaluate(() => window.qaApp.game.rules), [[3, 2]]);
     await game.screenshot({ path: path.join(out, 'game-custom-rules.png') });
     await tap(360, 1203);
     const customSessionId = await game.evaluate(() => window.qaApp.online.active.id);
@@ -461,9 +463,9 @@ const server = http.createServer((req, res) => {
     ).json();
     assert.equal(replay.status, 'won');
     assert.equal(replay.session.state.cleared, 5);
-    assert.deepEqual(replay.config.rules, [[3, 2], [4]]);
+    assert.deepEqual(replay.config.rules, [[3, 2]]);
     checks.push(
-      'custom multi-rule publish, template isolation, actual 3+2 play, next-rule explanation and replay',
+      'single custom-rule publish, template isolation, actual 3+2 play, next-rule explanation and replay',
     );
     assert.deepEqual(errors, []);
     fs.writeFileSync(

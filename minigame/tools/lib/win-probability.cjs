@@ -4,7 +4,7 @@
  * A rule such as [2,2] uses two DISTINCT kinds. Rules are tried in supplied order.
  * Generic custom ties use input-kind order (largest multiplicity assigned first).
  */
-const PRESETS = { classic: [[3]], quartet: [[4]], fun: [[3], [2, 2]] };
+const PRESETS = { classic: [[3]], quartet: [[4]], fun: [[2, 2]] };
 class StateBudgetExceeded extends Error {}
 function normalize(spec) {
   const entries = Array.isArray(spec.counts)

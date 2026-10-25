@@ -34,12 +34,6 @@ SELECT count(*) FILTER (WHERE deleted_at IS NULL) AS total,
        count(*) FILTER (WHERE deleted_at IS NULL AND created_at >= (date_trunc('day', now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai')) AS today
 FROM users;
 
--- name: CountActiveAdmins :one
-SELECT count(*) FROM users WHERE role = 'admin' AND status = 'active' AND deleted_at IS NULL;
-
--- name: CountAllAdmins :one
-SELECT count(*) FROM users WHERE role = 'admin';
-
 -- name: UpdateUser :one
 UPDATE users SET nickname = $2, status = $3, remark = $4, updated_at = now(),
 session_version = session_version + CASE WHEN status <> $3 THEN 1 ELSE 0 END

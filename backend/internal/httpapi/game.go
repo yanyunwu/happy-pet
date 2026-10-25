@@ -75,7 +75,7 @@ func (s *Server) registerGame(router *gin.Engine, admin, user *gin.RouterGroup) 
 			s.respondError(c, e)
 			return
 		}
-		v, e := service.Adjust(c.Request.Context(), c.Param("id"), currentUser(c).ID, in)
+		v, e := service.Adjust(c.Request.Context(), c.Param("id"), currentAdmin(c).ID, in)
 		s.result(c, v, e)
 	})
 	admin.GET("/levels", func(c *gin.Context) { v, e := service.Levels(c.Request.Context(), false); s.result(c, v, e) })
@@ -119,7 +119,7 @@ func (s *Server) registerGame(router *gin.Engine, admin, user *gin.RouterGroup) 
 			s.respondError(c, e)
 			return
 		}
-		v, e := service.Publish(c.Request.Context(), c.Param("id"), currentUser(c).ID, in.DraftVersion)
+		v, e := service.Publish(c.Request.Context(), c.Param("id"), currentAdmin(c).ID, in.DraftVersion)
 		s.result(c, v, e)
 	})
 	admin.POST("/levels/:id/enabled", func(c *gin.Context) {
@@ -142,6 +142,12 @@ func (s *Server) registerGame(router *gin.Engine, admin, user *gin.RouterGroup) 
 			s.respondError(c, e)
 			return
 		}
+		rules, e := game.AuthoringRules(in.Config)
+		if e != nil {
+			s.respondError(c, users.Invalid(e.Error()))
+			return
+		}
+		in.Config.Rules = rules
 		board, _, e := game.NewBoard(in.Config, in.Seed)
 		if e != nil {
 			s.respondError(c, users.Invalid(e.Error()))

@@ -267,6 +267,7 @@ try {
     '.dockerignore',
     'nginx.conf',
     'admin/nginx.conf',
+    'SKILL.md',
   ])
     assert(existsSync(join(root, path)), path);
   writeFileSync(
@@ -394,7 +395,8 @@ try {
     await sql("SELECT string_agg(version::text,',' ORDER BY version) FROM schema_migrations"),
     versions.map((n) => parseInt(n, 10)).join(','),
   );
-  assert.equal(await sql("SELECT count(*) FROM users WHERE role='admin'"), '1');
+  assert.equal(await sql('SELECT count(*) FROM admin_accounts'), '1');
+  assert.equal(await sql('SELECT count(*) FROM users'), '0');
   checks.push('bootstrap failure rolls back all DDL; normal startup migrates and seeds once');
 
   console.log('验证 SPA、缓存、认证与代理边界…');
@@ -402,6 +404,15 @@ try {
   assert.equal((await http(base, '/admin', 308)).headers.get('location'), '/admin/');
   await http(base, '/api/health');
   await http(base, '/healthz');
+  const skill = await http(base, '/admin/SKILL.md');
+  assert.match(skill.headers.get('content-type'), /^text\/markdown;\s*charset=utf-8$/i);
+  assert.equal(skill.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(skill.headers.get('cache-control'), /no-cache/);
+  assert.equal(await skill.text(), readFileSync(join(root, 'SKILL.md'), 'utf8'));
+  const openapi = await (await http(base, '/api/v1/openapi.json')).json();
+  assert.match(openapi.openapi, /^3\./);
+  assert.ok(openapi.paths['/api/v1/admin/auth/access-token']?.put);
+  assert.ok(openapi.paths['/api/v1/user/sessions/{id}/events']?.post);
   await http(base, '/unknown', 404);
   await http(base, '/api/v1/admin/users', 401);
   const page = await http(base, '/admin/levels');
@@ -467,6 +478,34 @@ try {
   await sql(
     `INSERT INTO users(id,wechat_openid,nickname) VALUES(${quote(player)},'qa-player','部署验证玩家'); INSERT INTO player_assets(user_id,coins,undo,shovel,hint,shuffle) VALUES(${quote(player)},137,2,3,4,5);`,
   );
+  const tokenResult = await (
+    await http(base, '/api/v1/admin/auth/access-token', 200, {
+      method: 'PUT',
+      headers: headers({ Cookie: cookie }),
+      body: '{}',
+    })
+  ).json();
+  assert.ok(typeof tokenResult.accessToken === 'string' && tokenResult.accessToken.length >= 32);
+  const tokenHeaders = { Authorization: `Bearer ${tokenResult.accessToken}` };
+  await http(base, '/api/v1/admin/accounts', 200, { headers: tokenHeaders });
+  await http(base, '/api/v1/admin/settings', 200, { headers: tokenHeaders });
+  await http(base, '/api/v1/admin/users', 401, {
+    headers: { Cookie: cookie, Authorization: 'Bearer invalid-explicit-token' },
+  });
+  const impersonatedAssets = await (
+    await http(base, '/api/v1/user/assets', 200, {
+      headers: { ...tokenHeaders, 'X-User-ID': player },
+    })
+  ).json();
+  assert.equal(impersonatedAssets.coins, 137);
+  await http(base, '/api/v1/admin/auth/access-token', 204, {
+    method: 'DELETE',
+    headers: headers({ Cookie: cookie }),
+  });
+  await http(base, '/api/v1/admin/accounts', 401, { headers: tokenHeaders });
+  checks.push(
+    'gateway serves exact SKILL Markdown and OpenAPI; admin token reaches admin/player APIs and revokes immediately',
+  );
   const bearer = playerToken(player);
   const playerHeaders = headers({ Authorization: `Bearer ${bearer}` });
   const session = await (
@@ -494,7 +533,7 @@ try {
     })
   ).json();
   assert.equal(beforeReplay.events.length, 1);
-  const preservedHash = await sql("SELECT password_hash FROM users WHERE role='admin'");
+  const preservedHash = await sql('SELECT password_hash FROM admin_accounts');
 
   console.log('验证已有首次部署基线重复启动时保留数据…');
   const retained = 'happy_pet_existing_baseline';
@@ -508,7 +547,7 @@ try {
     'happy-pet-api',
     '-migrate-only',
   ]);
-  const previousHash = await sql("SELECT password_hash FROM users WHERE role='admin'", retained);
+  const previousHash = await sql('SELECT password_hash FROM admin_accounts', retained);
   const cfg = levels.find(
     (level) => level.entry === 'campaign' && level.mode === 'classic' && level.ordinal === 1,
   ).config;
@@ -546,10 +585,7 @@ try {
     await sql("SELECT title FROM game_sessions WHERE id='retained-session'", retained),
     '原来的关卡',
   );
-  assert.equal(
-    await sql("SELECT password_hash FROM users WHERE role='admin'", retained),
-    previousHash,
-  );
+  assert.equal(await sql('SELECT password_hash FROM admin_accounts', retained), previousHash);
   assert.equal(await sql("SELECT count(*) FROM levels WHERE entry='campaign'", retained), '7');
   assert.equal(
     await sql(
@@ -597,9 +633,7 @@ try {
     await sql(`SELECT count(*) FROM game_events WHERE session_id=${quote(session.id)}`, restored),
     '1',
   );
-  assert.ok(
-    (await sql("SELECT password_hash FROM users WHERE role='admin'", restored)) === preservedHash,
-  );
+  assert.ok((await sql('SELECT password_hash FROM admin_accounts', restored)) === preservedHash);
   checks.push('binary pg_dump archive and complete pg_restore rehearsal into a fresh database');
 
   console.log('验证迁移失败不开放入口，以及升级和重启后数据保留…');
@@ -648,7 +682,7 @@ try {
     'happy-pet-api',
     '-migrate-only',
   ]);
-  assert.ok((await sql("SELECT password_hash FROM users WHERE role='admin'")) === preservedHash);
+  assert.ok((await sql('SELECT password_hash FROM admin_accounts')) === preservedHash);
   await compose(['stop']);
   assert.equal((await compose(['ps', '-q'])).out.trim(), '');
   await startTestStack();

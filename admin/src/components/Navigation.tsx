@@ -3,9 +3,11 @@ import { Menu } from 'antd';
 import {
   AppstoreOutlined,
   CompassOutlined,
+  FileTextOutlined,
   FlagOutlined,
   HistoryOutlined,
   SettingOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -63,8 +65,16 @@ export default function Navigation({
             key: 'accounts',
             icon: <TeamOutlined />,
             label: '用户与账号',
-            children: [{ key: '/users', icon: <TeamOutlined />, label: '用户管理' }],
+            children: [
+              { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+              {
+                key: '/accounts',
+                icon: <SafetyCertificateOutlined aria-hidden />,
+                label: '管理员账号',
+              },
+            ],
           },
+          { key: '/api-docs', icon: <FileTextOutlined aria-hidden />, label: '接口文档' },
           { key: '/settings', icon: <SettingOutlined aria-hidden />, label: '设置' },
         ]}
         onClick={({ key }) => {

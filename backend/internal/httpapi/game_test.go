@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"happy-pet/api/internal/admins"
 	"happy-pet/api/internal/config"
 	"happy-pet/api/internal/dbgen"
 	"happy-pet/api/internal/game"
@@ -78,7 +79,7 @@ type harness struct {
 func setup(t *testing.T) *harness {
 	db := testStore(t)
 	u := users.New(db, strings.Repeat("test-secret-", 4), fakeWechat{})
-	_, e := u.Create(context.Background(), users.CreateInput{Username: "qa-admin", Password: "qa-password-123", Nickname: "测试管理员"}, "admin")
+	_, e := admins.New(db, string(u.Secret)).Create(context.Background(), admins.CreateInput{Username: "qa-admin", Password: "qa-password-123", Nickname: "测试管理员"})
 	if e != nil {
 		t.Fatal(e)
 	}

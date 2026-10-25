@@ -42,12 +42,17 @@ for (const mode of MODES) {
         counts = {};
       g.tiles.forEach((t) => (counts[t.kind] = (counts[t.kind] || 0) + 1));
       check(
-        g.tiles.length === (level === 2 ? 108 : { classic: 18, quartet: 16, fun: 7 }[mode.id]),
+        g.tiles.length === (level === 2 ? 108 : { classic: 18, quartet: 16, fun: 8 }[mode.id]),
         'mode board size',
       );
       if (level === 2)
         check(Object.keys(counts).length === 15, 'hard boards contain all 15 animals');
-      if (mode.id !== 'fun')
+      if (mode.id === 'fun')
+        check(
+          Object.values(counts).every((n) => n % 2 === 0),
+          'fun quantities remain paired',
+        );
+      else
         check(
           Object.values(counts).every((n) => n % mode.matchSize === 0),
           'per-kind counts support match size',
@@ -116,8 +121,8 @@ check(
 check(pair.undo() && pair.cleared === 0 && pair.tray.length === 6, 'undo pair clear');
 const triple = fixture([0, 0, 0, 1], 'fun');
 [0, 1, 2].forEach((id) => triple.pick(id));
-check(triple.cleared === 3 && triple.tray.length === 0, 'fun retains triples');
-check(matchIndices([0, 0, 0, 1, 1], 'fun').length === 3, 'triple priority is deterministic');
+check(triple.cleared === 0 && triple.tray.length === 3, 'fun never clears triples');
+check(matchIndices([0, 0, 0, 1, 1], 'fun').length === 4, 'fun clears only two distinct pairs');
 check(matchIndices([0, 0, 1, 2], 'fun').length === 0, 'a single pair never clears');
 const stranded = fixture([0, 0, 1, 1, 0, 1], 'fun');
 [0, 1, 2, 3].forEach((id) => stranded.pick(id));
@@ -133,12 +138,13 @@ check(
 );
 check(!stranded.undo() && !stranded.shovel(), 'failed round rejects recovery tools');
 const tutorial = new MatchGame(1, 42, 'fun');
-check(tutorial.hint().length === 3, 'fun tutorial begins with triple example');
-[0, 1, 2].forEach((id) => tutorial.pick(id));
+const firstPairHint = tutorial.hint();
+check(firstPairHint.length === 4, 'fun tutorial begins with two distinct pairs');
+firstPairHint.forEach((id) => tutorial.pick(id));
 const pairHint = tutorial.hint();
 check(pairHint.length === 4, 'fun hint understands two pairs');
 pairHint.forEach((id) => tutorial.pick(id));
-check(tutorial.status === 'won', 'tutorial demonstrates both matching rules');
+check(tutorial.status === 'won', 'tutorial clears two groups under the same 2+2 rule');
 // Shoveling is a location transfer, never a deletion or automatic match.
 for (const mode of MODES) {
   const g = fixture([0, 1, 2, 3, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3], mode.id);

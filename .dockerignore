@@ -3,6 +3,7 @@
 !Dockerfile.admin
 !Dockerfile.gateway
 !nginx.conf
+!SKILL.md
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml

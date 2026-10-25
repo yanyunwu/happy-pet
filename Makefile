@@ -68,6 +68,7 @@ test-api:
 test-api-race:
 	go -C backend test -race -count=1 -timeout=15m $(GO_TEST_FLAGS) ./...
 test-game:
+	node minigame/tools/test-single-rule.cjs
 	node minigame/tools/test-tool-policy.cjs
 	node minigame/tools/test-rewarded-ad.cjs
 	node minigame/tools/test-extra-slot-controller.cjs
@@ -83,9 +84,14 @@ test-game:
 	node minigame/tools/test-online.cjs
 test: test-api test-game
 test-browser:
+	node scripts/test-single-rule-form.cjs
 	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestBrowserIntegration -v -count=1 -timeout=4m
 test-announcement-browser:
 	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestAnnouncementBrowserIntegration -v -count=1 -timeout=2m
+.PHONY: test-admin-identity-browser
+test-admin-identity-browser:
+	node --experimental-transform-types admin/tests/api-auth.mjs
+	BROWSER_QA=1 go -C backend test ./internal/httpapi -run TestAdminIdentityBrowserIntegration -v -count=1 -timeout=3m
 typecheck:
 	@$(MAKE) --no-print-directory typecheck-admin
 	node scripts/check-game.cjs
@@ -107,6 +113,7 @@ test-startup:
 	cd minigame && node tools/validate-wechat-build.cjs
 	cd minigame && node tools/test-wechat-startup.cjs
 test-audio:
+	node minigame/tools/test-audio-recovery.cjs
 	node minigame/tools/test-audio-assets.cjs
 	node minigame/tools/test-soundscape.cjs
 	AUDIO_AUTOPLAY=blocked node minigame/tools/test-soundscape.cjs

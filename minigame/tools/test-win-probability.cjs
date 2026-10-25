@@ -12,6 +12,11 @@ const quartet = exact([4, 4, 4], [[4]]);
 assert.deepEqual(quartet.fraction, { numerator: '7', denominator: '33' });
 const fun = exact([3, 2, 2], [[3], [2, 2]]);
 assert.deepEqual(fun.fraction, { numerator: '13', denominator: '35' });
+assert.equal(calculate({ mode: 'fun', counts: [3, 2, 2] }).probability, 0);
+assert.deepEqual(
+  calculate({ mode: 'fun', counts: [4, 2, 2] }).fraction,
+  exact([4, 2, 2], [[2, 2]]).fraction,
+);
 assert.equal(exact([6, 6, 6], [[3]]).probability, 1);
 assert.equal(exact([8, 8], [[4]]).probability, 1);
 assert.equal(exact([3, 4], [[3]]).probability, 0);

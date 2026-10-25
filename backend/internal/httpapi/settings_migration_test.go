@@ -34,7 +34,14 @@ func TestAnnouncementMigrationUpgradesExistingProfileSchemaOnce(t *testing.T) {
 	}
 	// Compare every original business row, including JSON configs and timestamps.
 	before := settingsMigrationSnapshot(t, db)
-	runner, err := schema.Default()
+	// Exercise exactly the released settings migration: identity separation is
+	// independently checked against the complete current migration sequence.
+	settingsSQL, err := os.ReadFile("../../sql/migrations/003_app_settings.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files["003_app_settings.sql"] = &fstest.MapFile{Data: settingsSQL}
+	runner, err := schema.New(files)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -113,6 +113,10 @@ func TestParityFixtures(t *testing.T) {
 	}
 	for _, mode := range []string{"classic", "quartet", "fun"} {
 		legacy := DefaultConfig(mode, 1)
+		if mode == "fun" {
+			legacy.Counts[0] = 3
+			legacy.Layers[0].Cells = legacy.Layers[0].Cells[:7]
+		}
 		legacy.RulesVersion, legacy.Rules = LegacyRulesVersion, nil
 		cases = append(cases, fixtureCase{name: "legacy-" + mode, mode: mode, stage: 1, config: legacy})
 		cases = append(cases, fixtureCase{name: "extra-slot-" + mode, mode: mode, stage: 1, config: DefaultConfig(mode, 1), shuffle: true, unlock: true})

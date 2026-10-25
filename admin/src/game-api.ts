@@ -8,7 +8,7 @@ export const modeNames: Record<Mode, string> = {
   fun: '趣味规则消',
 };
 export const defaultRules = (mode: Mode): number[][] =>
-  mode === 'quartet' ? [[4]] : mode === 'fun' ? [[3], [2, 2]] : [[3]];
+  mode === 'quartet' ? [[4]] : mode === 'fun' ? [[2, 2]] : [[3]];
 export const petNames = [
   '鼠',
   '牛',

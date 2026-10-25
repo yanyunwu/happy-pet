@@ -2,15 +2,19 @@ package httpapi
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"happy-pet/api/internal/admins"
+	"happy-pet/api/internal/apidocs"
 	"happy-pet/api/internal/config"
 	"happy-pet/api/internal/dbgen"
 	"happy-pet/api/internal/users"
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +25,7 @@ const cookieName = "happy_pet_admin_session"
 
 type Server struct {
 	Service *users.Service
+	Admins  *admins.Service
 	Config  config.Config
 	Log     *slog.Logger
 }
@@ -29,7 +34,7 @@ func New(service *users.Service, cfg config.Config, logger *slog.Logger) *gin.En
 	if logger == nil {
 		logger = slog.Default()
 	}
-	s := &Server{Service: service, Config: cfg, Log: logger}
+	s := &Server{Service: service, Admins: admins.New(service.DB, string(service.Secret)), Config: cfg, Log: logger}
 	router := gin.New()
 	router.Use(gin.Recovery())
 	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
@@ -53,16 +58,17 @@ func New(service *users.Service, cfg config.Config, logger *slog.Logger) *gin.En
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 	router.GET("/api/v1/info", func(c *gin.Context) { c.JSON(200, gin.H{"name": "快乐萌宠消", "version": "0.4.0"}) })
+	router.GET("/api/v1/openapi.json", apidocs.Handler)
 	limiter := newLimiter()
 	router.POST("/api/v1/auth/wechat", limiter.middleware("wechat"), s.wechatLogin)
 	admin := router.Group("/api/v1/admin")
 	admin.POST("/auth/login", s.checkOrigin, limiter.middleware("admin"), s.adminLogin)
 	admin.Use(s.requireAuth("admin"))
 	admin.GET("/auth/me", func(c *gin.Context) {
-		view, err := service.View(c.Request.Context(), currentUser(c), true)
-		s.result(c, view, err)
+		c.JSON(200, admins.View(currentAdmin(c)))
 	})
 	admin.POST("/auth/logout", s.adminLogout)
+	s.registerAdminAccounts(admin)
 	admin.GET("/users", s.listUsers)
 	admin.GET("/users/stats", s.stats)
 	admin.POST("/users", s.createUser)
@@ -133,26 +139,94 @@ func (s *Server) validateOrigin(c *gin.Context) error {
 }
 func (s *Server) requireAuth(audience string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Any explicit Authorization header takes precedence, including malformed
+		// credentials. A valid cookie must never rescue a rejected bearer token.
+		authorization, explicit := c.Request.Header["Authorization"]
 		var token string
+		if explicit {
+			if len(authorization) != 1 {
+				s.respondError(c, unauthorized())
+				return
+			}
+			parts := strings.Fields(authorization[0])
+			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+				s.respondError(c, unauthorized())
+				return
+			}
+			token = parts[1]
+		}
 		if audience == "admin" {
-			if err := s.validateOrigin(c); err != nil {
+			var account dbgen.AdminAccount
+			var err error
+			if explicit {
+				account, err = s.Admins.AuthenticateAccessToken(c.Request.Context(), token)
+			} else {
+				if err = s.validateOrigin(c); err != nil {
+					s.respondError(c, err)
+					return
+				}
+				token, _ = c.Cookie(cookieName)
+				account, err = s.Admins.AuthenticateSession(c.Request.Context(), token)
+			}
+			if err != nil {
 				s.respondError(c, err)
 				return
 			}
-			token, _ = c.Cookie(cookieName)
-		} else {
-			token = strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+			c.Set("admin", account)
+			c.Next()
+			return
 		}
-		user, err := s.Service.Authenticate(c.Request.Context(), token, audience)
+		if !explicit {
+			s.respondError(c, unauthorized())
+			return
+		}
+		account, adminErr := s.Admins.AuthenticateAccessToken(c.Request.Context(), token)
+		if adminErr == nil {
+			target := c.GetHeader("X-User-ID")
+			if !playerIDPattern.MatchString(target) {
+				s.respondError(c, users.Invalid("管理员访问玩家接口时需提供有效的 X-User-ID"))
+				return
+			}
+			player, err := s.Service.Q.GetUser(c.Request.Context(), target)
+			if errors.Is(err, sql.ErrNoRows) || (err == nil && (player.DeletedAt.Valid || player.Status != "active")) {
+				s.respondError(c, &users.Error{Status: 404, Code: "NOT_FOUND", Message: "目标玩家不存在或未启用"})
+				return
+			}
+			if err != nil {
+				s.respondError(c, err)
+				return
+			}
+			c.Set("admin", account)
+			c.Set("user", player)
+			c.Next()
+			return
+		}
+		var appErr *users.Error
+		if !errors.As(adminErr, &appErr) || appErr.Status != 401 {
+			s.respondError(c, adminErr)
+			return
+		}
+		user, err := s.Service.Authenticate(c.Request.Context(), token, "miniapp")
 		if err != nil {
 			s.respondError(c, err)
+			return
+		}
+		if target := c.GetHeader("X-User-ID"); target != "" && target != user.ID {
+			s.respondError(c, &users.Error{Status: 403, Code: "FORBIDDEN", Message: "玩家登录凭证不能指定其他玩家"})
 			return
 		}
 		c.Set("user", user)
 		c.Next()
 	}
 }
-func currentUser(c *gin.Context) dbgen.User { return c.MustGet("user").(dbgen.User) }
+
+var playerIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
+
+func unauthorized() error {
+	return &users.Error{Status: 401, Code: "UNAUTHORIZED", Message: "登录已失效，请重新登录"}
+}
+func currentUser(c *gin.Context) dbgen.User          { return c.MustGet("user").(dbgen.User) }
+func currentAdmin(c *gin.Context) dbgen.AdminAccount { return c.MustGet("admin").(dbgen.AdminAccount) }
 func (s *Server) setCookie(c *gin.Context, token string, maxAge int) {
 	http.SetCookie(c.Writer, &http.Cookie{Name: cookieName, Value: token, Path: "/api/v1", MaxAge: maxAge, HttpOnly: true, Secure: s.Config.CookieSecure, SameSite: http.SameSiteStrictMode})
 }
@@ -169,16 +243,16 @@ func (s *Server) adminLogin(c *gin.Context) {
 		s.respondError(c, users.Invalid("账号或密码长度不正确"))
 		return
 	}
-	session, err := s.Service.AdminLogin(c.Request.Context(), input.Username, input.Password)
+	session, err := s.Admins.Login(c.Request.Context(), input.Username, input.Password)
 	if err != nil {
 		s.respondError(c, err)
 		return
 	}
-	s.setCookie(c, session.AccessToken, int(users.SessionTTL.Seconds()))
-	c.JSON(200, session.User)
+	s.setCookie(c, session.AccessToken, int(admins.SessionTTL.Seconds()))
+	c.JSON(200, session.Account)
 }
 func (s *Server) adminLogout(c *gin.Context) {
-	if err := s.Service.Logout(c.Request.Context(), currentUser(c).ID); err != nil {
+	if err := s.Admins.Logout(c.Request.Context(), currentAdmin(c).ID); err != nil {
 		s.respondError(c, err)
 		return
 	}
@@ -243,7 +317,7 @@ func (s *Server) createUser(c *gin.Context) {
 		s.respondError(c, err)
 		return
 	}
-	user, err := s.Service.Create(c.Request.Context(), input, "admin")
+	user, err := s.Service.Create(c.Request.Context(), input)
 	if err != nil {
 		s.respondError(c, err)
 		return

@@ -5,6 +5,7 @@ COPY admin/package.json admin/package.json
 RUN npm install --global "$(node -p "require('./package.json').packageManager")"
 RUN pnpm --filter @happy-pet/admin... install --frozen-lockfile
 FROM dependencies AS build
+COPY SKILL.md ./SKILL.md
 COPY admin/ admin/
 RUN pnpm --filter @happy-pet/admin build
 FROM nginx:stable-alpine
