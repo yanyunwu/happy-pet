@@ -13,7 +13,7 @@ SERVICE ?=
 BACKUP_DIR ?= backups
 BACKUP_FILE ?=
 IMAGE_REGISTRY ?= crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com
-IMAGE_PREFIX ?= $(IMAGE_REGISTRY)/happy-pet
+IMAGE_PREFIX ?= $(IMAGE_REGISTRY)/failure-plan
 IMAGE_TAG ?= latest
 PROD_COMPOSE := docker compose -p "$(PROD_PROJECT)" --env-file "$(PROD_ENV)" -f compose.prod.yaml
 CREATOR ?= C:/ProgramData/cocos/editors/Creator/3.8.8/CocosCreator.exe
@@ -122,25 +122,28 @@ test-ui:
 	cd minigame && node tools/test-rapid-input.cjs
 	cd minigame && node tools/test-loading.cjs
 format:
-	pnpm exec oxfmt --write 'admin/src/**/*.{ts,tsx,css}' 'admin/*.ts' 'scripts/*.{mjs,cjs}'
+	pnpm exec oxfmt --write .
+	node scripts/format-templates.cjs --write
 	gofmt -w backend
 format-check:
-	pnpm exec oxfmt --check 'admin/src/**/*.{ts,tsx,css}' 'admin/*.ts' 'scripts/*.{mjs,cjs}'
+	pnpm exec oxfmt --check .
+	node scripts/format-templates.cjs --check
 	@files="$$(gofmt -l backend)"; if [ -n "$$files" ]; then printf '%s\n' "$$files"; exit 1; fi
 lint:
-	pnpm exec oxlint --deny-warnings admin/src admin/*.ts scripts
+	pnpm exec oxlint --deny-warnings .
+	node scripts/format-templates.cjs --lint
 	go -C backend vet ./...
 images: image-backend image-admin image-gateway
 image-backend:
-	docker build -f Dockerfile -t "$(IMAGE_PREFIX)/backend:$(IMAGE_TAG)" .
+	docker build -f Dockerfile -t "$(IMAGE_PREFIX)/happy-pet-backend:$(IMAGE_TAG)" .
 image-admin:
-	docker build -f Dockerfile.admin -t "$(IMAGE_PREFIX)/admin:$(IMAGE_TAG)" .
+	docker build -f Dockerfile.admin -t "$(IMAGE_PREFIX)/happy-pet-admin:$(IMAGE_TAG)" .
 image-gateway:
-	docker build -f Dockerfile.gateway -t "$(IMAGE_PREFIX)/gateway:$(IMAGE_TAG)" .
+	docker build -f Dockerfile.gateway -t "$(IMAGE_PREFIX)/happy-pet-gateway:$(IMAGE_TAG)" .
 images-push:
-	docker push "$(IMAGE_PREFIX)/backend:$(IMAGE_TAG)"
-	docker push "$(IMAGE_PREFIX)/admin:$(IMAGE_TAG)"
-	docker push "$(IMAGE_PREFIX)/gateway:$(IMAGE_TAG)"
+	docker push "$(IMAGE_PREFIX)/happy-pet-backend:$(IMAGE_TAG)"
+	docker push "$(IMAGE_PREFIX)/happy-pet-admin:$(IMAGE_TAG)"
+	docker push "$(IMAGE_PREFIX)/happy-pet-gateway:$(IMAGE_TAG)"
 registry-login:
 	docker login "$(IMAGE_REGISTRY)"
 prod-env:

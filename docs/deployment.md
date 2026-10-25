@@ -4,15 +4,15 @@
 
 ## 文件与服务
 
-| 文件 | 用途 |
-| --- | --- |
-| `Dockerfile` | Go API、内嵌 SQL 迁移；非 root 运行 |
-| `Dockerfile.admin` | pnpm 锁定依赖构建 React 后台，Nginx 服务 `/admin/` |
-| `Dockerfile.gateway`、`nginx.conf` | 同域 API/后台入口、代理头校验和健康检查 |
-| `compose.prod.yaml` | 生产镜像、独立网络、数据卷、健康依赖、日志轮转 |
-| `.env.prod.example` | 不含凭据的生产配置模板 |
-| `deploy/nginx-site.example.conf` | 宿主机或宝塔 HTTPS 站点示例 |
-| `.github/workflows/ci.yml` | 后端、后台、真实 PostgreSQL、竞态及容器部署检查 |
+| 文件                               | 用途                                               |
+| ---------------------------------- | -------------------------------------------------- |
+| `Dockerfile`                       | Go API、内嵌 SQL 迁移；非 root 运行                |
+| `Dockerfile.admin`                 | pnpm 锁定依赖构建 React 后台，Nginx 服务 `/admin/` |
+| `Dockerfile.gateway`、`nginx.conf` | 同域 API/后台入口、代理头校验和健康检查            |
+| `compose.prod.yaml`                | 生产镜像、独立网络、数据卷、健康依赖、日志轮转     |
+| `.env.prod.example`                | 不含凭据的生产配置模板                             |
+| `deploy/nginx-site.example.conf`   | 宿主机或宝塔 HTTPS 站点示例                        |
+| `.github/workflows/ci.yml`         | 后端、后台、真实 PostgreSQL、竞态及容器部署检查    |
 
 生产服务为 `db`、`backend`、`admin`、`gateway`。只有网关发布 `127.0.0.1:8080`；数据库和 API 不发布宿主机端口。网关等待 API 和后台健康后才启动，API 在数据库连接初始化阶段执行迁移。没有独立初始化容器。
 
@@ -24,17 +24,17 @@ Make 命令显式指定生产项目名，避免被其他项目遗留的 `COMPOSE
 
 ## 镜像仓库
 
-默认沿用参考项目的 ACR 地址，单独使用 `happy-pet` 命名空间：
+默认沿用参考项目的 ACR 地址，使用 `failure-plan` 命名空间，三个仓库分别为 `happy-pet-backend`、`happy-pet-admin`、`happy-pet-gateway`：
 
 ```text
-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet/backend:latest
-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet/admin:latest
-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet/gateway:latest
+crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan/happy-pet-backend:latest
+crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan/happy-pet-admin:latest
+crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan/happy-pet-gateway:latest
 ```
 
-需要在 ACR 控制台创建该命名空间下的三个仓库，并绑定本项目的 Git 仓库。构建目录均为 `/`，Dockerfile 分别使用上述三个文件。可以沿用参考项目的 `main` 分支、`latest` 构建规则；本地仓库当前为 `master`，绑定时应选择实际推送的分支。需要可追溯发布时，三个镜像统一使用同一个版本标签。
+在 ACR 控制台为这三个仓库绑定本项目的 Git 仓库。构建目录均为 `/`，Dockerfile 分别使用 `Dockerfile`、`Dockerfile.admin`、`Dockerfile.gateway`。当前代码分支为 `main`，默认镜像标签为 `latest`；需要可追溯发布时，三个镜像统一使用同一个版本标签。
 
-镜像地址可通过 `.env.prod.local` 的 `IMAGE_PREFIX` 和 `IMAGE_TAG` 修改。构建机上的 Make 变量单独指定，需与生产配置保持一致：
+`IMAGE_PREFIX` 表示仓库域名和命名空间（默认 `crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan`）；三个仓库名固定使用上面的名称。镜像地址可通过 `.env.prod.local` 的 `IMAGE_PREFIX` 和 `IMAGE_TAG` 修改。构建机上的 Make 变量单独指定，需与生产配置保持一致：
 
 ```sh
 make images IMAGE_TAG=2026.10.25-1
@@ -60,18 +60,18 @@ make prod-env
 
 它只创建不存在的 `.env.prod.local`，保留已存在的文件；Linux 新文件权限为 600。其他路径可使用 `PROD_ENV=/path/to/config`。填写以下内容：
 
-| 配置 | 要求 |
-| --- | --- |
-| `POSTGRES_PASSWORD` | 独立生产数据库密码；已有卷必须沿用原密码 |
-| `JWT_SECRET` | 至少 32 字节的随机值；普通升级时保留 |
-| `ADMIN_ORIGIN` | 对外 HTTPS 来源，例如 `https://game.example.com`，不要带路径或末尾 `/` |
-| `ADMIN_USERNAME` | 首次初始化的管理账号，默认 `admin` |
-| `ADMIN_PASSWORD` | 首次初始化密码，10–72 字节；已有账号不会被重置，可在初始化后留空 |
-| `WECHAT_APP_ID` | 默认 `wx5f84ab7af535815d` |
-| `WECHAT_APP_SECRET` | 对应小游戏密钥，仅传给 API；留空时后台可用，真实微信登录暂不可用 |
-| `IMAGE_PREFIX`、`IMAGE_TAG` | 已构建的三个应用镜像的共同前缀与版本 |
-| `PGUSER`、`PGDATABASE` | 默认均为 `happy_pet`；已有数据卷继续沿用 |
-| `GATEWAY_PORT` | 默认 8080，只绑定宿主机回环地址 |
+| 配置                        | 要求                                                                   |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `POSTGRES_PASSWORD`         | 独立生产数据库密码；已有卷必须沿用原密码                               |
+| `JWT_SECRET`                | 至少 32 字节的随机值；普通升级时保留                                   |
+| `ADMIN_ORIGIN`              | 对外 HTTPS 来源，例如 `https://game.example.com`，不要带路径或末尾 `/` |
+| `ADMIN_USERNAME`            | 首次初始化的管理账号，默认 `admin`                                     |
+| `ADMIN_PASSWORD`            | 首次初始化密码，10–72 字节；已有账号不会被重置，可在初始化后留空       |
+| `WECHAT_APP_ID`             | 默认 `wx5f84ab7af535815d`                                              |
+| `WECHAT_APP_SECRET`         | 对应小游戏密钥，仅传给 API；留空时后台可用，真实微信登录暂不可用       |
+| `IMAGE_PREFIX`、`IMAGE_TAG` | 已构建的三个应用镜像的共同前缀与版本                                   |
+| `PGUSER`、`PGDATABASE`      | 默认均为 `happy_pet`；已有数据卷继续沿用                               |
+| `GATEWAY_PORT`              | 默认 8080，只绑定宿主机回环地址                                        |
 
 可在服务器用 `openssl rand -hex 32` 分别生成独立密码和签名密钥，然后填入配置文件。不要从开发配置或参考项目复制密钥。`.env.prod.local` 和备份目录均被 Git 忽略；Docker 构建采用文件允许列表并排除所有环境文件、密钥和备份。
 

@@ -11,9 +11,23 @@
     "__ADMIN_CONFIG__": "readonly"
   },
   "ignorePatterns": [
+    ".agents/**",
+    ".claude/**",
+    ".vscode/**",
     "**/node_modules/**",
     "**/dist/**",
+    "**/.swc/**",
+    "**/.build/**",
+    "**/build/**",
+    "**/library/**",
+    "**/temp/**",
+    "**/profiles/**",
+    "**/local/**",
+    "**/output/**",
     "artifacts/**",
+    "backups/**",
+    "minigame/art/**",
+    "minigame/settings/**",
     "backend/internal/dbgen/**"
   ],
   "rules": { "eslint/no-unused-vars": "error", "react/jsx-key": "error" }

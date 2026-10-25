@@ -202,11 +202,9 @@ const server = http.createServer((req, res) => {
     await game.waitForFunction(() => !window.qaApp.modal);
     const pick = async (id) => {
       const p = await game.evaluate((id) => {
-        const a = window.qaApp,
-          t = a.game.tiles[id];
-        return a.game.reserve.includes(id)
-          ? { x: 87 + a.game.reserve.indexOf(id) * 91, y: 1115 }
-          : { x: 360 + t.x, y: 590 + t.y };
+        const a = window.qaApp;
+        const n = a.reserveNodes.get(id) || a.tileNodes.get(id);
+        return { x: n.position.x, y: -n.position.y };
       }, id);
       await tap(p.x, p.y);
       await settle();

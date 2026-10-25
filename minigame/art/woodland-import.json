@@ -1,9 +1,10 @@
 {
-  "theme": "森林木作",
+  "theme": "森林木作 · 细节还原",
   "pets": 15,
   "utilityIcons": 7,
   "homeIcons": 3,
-  "skins": 14,
+  "skins": 13,
+  "nativeDetailSkins": 2,
   "sources": "art/source-woodland",
   "generator": "built-in image_gen",
   "adminPetIconsSynced": true

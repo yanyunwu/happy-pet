@@ -2,12 +2,12 @@
 
 小游戏、接口和管理后台放在同一个仓库，彼此独立运行。
 
-| 目录 | 内容 |
-| --- | --- |
+| 目录        | 内容                                                                     |
+| ----------- | ------------------------------------------------------------------------ |
 | `minigame/` | Cocos Creator 3.8.8 工程；原生首页、加载场景、美术、音频、规则与微信构建 |
-| `admin/` | React 19.3.1、Ant Design 6.6.7、Vite 8.3.5、TypeScript 7.0.2 |
-| `backend/` | Go 1.26、Gin 1.12、PostgreSQL 18.6、pgx、JWT、bcrypt、sqlc 1.31.1 |
-| `scripts/` | 配置工具、类型检查、界面联调和隔离容器验证 |
+| `admin/`    | React 19.3.1、Ant Design 6.6.7、Vite 8.3.5、TypeScript 7.0.2             |
+| `backend/`  | Go 1.26、Gin 1.12、PostgreSQL 18.6、pgx、JWT、bcrypt、sqlc 1.31.1        |
+| `scripts/`  | 配置工具、类型检查、界面联调和隔离容器验证                               |
 
 后台沿用 `D:\program\failure-plan` 的布局、绿色主题、深浅模式、移动端抽屉导航、用户管理表格和登录页。Geist 与 Noto Sans SC Variable 字体均本地加载，保留授权文件。参考项目没有被修改，也没有复制其环境配置或业务数据。
 
@@ -91,23 +91,23 @@ make build-wechat
 
 所有接口前缀为 `/api/v1`，JSON。管理员使用 HttpOnly Cookie，玩家使用 Bearer Token；错误格式为 `{"error":{"code":"...","message":"..."}}`。
 
-| 方法及路径 | 作用 |
-| --- | --- |
-| `POST /auth/wechat` | `{code}` 微信登录 |
-| `GET /user/me`、`GET /user/assets` | 当前用户和资产 |
-| `POST /user/signin` | 每日签到 |
-| `GET /user/levels` | 已上架关卡 |
-| `POST /user/sessions` | `{entry?, mode, requestId, previousSessionId?}` 开局；entry 为 standard（首页双关）或 campaign（闯关，默认），上一关必须属于相同入口、相同规则且已赢并结算 |
-| `GET /user/sessions/:id` | 本人的权威状态及撤回历史 |
-| `POST /user/sessions/:id/events` | `{events:[{seq,type,tileId?,at}]}` 按序上传，单批最多 64 步 |
-| `POST /user/sessions/:id/finish` | `{outcome:"won"|"lost"|"abandoned"}` 幂等结算 |
-| `/admin/users` | 用户列表、编辑、状态与管理账号 |
-| `GET/POST /admin/users/:id/assets` | 查询或调整资产；调整须提供 requestId、asset、delta、reason |
-| `GET /admin/users/:id/ledger` | 最近 100 条资产流水 |
-| `GET/POST /admin/levels`、`PUT /admin/levels/:id` | 列表、新建、带 draftVersion 保存草稿 |
-| `POST /admin/levels/preview` | 校验配置并生成固定种子的预览 |
-| `POST /admin/levels/:id/publish`、`.../enabled` | 发布版本、上下架 |
-| `GET /admin/sessions`、`.../:id/replay` | 按 entry、规则、用户和结果筛选分页记录，回放保留实际入口 |
+| 方法及路径                                        | 作用                                                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/wechat`                               | `{code}` 微信登录                                                                                                                                          |
+| `GET /user/me`、`GET /user/assets`                | 当前用户和资产                                                                                                                                             |
+| `POST /user/signin`                               | 每日签到                                                                                                                                                   |
+| `GET /user/levels`                                | 已上架关卡                                                                                                                                                 |
+| `POST /user/sessions`                             | `{entry?, mode, requestId, previousSessionId?}` 开局；entry 为 standard（首页双关）或 campaign（闯关，默认），上一关必须属于相同入口、相同规则且已赢并结算 |
+| `GET /user/sessions/:id`                          | 本人的权威状态及撤回历史                                                                                                                                   |
+| `POST /user/sessions/:id/events`                  | `{events:[{seq,type,tileId?,at}]}` 按序上传，单批最多 64 步                                                                                                |
+| `POST /user/sessions/:id/finish`                  | `{outcome:"won"                                                                                                                                            | "lost" | "abandoned"}` 幂等结算 |
+| `/admin/users`                                    | 用户列表、编辑、状态与管理账号                                                                                                                             |
+| `GET/POST /admin/users/:id/assets`                | 查询或调整资产；调整须提供 requestId、asset、delta、reason                                                                                                 |
+| `GET /admin/users/:id/ledger`                     | 最近 100 条资产流水                                                                                                                                        |
+| `GET/POST /admin/levels`、`PUT /admin/levels/:id` | 列表、新建、带 draftVersion 保存草稿                                                                                                                       |
+| `POST /admin/levels/preview`                      | 校验配置并生成固定种子的预览                                                                                                                               |
+| `POST /admin/levels/:id/publish`、`.../enabled`   | 发布版本、上下架                                                                                                                                           |
+| `GET /admin/sessions`、`.../:id/replay`           | 按 entry、规则、用户和结果筛选分页记录，回放保留实际入口                                                                                                   |
 
 ## 验证与容器
 

@@ -10,15 +10,27 @@
   "ignorePatterns": [
     ".agents/**",
     ".claude/**",
+    ".vscode/**",
     "**/node_modules/**",
     "**/dist/**",
     "**/.swc/**",
     "**/.build/**",
+    "**/build/**",
+    "**/library/**",
+    "**/temp/**",
+    "**/profiles/**",
+    "**/local/**",
+    "**/output/**",
     "artifacts/**",
+    "backups/**",
+    "minigame/art/**",
+    "minigame/settings/**",
+    "minigame/build-config/**",
+    "**/*.meta",
+    "**/*.scene",
     "backend/internal/dbgen/**",
     "backend/data/**",
     "pnpm-lock.yaml",
-    "**/*.log",
-    "miniapp/src/assets/**"
+    "**/*.log"
   ]
 }

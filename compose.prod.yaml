@@ -36,7 +36,7 @@ services:
     networks: [application]
   backend:
     logging: *logging
-    image: ${IMAGE_PREFIX:-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan}/happy-pet-backend:${IMAGE_TAG:-latest}
     environment:
       <<: *database-environment
       API_ADDR: 0.0.0.0:8080
@@ -59,7 +59,7 @@ services:
         ipv4_address: 172.30.82.4
   admin:
     logging: *logging
-    image: ${IMAGE_PREFIX:-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet}/admin:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan}/happy-pet-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
     stop_grace_period: 15s
     networks:
@@ -67,7 +67,7 @@ services:
         ipv4_address: 172.30.82.5
   gateway:
     logging: *logging
-    image: ${IMAGE_PREFIX:-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet}/gateway:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan}/happy-pet-gateway:${IMAGE_TAG:-latest}
     ports:
       - '127.0.0.1:${GATEWAY_PORT:-8080}:8080'
     depends_on:

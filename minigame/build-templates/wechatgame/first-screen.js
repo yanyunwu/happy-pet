@@ -60,14 +60,14 @@ void main() {
 }`;
 
 const options = {
-    alpha: false,
-    antialias: true,
-    depth: true,
-    stencil: true,
-    premultipliedAlpha: false,
-    preserveDrawingBuffer: false,
-    powerPreference: 'default',
-    failIfMajorPerformanceCaveat: false,
+  alpha: false,
+  antialias: true,
+  depth: true,
+  stencil: true,
+  premultipliedAlpha: false,
+  preserveDrawingBuffer: false,
+  powerPreference: 'default',
+  failIfMajorPerformanceCaveat: false,
 };
 
 let gl = null;
@@ -93,7 +93,7 @@ let stopped = false;
 const FRAME_WAIT_MS = 120;
 let backgroundFilp = 1.0; // set 0 to not flip
 let displayRatio = 1;
-let bgColor = [0,0,0,1];
+let bgColor = [0, 0, 0, 1];
 let useCustomBg = true;
 let useLogo = false;
 let useDefaultLogo = false;
@@ -103,445 +103,578 @@ let fitWidth = true;
 let fitHeight = true;
 
 function initShaders(vshader, fshader) {
-    return createProgram(vshader, fshader);
+  return createProgram(vshader, fshader);
 }
 
 function createProgram(vshader, fshader) {
-    var vertexShader = loadShader(gl.VERTEX_SHADER, vshader);
-    var fragmentShader = loadShader(gl.FRAGMENT_SHADER, fshader);
-    var program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
-    if (!linked) {
-        var error = gl.getProgramInfoLog(program);
-        console.log('Failed to link program: ' + error);
-        gl.deleteProgram(program);
-        program = null;
-    }
-    gl.deleteShader(fragmentShader);
-    gl.deleteShader(vertexShader);
-    return program;
+  var vertexShader = loadShader(gl.VERTEX_SHADER, vshader);
+  var fragmentShader = loadShader(gl.FRAGMENT_SHADER, fshader);
+  var program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+  if (!linked) {
+    var error = gl.getProgramInfoLog(program);
+    console.log('Failed to link program: ' + error);
+    gl.deleteProgram(program);
+    program = null;
+  }
+  gl.deleteShader(fragmentShader);
+  gl.deleteShader(vertexShader);
+  return program;
 }
 
 function loadShader(type, source) {
-    var shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (!compiled) {
-        var error = gl.getShaderInfoLog(shader);
-        console.log('Failed to compile shader: ' + error);
-        gl.deleteShader(shader);
-        return null;
-    }
-    return shader;
+  var shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+  if (!compiled) {
+    var error = gl.getShaderInfoLog(shader);
+    console.log('Failed to compile shader: ' + error);
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
 }
 
 function initVertexBuffer() {
-    const widthRatio = 2 / canvas.width;
-    const heightRatio = 2 / canvas.height;
-    const heightOffset = 0.225;
-    const vertices = new Float32Array([
-        widthRatio,heightRatio + heightOffset, 1.0, 1.0,
-        widthRatio, heightRatio + heightOffset, 1.0, 0.0,
-        -widthRatio, heightRatio + heightOffset, 0.0, 1.0,
-        -widthRatio, heightRatio + heightOffset, 0.0, 0.0,
-    ]);
-    vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  const widthRatio = 2 / canvas.width;
+  const heightRatio = 2 / canvas.height;
+  const heightOffset = 0.225;
+  const vertices = new Float32Array([
+    widthRatio,
+    heightRatio + heightOffset,
+    1.0,
+    1.0,
+    widthRatio,
+    heightRatio + heightOffset,
+    1.0,
+    0.0,
+    -widthRatio,
+    heightRatio + heightOffset,
+    0.0,
+    1.0,
+    -widthRatio,
+    heightRatio + heightOffset,
+    0.0,
+    0.0,
+  ]);
+  vertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function initSloganVertexBuffer() {
-    const widthRatio = 2 / canvas.width;
-    const heightRatio = 2 / canvas.height;
-    const vertices = new Float32Array([
-        widthRatio, heightRatio, 1.0, 1.0,
-        widthRatio, heightRatio, 1.0, 0.0,
-        -widthRatio, heightRatio, 0.0, 1.0,
-        -widthRatio, heightRatio, 0.0, 0.0,
-    ]);
-    sloganVertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, sloganVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  const widthRatio = 2 / canvas.width;
+  const heightRatio = 2 / canvas.height;
+  const vertices = new Float32Array([
+    widthRatio,
+    heightRatio,
+    1.0,
+    1.0,
+    widthRatio,
+    heightRatio,
+    1.0,
+    0.0,
+    -widthRatio,
+    heightRatio,
+    0.0,
+    1.0,
+    -widthRatio,
+    heightRatio,
+    0.0,
+    0.0,
+  ]);
+  sloganVertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, sloganVertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function initBgVertexBuffer() {
-    const vertices = new Float32Array([
-        1.0, 1.0, 1.0, 1.0,
-        1.0, 0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0, 1.0,
-        0.0, 0.0, 0.0, 0.0,
-    ]);
-    bgVertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, bgVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  const vertices = new Float32Array([
+    1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+  ]);
+  bgVertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bgVertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function initProgressVertexBuffer() {
-    // the ratio value may be adjusted according to the image pixels
-    const widthRatio = 0.72;
-    const heightRatio = 0.007;
-    const heightOffset = -0.622;
-    const vertices = new Float32Array([
-        widthRatio, heightOffset - heightRatio, 1,
-        widthRatio, heightOffset + heightRatio, 1,
-        -widthRatio, heightOffset - heightRatio, 0,
-        -widthRatio, heightOffset + heightRatio, 0,
-    ]);
-    vertexBufferProgress = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferProgress);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  // the ratio value may be adjusted according to the image pixels
+  const widthRatio = 0.72;
+  const heightRatio = 0.007;
+  const heightOffset = -0.622;
+  const vertices = new Float32Array([
+    widthRatio,
+    heightOffset - heightRatio,
+    1,
+    widthRatio,
+    heightOffset + heightRatio,
+    1,
+    -widthRatio,
+    heightOffset - heightRatio,
+    0,
+    -widthRatio,
+    heightOffset + heightRatio,
+    0,
+  ]);
+  vertexBufferProgress = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferProgress);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function updateVertexBuffer() {
-    const heightRatio = 1.0 * 0.185 * displayRatio;
-    const widthRatio = image.width * (canvas.height * 0.185 / image.height) / canvas.width * displayRatio;
-    
-    const vertices = new Float32Array([
-        widthRatio, -heightRatio, 1.0, 1.0,
-        widthRatio, heightRatio, 1.0, 0.0,
-        -widthRatio, -heightRatio, 0.0, 1.0,
-        -widthRatio, heightRatio, 0.0, 0.0,
-    ]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  const heightRatio = 1.0 * 0.185 * displayRatio;
+  const widthRatio =
+    ((image.width * ((canvas.height * 0.185) / image.height)) / canvas.width) * displayRatio;
+
+  const vertices = new Float32Array([
+    widthRatio,
+    -heightRatio,
+    1.0,
+    1.0,
+    widthRatio,
+    heightRatio,
+    1.0,
+    0.0,
+    -widthRatio,
+    -heightRatio,
+    0.0,
+    1.0,
+    -widthRatio,
+    heightRatio,
+    0.0,
+    0.0,
+  ]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function updateSloganVertexBuffer() {
-    // the ratio value may be adjusted according to the image pixels
-    const widthRatio = slogan.width / canvas.width * 0.75;
-    const heightRatio = slogan.height / canvas.height * 0.75;
-    const logoHeightRatio = image.height / canvas.height * 1.35 * displayRatio;
-    const heightOffset = (5/12 + logoHeightRatio * 1/2 + heightRatio * 3/2)  * (-2) + 1; // 5/12 is ui design layout for logo
-    const vertices = new Float32Array([
-        widthRatio, heightOffset - heightRatio, 1.0, 1.0,
-        widthRatio, heightOffset + heightRatio, 1.0, 0.0,
-        -widthRatio, heightOffset - heightRatio, 0.0, 1.0,
-        -widthRatio, heightOffset + heightRatio, 0.0, 0.0,
-    ]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, sloganVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  // the ratio value may be adjusted according to the image pixels
+  const widthRatio = (slogan.width / canvas.width) * 0.75;
+  const heightRatio = (slogan.height / canvas.height) * 0.75;
+  const logoHeightRatio = (image.height / canvas.height) * 1.35 * displayRatio;
+  const heightOffset = (5 / 12 + (logoHeightRatio * 1) / 2 + (heightRatio * 3) / 2) * -2 + 1; // 5/12 is ui design layout for logo
+  const vertices = new Float32Array([
+    widthRatio,
+    heightOffset - heightRatio,
+    1.0,
+    1.0,
+    widthRatio,
+    heightOffset + heightRatio,
+    1.0,
+    0.0,
+    -widthRatio,
+    heightOffset - heightRatio,
+    0.0,
+    1.0,
+    -widthRatio,
+    heightOffset + heightRatio,
+    0.0,
+    0.0,
+  ]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, sloganVertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function updateBgVertexBuffer() {
-    let widthRatio = 1;
-    let heightRatio = 1;
-    if(fitWidth && !fitHeight) {
-        widthRatio = canvas.width;
-        heightRatio = (canvas.width / bg.width) * bg.height;
-    } else if(!fitWidth && fitHeight) {
-        widthRatio = (canvas.height / bg.height) * bg.width;
-        heightRatio = canvas.height;
-    } else if(fitWidth && fitHeight) {
-        if ((bg.width / bg.height) > (canvas.width / canvas.height)) {
-            widthRatio = canvas.width;
-            heightRatio = (canvas.width / bg.width) * bg.height;
-        } else {
-            widthRatio = (canvas.height / bg.height) * bg.width;
-            heightRatio = canvas.height;
-        }
-    } else if(!fitWidth && !fitHeight) {
-        if ((bg.width / bg.height) > (canvas.width / canvas.height)) {
-            widthRatio = (canvas.height / bg.height) * bg.width;
-            heightRatio = canvas.height;
-        } else {
-            widthRatio = canvas.width;
-            heightRatio = (canvas.width / bg.width) * bg.height;
-        }
+  let widthRatio = 1;
+  let heightRatio = 1;
+  if (fitWidth && !fitHeight) {
+    widthRatio = canvas.width;
+    heightRatio = (canvas.width / bg.width) * bg.height;
+  } else if (!fitWidth && fitHeight) {
+    widthRatio = (canvas.height / bg.height) * bg.width;
+    heightRatio = canvas.height;
+  } else if (fitWidth && fitHeight) {
+    if (bg.width / bg.height > canvas.width / canvas.height) {
+      widthRatio = canvas.width;
+      heightRatio = (canvas.width / bg.width) * bg.height;
     } else {
-        widthRatio = canvas.width;
-        heightRatio = canvas.height;
+      widthRatio = (canvas.height / bg.height) * bg.width;
+      heightRatio = canvas.height;
     }
-    widthRatio /= canvas.width;
-    heightRatio /= canvas.height;
+  } else if (!fitWidth && !fitHeight) {
+    if (bg.width / bg.height > canvas.width / canvas.height) {
+      widthRatio = (canvas.height / bg.height) * bg.width;
+      heightRatio = canvas.height;
+    } else {
+      widthRatio = canvas.width;
+      heightRatio = (canvas.width / bg.width) * bg.height;
+    }
+  } else {
+    widthRatio = canvas.width;
+    heightRatio = canvas.height;
+  }
+  widthRatio /= canvas.width;
+  heightRatio /= canvas.height;
 
-    const vertices = new Float32Array([
-        widthRatio, heightRatio, 1.0, 1.0,
-        widthRatio, -heightRatio, 1.0, 0.0,
-        -widthRatio, heightRatio, 0.0, 1.0,
-        -widthRatio, -heightRatio, 0.0, 0.0,
-    ]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bgVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  const vertices = new Float32Array([
+    widthRatio,
+    heightRatio,
+    1.0,
+    1.0,
+    widthRatio,
+    -heightRatio,
+    1.0,
+    0.0,
+    -widthRatio,
+    heightRatio,
+    0.0,
+    1.0,
+    -widthRatio,
+    -heightRatio,
+    0.0,
+    0.0,
+  ]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bgVertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 }
 
 function loadBackground(bgPath) {
-    return new Promise((resolve, reject) => {
-        bg = new Image();
-        bg.premultiplyAlpha = false;
-        bg.onload = function() {
-            resolve(bg);
-        };
-        bg.onerror = function(err) {
-            reject(err);
-        };
-        bg.src = bgPath.replace('#', '%23');
-    });
+  return new Promise((resolve, reject) => {
+    bg = new Image();
+    bg.premultiplyAlpha = false;
+    bg.onload = function () {
+      resolve(bg);
+    };
+    bg.onerror = function (err) {
+      reject(err);
+    };
+    bg.src = bgPath.replace('#', '%23');
+  });
 }
 
 function loadImage(imgPath) {
-    return new Promise((resolve, reject) => {
-        image = new Image();
-        image.premultiplyAlpha = false;
-        image.onload = function() {
-            resolve(image);
-        };
-        image.onerror = function(err) {
-            reject(err);
-        };
-        image.src = imgPath.replace('#', '%23');
-    });
+  return new Promise((resolve, reject) => {
+    image = new Image();
+    image.premultiplyAlpha = false;
+    image.onload = function () {
+      resolve(image);
+    };
+    image.onerror = function (err) {
+      reject(err);
+    };
+    image.src = imgPath.replace('#', '%23');
+  });
 }
 
 function loadSlogan(sloganPath) {
-    return new Promise((resolve, reject) => {
-        slogan = new Image();
-        slogan.premultiplyAlpha = false;
-        slogan.onload = function() {
-            resolve(slogan);
-        };
-        slogan.onerror = function(err) {
-            reject(err);
-        };
-        slogan.src = sloganPath.replace('#', '%23');
-    });
+  return new Promise((resolve, reject) => {
+    slogan = new Image();
+    slogan.premultiplyAlpha = false;
+    slogan.onload = function () {
+      resolve(slogan);
+    };
+    slogan.onerror = function (err) {
+      reject(err);
+    };
+    slogan.src = sloganPath.replace('#', '%23');
+  });
 }
 
-
 function initLogoTexture() {
-    logoTexture = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, logoTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]));
+  logoTexture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    2,
+    2,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]),
+  );
 }
 
 function initSloganTexture() {
-    sloganTexture = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, sloganTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]));
+  sloganTexture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sloganTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    2,
+    2,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]),
+  );
 }
 
 function initBgTexture() {
-    bgTexture = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, bgTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]));
+  bgTexture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, bgTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    2,
+    2,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]),
+  );
 }
 
 function updateLogoTexture() {
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, logoTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 }
 
 function updateSloganTexture() {
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, sloganTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, slogan);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sloganTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, slogan);
 }
 
 function updateBgTexture() {
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, bgTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bg);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, bgTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bg);
 }
 
 function drawTexture(gl, program, texture, vertexBuffer, vertexFormatLength) {
-    gl.useProgram(program);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    var uSampler = gl.getUniformLocation(program, 'u_Sampler');
-    gl.uniform1i(uSampler, 0);
-    var uFlip = gl.getUniformLocation(program, 'u_flip');
-    gl.uniform1f(uFlip, backgroundFilp);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    var aPosition = gl.getAttribLocation(program, 'a_Position');
-    gl.enableVertexAttribArray(aPosition);
-    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, vertexFormatLength * 4, 0);
-    var aTexCoord = gl.getAttribLocation(program, 'a_TexCoord');
-    gl.enableVertexAttribArray(aTexCoord);
-    gl.vertexAttribPointer(aTexCoord, 2, gl.FLOAT, false, vertexFormatLength * 4, vertexFormatLength * 2);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.useProgram(program);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  var uSampler = gl.getUniformLocation(program, 'u_Sampler');
+  gl.uniform1i(uSampler, 0);
+  var uFlip = gl.getUniformLocation(program, 'u_flip');
+  gl.uniform1f(uFlip, backgroundFilp);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  var aPosition = gl.getAttribLocation(program, 'a_Position');
+  gl.enableVertexAttribArray(aPosition);
+  gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, vertexFormatLength * 4, 0);
+  var aTexCoord = gl.getAttribLocation(program, 'a_TexCoord');
+  gl.enableVertexAttribArray(aTexCoord);
+  gl.vertexAttribPointer(
+    aTexCoord,
+    2,
+    gl.FLOAT,
+    false,
+    vertexFormatLength * 4,
+    vertexFormatLength * 2,
+  );
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-function drawProgressBar(gl, program, vertexBuffer, vertexFormatLength, progress, progressBarColor, progressBackground) {
-    gl.useProgram(program);
-    var uCurrentProgress = gl.getUniformLocation(program, 'u_CurrentProgress');
-    gl.uniform1f(uCurrentProgress, progress);
-    var uProgressBarColor = gl.getUniformLocation(program, 'u_ProgressBarColor');
-    gl.uniform4fv(uProgressBarColor, progressBarColor);
-    var uProgressBackground = gl.getUniformLocation(program, 'u_ProgressBackground');
-    gl.uniform4fv(uProgressBackground, progressBackground);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    var aPosition = gl.getAttribLocation(program, 'a_Position');
-    gl.enableVertexAttribArray(aPosition);
-    var vertexFormatLength = 4;
-    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, vertexFormatLength * 3, 0);
-    var aProgress = gl.getAttribLocation(program, 'a_Progress');
-    gl.enableVertexAttribArray(aProgress);
-    gl.vertexAttribPointer(aProgress, 1, gl.FLOAT, false, vertexFormatLength * 3, vertexFormatLength * 2);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+function drawProgressBar(
+  gl,
+  program,
+  vertexBuffer,
+  vertexFormatLength,
+  progress,
+  progressBarColor,
+  progressBackground,
+) {
+  gl.useProgram(program);
+  var uCurrentProgress = gl.getUniformLocation(program, 'u_CurrentProgress');
+  gl.uniform1f(uCurrentProgress, progress);
+  var uProgressBarColor = gl.getUniformLocation(program, 'u_ProgressBarColor');
+  gl.uniform4fv(uProgressBarColor, progressBarColor);
+  var uProgressBackground = gl.getUniformLocation(program, 'u_ProgressBackground');
+  gl.uniform4fv(uProgressBackground, progressBackground);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  var aPosition = gl.getAttribLocation(program, 'a_Position');
+  gl.enableVertexAttribArray(aPosition);
+  var vertexFormatLength = 4;
+  gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, vertexFormatLength * 3, 0);
+  var aProgress = gl.getAttribLocation(program, 'a_Progress');
+  gl.enableVertexAttribArray(aProgress);
+  gl.vertexAttribPointer(
+    aProgress,
+    1,
+    gl.FLOAT,
+    false,
+    vertexFormatLength * 3,
+    vertexFormatLength * 2,
+  );
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
 function draw() {
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.clearColor(bgColor[0], bgColor[1], bgColor[2], bgColor[3]);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    // draw background
-    useCustomBg && drawTexture(gl, programBg, bgTexture, bgVertexBuffer, 4);
-    // draw logo
-    useLogo && drawTexture(gl, program, logoTexture, vertexBuffer, 4);
-    // draw slogan
-    useLogo && useDefaultLogo && drawTexture(gl, program, sloganTexture, sloganVertexBuffer, 4);
-    // draw progress bar
-    drawProgressBar(gl, programProgress, vertexBufferProgress, 3, progress, progressBarColor, progressBackground);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(bgColor[0], bgColor[1], bgColor[2], bgColor[3]);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  // draw background
+  if (useCustomBg) drawTexture(gl, programBg, bgTexture, bgVertexBuffer, 4);
+  // draw logo
+  if (useLogo) drawTexture(gl, program, logoTexture, vertexBuffer, 4);
+  // draw slogan
+  if (useLogo && useDefaultLogo) drawTexture(gl, program, sloganTexture, sloganVertexBuffer, 4);
+  // draw progress bar
+  drawProgressBar(
+    gl,
+    programProgress,
+    vertexBufferProgress,
+    3,
+    progress,
+    progressBarColor,
+    progressBackground,
+  );
 }
 
 function tick() {
+  if (stopped) return;
+  rafHandle = requestAnimationFrame(() => {
+    rafHandle = null;
     if (stopped) return;
-    rafHandle = requestAnimationFrame(() => {
-        rafHandle = null;
-        if (stopped) return;
-        try {
-            draw();
-        } catch (error) {
-            // The splash is cosmetic. A failed draw must not block engine boot.
-            console.warn('[pet-startup] first screen draw skipped', error);
-            stopped = true;
-        }
-        const pending = frameWaiters;
-        frameWaiters = [];
-        pending.forEach(resolve => resolve());
-        if (!stopped) tick();
-    });
+    try {
+      draw();
+    } catch (error) {
+      // The splash is cosmetic. A failed draw must not block engine boot.
+      console.warn('[pet-startup] first screen draw skipped', error);
+      stopped = true;
+    }
+    const pending = frameWaiters;
+    frameWaiters = [];
+    pending.forEach((resolve) => resolve());
+    if (!stopped) tick();
+  });
 }
 
 function end() {
-    return setProgress(1).then(() => {
-        stopped = true;
-        if (rafHandle !== null) cancelAnimationFrame(rafHandle);
-        rafHandle = null;
-        const pending = frameWaiters;
-        frameWaiters = [];
-        pending.forEach(resolve => resolve());
-        if (!gl) return;
-        gl.useProgram(null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        // Some native WebGL bridges reject null handles. Only delete objects
-        // which actually exist (this project uses a poster and no logo shader).
-        if (logoTexture) gl.deleteTexture(logoTexture);
-        if (sloganTexture) gl.deleteTexture(sloganTexture);
-        if (bgTexture) gl.deleteTexture(bgTexture);
-        if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
-        if (bgVertexBuffer) gl.deleteBuffer(bgVertexBuffer);
-        if (sloganVertexBuffer) gl.deleteBuffer(sloganVertexBuffer);
-        if (vertexBufferProgress) gl.deleteBuffer(vertexBufferProgress);
-        if (program) gl.deleteProgram(program);
-        if (programBg) gl.deleteProgram(programBg);
-        if (programProgress) gl.deleteProgram(programProgress);
-    });
+  return setProgress(1).then(() => {
+    stopped = true;
+    if (rafHandle !== null) cancelAnimationFrame(rafHandle);
+    rafHandle = null;
+    const pending = frameWaiters;
+    frameWaiters = [];
+    pending.forEach((resolve) => resolve());
+    if (!gl) return;
+    gl.useProgram(null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    // Some native WebGL bridges reject null handles. Only delete objects
+    // which actually exist (this project uses a poster and no logo shader).
+    if (logoTexture) gl.deleteTexture(logoTexture);
+    if (sloganTexture) gl.deleteTexture(sloganTexture);
+    if (bgTexture) gl.deleteTexture(bgTexture);
+    if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
+    if (bgVertexBuffer) gl.deleteBuffer(bgVertexBuffer);
+    if (sloganVertexBuffer) gl.deleteBuffer(sloganVertexBuffer);
+    if (vertexBufferProgress) gl.deleteBuffer(vertexBufferProgress);
+    if (program) gl.deleteProgram(program);
+    if (programBg) gl.deleteProgram(programBg);
+    if (programProgress) gl.deleteProgram(programProgress);
+  });
 }
 
 function setProgress(val) {
-    progress = Math.max(progress, Math.min(1, Number(val) || 0));
-    if (stopped) return Promise.resolve();
-    return new Promise(resolve => {
-        let done = false;
-        const finish = () => {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
-            const index = frameWaiters.indexOf(finish);
-            if (index >= 0) frameWaiters.splice(index, 1);
-            resolve();
-        };
-        // iOS can suspend/reassign the frame callback during startup. Rendering
-        // must never be the only thing that can release the boot Promise.
-        const timer = setTimeout(finish, FRAME_WAIT_MS);
-        frameWaiters.push(finish);
-    });
+  progress = Math.max(progress, Math.min(1, Number(val) || 0));
+  if (stopped) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      const index = frameWaiters.indexOf(finish);
+      if (index >= 0) frameWaiters.splice(index, 1);
+      resolve();
+    };
+    // iOS can suspend/reassign the frame callback during startup. Rendering
+    // must never be the only thing that can release the boot Promise.
+    const timer = setTimeout(finish, FRAME_WAIT_MS);
+    frameWaiters.push(finish);
+  });
 }
 
 function start(alpha, antialias, useWebgl2) {
-    stopped = false;
-    progress = 0;
-    options.alpha = alpha === 'true' ? true : false;
-    options.antialias = antialias === 'false' ? false : true;
-    if (useWebgl2 === 'true') {
-        gl = window.canvas.getContext("webgl2", options);
-    }
-    // TODO: this is a hack method to detect whether WebGL2RenderingContext is supported
-    if (gl) {
-        window.WebGL2RenderingContext = true;
-    } else {
-        window.WebGL2RenderingContext = false;
-        gl = window.canvas.getContext("webgl", options);
-    }
-    initVertexBuffer();
-    useCustomBg && initBgVertexBuffer();
-    useLogo && useDefaultLogo && initSloganVertexBuffer();
-    initProgressVertexBuffer();
+  stopped = false;
+  progress = 0;
+  options.alpha = alpha === 'true' ? true : false;
+  options.antialias = antialias === 'false' ? false : true;
+  if (useWebgl2 === 'true') {
+    gl = window.canvas.getContext('webgl2', options);
+  }
+  // TODO: this is a hack method to detect whether WebGL2RenderingContext is supported
+  if (gl) {
+    window.WebGL2RenderingContext = true;
+  } else {
+    window.WebGL2RenderingContext = false;
+    gl = window.canvas.getContext('webgl', options);
+  }
+  initVertexBuffer();
+  if (useCustomBg) initBgVertexBuffer();
+  if (useLogo && useDefaultLogo) initSloganVertexBuffer();
+  initProgressVertexBuffer();
 
-    useLogo && initLogoTexture();
-    useCustomBg && initBgTexture();
-    useLogo && useDefaultLogo && initSloganTexture();
+  if (useLogo) initLogoTexture();
+  if (useCustomBg) initBgTexture();
+  if (useLogo && useDefaultLogo) initSloganTexture();
 
-    if (useLogo) {
-        program = initShaders(VS_LOGO, FS_LOGO);
-    }
-    if (useCustomBg) {
-        programBg = initShaders(VS_BG, FS_BG);
-    }
-    programProgress = initShaders(VS_PROGRESSBAR, FS_PROGRESSBAR);
-    tick();
-    
-    return Promise.all([
-        //logo should be loaded earlier than slogan
-        useLogo && loadImage(logoName).then(() => {
-            updateVertexBuffer();
-            updateLogoTexture();
-        }).then(() => {
-            return useLogo && useDefaultLogo && loadSlogan('slogan.png').then(() => {
-                updateSloganVertexBuffer();
-                updateSloganTexture();
-            });
-        }),
-        useCustomBg && loadBackground(bgName).then(() => {
-            updateBgVertexBuffer();
-            updateBgTexture();
+  if (useLogo) {
+    program = initShaders(VS_LOGO, FS_LOGO);
+  }
+  if (useCustomBg) {
+    programBg = initShaders(VS_BG, FS_BG);
+  }
+  programProgress = initShaders(VS_PROGRESSBAR, FS_PROGRESSBAR);
+  tick();
+
+  return Promise.all([
+    //logo should be loaded earlier than slogan
+    useLogo &&
+      loadImage(logoName)
+        .then(() => {
+          updateVertexBuffer();
+          updateLogoTexture();
         })
-    ]).then(() => {
-        return setProgress(0);
-    });
+        .then(() => {
+          return (
+            useLogo &&
+            useDefaultLogo &&
+            loadSlogan('slogan.png').then(() => {
+              updateSloganVertexBuffer();
+              updateSloganTexture();
+            })
+          );
+        }),
+    useCustomBg &&
+      loadBackground(bgName).then(() => {
+        updateBgVertexBuffer();
+        updateBgTexture();
+      }),
+  ]).then(() => {
+    return setProgress(0);
+  });
 }
 module.exports = { start, end, setProgress };

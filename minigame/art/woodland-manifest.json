@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "date": "2026-10-25",
   "theme": "森林木作",
   "generator": "built-in image_gen",
@@ -14,7 +14,7 @@
     {
       "id": "game",
       "alpha": false,
-      "prompt": "Use case: stylized-concept. Asset type: full-screen portrait mobile GAMEPLAY BACKGROUND, ratio 6:13 (720x1560). Input image 1 is the APPROVED STYLE REFERENCE, not an edit target. Match its premium carved wooden toy aesthetic closely: honey maple and walnut natural grain, warm ivory painted wood, sage and forest-green accents, warm soft daylight, rounded sanded chamfers, friendly sculptural pet faces. Original game 快乐萌宠消. Clean finished production game art, no stock emoji, no shiny plastic, no heavy outlines, no watermark.\nCreate a calm pale sage green woodland clearing seen through a wooden toy workshop. Very sparse softly blurred leaves around top and lateral EDGES only. Center x7–93%, y8–78% must be very clean matte pale muted sage with gentle daylight gradient, no objects, no patterns, so 100 small white tiles will be readable. Lower y80–100% becomes warm honey maple tabletop with subtle horizontal natural grain for the tray and tools, gentle curved boundary. Warm sunlight from top left, slight ambient shadow near edges, tactile handcrafted atmosphere. Quiet, minimal, premium. Absolutely NO animals, text, logo, tiles, UI, props, furniture obstructing center, buttons or panels.",
+      "prompt": "Use case: stylized-concept. Asset: portrait gameplay background, aspect6:13 (720x1560). The input image is the approved exact visual design reference for 快乐萌宠消, not merely a broad mood reference. Reproduce its shapes, proportions, wood colors, soft highlights and delicate natural grain as closely as possible. Keep the premium rounded hand-carved wood toy rendering. No bright plastic shine, no exaggerated thick rims. This is production sprite extraction/reconstruction, not a new creative style.\nReconstruct ONLY the softly out-of-focus BACKGROUND of the RIGHT reference screen, without any game elements. A soft low-contrast sage-green forest clearing. Center is plain and quiet desaturated moss/sagegreen, gentle diffused light rather than bright golden beams. Only a FEW soft-focus broad wooden-looking leaves at the far left/right edge and upper corners. No dominant tree trunk or diagonal branch across the top, no yellow-white high-contrast sky or architecture. At about y73% a honey maple tabletop begins, continues to bottom, subtle understated horizontal grain. Forest floor and small leaf shapes blend into its corners. This should be much quieter and more matte than a detailed scene illustration, allowing animal tiles to stand out. No animals, tiles, text, logos, buttons, trays, slots, panels, frames, houses, heavy vignette or decorative objects.",
       "source": "art/source-woodland/game.png"
     },
     {
@@ -47,5 +47,6 @@
       "prompt": "Use case: stylized-concept. Asset type: portrait full-screen loading poster for 快乐萌宠消, ratio6:13 (720x1560). Input image 1 is the APPROVED STYLE REFERENCE, not an edit target. Match its premium carved wooden toy aesthetic closely: honey maple and walnut natural grain, warm ivory painted wood, sage and forest-green accents, warm soft daylight, rounded sanded chamfers, friendly sculptural pet faces. Original game 快乐萌宠消. Clean finished production game art, no stock emoji, no shiny plastic, no heavy outlines, no watermark.\nA polished original warm woodland wooden-toy poster. At upper center y16–35%, a beautiful carved walnut sign with chunky raised title EXACTLY \"快乐萌宠消\" on two lines: 快乐 / 萌宠消, honey-gold + ivory + sage characters, leaves. Center below logo y40–70% a friendly white wooden rabbit, ivory charcoal wooden panda, honey ox and brown monkey clustered on a maple workshop shelf, all cute tiny carved smiles. Deep forest canopy and sunlit round leaves around edges, airy sage-green clearing behind, warm sunbeams, beautifully tactile sanded wood grain. Lower y78–100% a quiet clean honey maple tabletop with lots of space for a loading bar added by code. Composition feels like opening a special handcrafted toy box. NO built-in progress bar, percentages, text other than title, UI, buttons, border or watermark.",
       "source": "art/source-woodland/loading.png"
     }
-  ]
+  ],
+  "refinements": "art/woodland-details-manifest.json"
 }

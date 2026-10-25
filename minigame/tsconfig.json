@@ -1,6 +1,6 @@
 {
   "extends": "./temp/tsconfig.cocos.json",
-  "compilerOptions": { "strict": true, "lib": ["ES2020", "DOM"],"ignoreDeprecations": "6.0" },
+  "compilerOptions": { "strict": true, "lib": ["ES2020", "DOM"], "ignoreDeprecations": "6.0" },
   "include": ["assets/**/*.ts"],
   "exclude": ["art", "build", "library", "node_modules", "output"]
 }

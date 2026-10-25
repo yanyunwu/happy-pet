@@ -29,7 +29,7 @@ const images = Object.fromEntries(
   ['backend', 'admin', 'gateway', 'context'].map((k) => [k, `happy-pet-check/${k}:${nonce}`]),
 );
 const values = {
-  IMAGE_PREFIX: 'crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/happy-pet',
+  IMAGE_PREFIX: 'crpi-ckmtqd558kzqdlu7.cn-hangzhou.personal.cr.aliyuncs.com/failure-plan',
   IMAGE_TAG: 'latest',
   POSTGRES_PASSWORD: randomBytes(24).toString('hex'),
   PGUSER: 'happy_pet_check',
@@ -234,7 +234,10 @@ try {
       undefined,
       'Production servers pull images without source builds',
     );
-    assert.equal(configured.services[name].image, `${values.IMAGE_PREFIX}/${name}:latest`);
+    assert.equal(
+      configured.services[name].image,
+      `${values.IMAGE_PREFIX}/happy-pet-${name}:latest`,
+    );
     configured.services[name].image = images[name];
   }
   const existing = (await docker(['network', 'ls', '-q'])).out.trim().split(/\s+/).filter(Boolean);
