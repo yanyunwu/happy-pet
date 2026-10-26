@@ -39,6 +39,14 @@ function harness({ autoplay = true, floatVolume = false, stoppedStopStalls = fal
     }
     stallNextPlay = false;
     nativeStalled = false;
+    signalOnlyNextPlay = false;
+    nativeProgressStalled = false;
+    get progressEnabled() {
+      return this.node.progressEnabled !== false;
+    }
+    set progressEnabled(value) {
+      this.node.progressEnabled = value;
+    }
     currentTime = 0;
     asset = null;
     set clip(value) {
@@ -57,6 +65,10 @@ function harness({ autoplay = true, floatVolume = false, stoppedStopStalls = fal
     }
     play() {
       this.playCalls++;
+      if (this.signalOnlyNextPlay) {
+        this.nativeProgressStalled = true;
+        this.signalOnlyNextPlay = false;
+      }
       if (this.stallNextPlay) {
         this.nativeStalled = true;
         this.stallNextPlay = false;
@@ -141,6 +153,10 @@ function harness({ autoplay = true, floatVolume = false, stoppedStopStalls = fal
   const advance = (seconds) => {
     for (let elapsed = 0; elapsed < seconds;) {
       const dt = Math.min(0.02, seconds - elapsed);
+      for (const { source } of audio.musicSlots) {
+        if (source.playing && source.progressEnabled && !source.nativeProgressStalled)
+          source.currentTime = (source.currentTime + dt) % 60;
+      }
       audio.update(dt);
       elapsed += dt;
     }
@@ -173,7 +189,7 @@ test('music resumes after an unexpected pause without changing the track or play
   h.advance(1.2);
   assert.equal(slot.source.playing, true, 'background music must recover without a click');
   assert.equal(h.active(), slot);
-  assert.equal(slot.source.currentTime, 17);
+  assert.ok(slot.source.currentTime >= 17 && slot.source.currentTime < 19);
   assert.ok(slot.source.volume > 0.18);
 });
 
@@ -325,7 +341,7 @@ test('a native resume that never acknowledges playback is recovered without losi
     true,
     'replace a wedged native queue after its recovery deadline',
   );
-  assert.equal(h.active().source.currentTime, 17);
+  assert.ok(h.active().source.currentTime >= 17 && h.active().source.currentTime < 25);
   assert.equal(slot.source.playCalls, calls + 2);
 });
 
@@ -405,7 +421,7 @@ test('returning home before the game player starts preserves the playing home lo
   h.audio.setMode('home');
   h.advance(2);
   assert.equal(h.active(), home);
-  assert.equal(home.source.currentTime, 17, 'reversing the fade must not restart the old song');
+  assert.ok(home.source.currentTime >= 17, 'reversing the fade must not restart the old song');
   assert.equal(home.source.playCalls, calls);
   assert.equal(incoming.source.clip, null, 'cancel the abandoned load/play queue');
 });
@@ -477,4 +493,78 @@ test('mute and background discard pending music so a late startup cannot revive 
     assert.equal(h.active().name, 'music');
     assert.equal(h.active().source.playing, true);
   }
+});
+
+test('synthetic STARTED without progress keeps home audible and recovers the first game loop', () => {
+  const h = harness();
+  const home = h.active();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+  incoming.source.signalOnlyNextPlay = true;
+  h.audio.play('tap');
+  h.audio.setMode('game');
+  h.advance(2);
+  assert.equal(incoming.source.playing, true, 'WeChat compatibility layer reports PLAYING');
+  assert.equal(incoming.source.currentTime, 0, 'the native device has not started');
+  assert.equal(home.source.playing, true, 'keep the real music until the new clock advances');
+  assert.ok(home.source.volume > 0.18);
+  h.advance(13);
+  assert.ok(incoming.source.currentTime > 0, 'recover without leaving the game');
+  assert.equal(incoming.source.playCalls, 2);
+  assert.equal(home.source.playing, false);
+  h.advance(60);
+  assert.equal(incoming.source.playCalls, 2, 'a healthy replacement remains continuous');
+});
+
+test('synthetic STARTED never authorizes unlimited recovery when playback remains unavailable', () => {
+  const h = harness();
+  const home = h.active();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+  incoming.source.progressEnabled = false;
+  h.audio.setMode('game');
+  h.advance(60);
+  assert.equal(incoming.source.playCalls, 2, 'one initial play and one replacement');
+  assert.equal(home.source.playing, true);
+  assert.ok(home.source.currentTime > 0);
+});
+
+test('a playing loop whose clock stops recovers once and preserves its position', () => {
+  const h = harness();
+  const slot = h.active();
+  const position = slot.source.currentTime;
+  const calls = slot.source.playCalls;
+  slot.source.nativeProgressStalled = true;
+  h.advance(8);
+  assert.equal(slot.source.playCalls, calls + 1);
+  assert.ok(slot.source.currentTime > position, 'the replacement continues from the last position');
+  h.advance(60);
+  assert.equal(slot.source.playCalls, calls + 1);
+});
+
+test('a healthy loop wrapping to zero is progress and does not trigger recovery', () => {
+  const h = harness();
+  const slot = h.active();
+  slot.source.currentTime = 59.8;
+  const calls = slot.source.playCalls;
+  h.advance(10);
+  assert.ok(slot.source.currentTime > 9 && slot.source.currentTime < 11);
+  assert.equal(slot.source.playCalls, calls);
+});
+
+test('a new stop immediately after pause recovery resumes without replacing the healthy source', () => {
+  const h = harness();
+  const slot = h.active();
+  const source = slot.source;
+  const calls = source.playCalls;
+  source.pause();
+  h.advance(0.02);
+  assert.equal(source.playing, true);
+  // A second interruption arrives before the next half-second progress sample.
+  source.stop();
+  h.advance(1.2);
+  assert.equal(source.playing, true, 'a completed play request cannot block the next interruption');
+  assert.equal(slot.source, source);
+  assert.equal(source.playCalls, calls + 2);
+  h.advance(8);
+  assert.equal(slot.source, source);
+  assert.equal(source.playCalls, calls + 2);
 });

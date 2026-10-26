@@ -31,13 +31,20 @@ const VOLUME_EPSILON = 0.0001;
 // Creator's native player may wait eight seconds for canplay before starting.
 const MUSIC_START_TIMEOUT = 12;
 const MUSIC_RESUME_TIMEOUT = 5;
+const MUSIC_PROGRESS_INTERVAL = 0.5;
+const MUSIC_PROGRESS_EPSILON = 0.001;
 interface MusicSlot {
   source: AudioSource;
   name: string;
   target: number;
   started: boolean;
+  progressConfirmed: boolean;
+  position: number;
+  progressAt: number;
+  sampleAt: number;
   retryAt: number;
   resumingAt: number;
+  resumePending: boolean;
   resetAttempted: boolean;
 }
 
@@ -82,8 +89,13 @@ export class WoodlandAudio extends Component {
         name: '',
         target: 0,
         started: false,
+        progressConfirmed: false,
+        position: 0,
+        progressAt: 0,
+        sampleAt: 0,
         retryAt: 0,
         resumingAt: -1,
+        resumePending: false,
         resetAttempted: false,
       };
       slot.source.node.on(
@@ -91,9 +103,9 @@ export class WoodlandAudio extends Component {
         (source: AudioSource) => {
           if (source !== slot.source || !slot.name || !source.playing) return;
           slot.started = true;
-          this.hasPlayedMusic = true;
-          slot.resumingAt = -1;
-          slot.resetAttempted = false;
+          slot.resumePending = false;
+          // WeChat's Creator adapter synthesizes onPlay after play(). Only a
+          // moving playback clock may confirm success and cancel recovery.
         },
         this,
       );
@@ -214,8 +226,8 @@ export class WoodlandAudio extends Component {
     const gain = (this.mode === 'home' ? 0.28 : 0.22) * (this.ducking ? 0.3 : 1);
     const selected = this.musicSlots[this.activeMusic];
     for (const slot of this.musicSlots) {
-      // Keep the outgoing loop audible until the next player confirms playback.
-      const keepOutgoing = !selected?.started && slot.source.playing;
+      // A synthetic STARTED event cannot authorize retiring the audible loop.
+      const keepOutgoing = !selected?.progressConfirmed && slot.source.playing;
       const target = (slot.target && slot.started) || keepOutgoing ? gain : 0;
       const volume = slot.source.volume;
       if (Math.abs(volume - target) >= VOLUME_EPSILON) {
@@ -243,33 +255,65 @@ export class WoodlandAudio extends Component {
       // Leave blocked autoplay and active platform interruptions to Cocos;
       // otherwise bound both the initial play and later resume requests.
       const state = current.source.state;
+      if (state === AudioSource.AudioState.INTERRUPTED) {
+        // Give the platform time to return audio focus without counting the
+        // interruption as a stalled player or recreating audio during it.
+        current.progressAt = this.clock;
+        if (current.resumingAt >= 0) current.resumingAt = this.clock;
+        return;
+      }
       if (current.source.playing) {
         current.started = true;
-        this.hasPlayedMusic = true;
-        current.resumingAt = -1;
-        current.resetAttempted = false;
+        current.resumePending = false;
+        if (this.clock >= current.sampleAt) {
+          current.sampleAt = this.clock + MUSIC_PROGRESS_INTERVAL;
+          const position = current.source.currentTime;
+          if (Number.isFinite(position) && position >= 0) {
+            // The clock wrapping at the end of a loop is progress too.
+            if (Math.abs(position - current.position) > MUSIC_PROGRESS_EPSILON) {
+              current.progressConfirmed = true;
+              current.progressAt = this.clock;
+              current.resumingAt = -1;
+              current.resetAttempted = false;
+              this.hasPlayedMusic = true;
+            }
+            current.position = position;
+          }
+        }
       }
       if (
-        !current.started &&
+        !current.progressConfirmed &&
         current.resumingAt < 0 &&
-        (this.unlocked || this.hasPlayedMusic) &&
-        state !== AudioSource.AudioState.INTERRUPTED
+        (this.unlocked || this.hasPlayedMusic || current.started)
       ) {
         current.resumingAt = this.clock;
       }
+      const waitingSince =
+        current.resumingAt >= 0
+          ? current.resumingAt
+          : current.progressConfirmed
+            ? current.progressAt
+            : -1;
       if (
-        current.resumingAt >= 0 &&
+        waitingSince >= 0 &&
         !current.resetAttempted &&
-        state !== AudioSource.AudioState.INTERRUPTED &&
-        this.clock - current.resumingAt >=
-          (current.started ? MUSIC_RESUME_TIMEOUT : MUSIC_START_TIMEOUT)
+        this.clock - waitingSince >=
+          (current.progressConfirmed ? MUSIC_RESUME_TIMEOUT : MUSIC_START_TIMEOUT)
       ) {
         // A missing native onPlay can wedge Cocos' operation queue. Recreate this
         // player once; repeated resets would race slow loads of the same clip.
         const position = current.source.currentTime;
         const volume = current.source.volume;
+        console.info('[woodland-audio] music-progress-1 recovery', {
+          track: current.name,
+          state,
+          position,
+          progressConfirmed: current.progressConfirmed,
+        });
         current.resetAttempted = true;
         this.replaceMusicSource(current);
+        this.resetMusicProgress(current, position);
+        current.resumingAt = this.clock;
         current.source.clip = clip;
         current.source.volume = volume;
         if (Number.isFinite(position) && position >= 0) current.source.currentTime = position;
@@ -278,12 +322,19 @@ export class WoodlandAudio extends Component {
       }
       if (
         current.started &&
-        current.resumingAt < 0 &&
+        !current.resumePending &&
         (state === AudioSource.AudioState.PAUSED || state === AudioSource.AudioState.STOPPED) &&
         this.clock >= current.retryAt
       ) {
         current.retryAt = this.clock + 1;
-        current.resumingAt = this.clock;
+        // STARTED completes the engine request even before the next progress
+        // sample. A later pause/stop is a new interruption, but must not extend
+        // the no-progress deadline or authorize another reset by itself.
+        current.resumePending = true;
+        if (current.resumingAt < 0) current.resumingAt = this.clock;
+        current.progressAt = this.clock;
+        current.position = current.source.currentTime;
+        current.sampleAt = this.clock + MUSIC_PROGRESS_INTERVAL;
         current.source.play();
       }
       return;
@@ -292,21 +343,35 @@ export class WoodlandAudio extends Component {
     this.activeMusic = this.activeMusic === 0 ? 1 : 0;
     const incoming = this.musicSlots[this.activeMusic];
     const reuse =
-      incoming.name === name && incoming.source.clip === clip && incoming.source.playing;
+      incoming.progressConfirmed &&
+      incoming.name === name &&
+      incoming.source.clip === clip &&
+      incoming.source.playing;
     incoming.name = name;
     incoming.target = 1;
     incoming.started = reuse;
     incoming.retryAt = this.clock + 1;
     incoming.resumingAt = -1;
     incoming.resetAttempted = false;
+    incoming.progressAt = this.clock;
     // A quick reversal can reuse the still-playing outgoing song. Otherwise
     // discard any old operation queue instead of queuing stop before play:
     // native stop on an already stopped player may never acknowledge completion.
     if (reuse) return;
     if (incoming.source.clip) this.replaceMusicSource(incoming);
+    this.resetMusicProgress(incoming);
     incoming.source.volume = 0;
     incoming.source.clip = clip;
     incoming.source.play();
+  }
+
+  private resetMusicProgress(slot: MusicSlot, position = 0): void {
+    slot.started = false;
+    slot.resumePending = false;
+    slot.progressConfirmed = false;
+    slot.position = Number.isFinite(position) && position >= 0 ? position : 0;
+    slot.progressAt = this.clock;
+    slot.sampleAt = this.clock;
   }
 
   private replaceMusicSource(slot: MusicSlot): void {
@@ -342,7 +407,7 @@ export class WoodlandAudio extends Component {
     }
     slot.name = '';
     slot.target = 0;
-    slot.started = false;
+    this.resetMusicProgress(slot);
     slot.resumingAt = -1;
     slot.resetAttempted = false;
   }

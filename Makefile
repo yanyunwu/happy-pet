@@ -119,6 +119,7 @@ test-startup:
 	cd minigame && node tools/test-wechat-startup.cjs
 test-audio:
 	node minigame/tools/test-audio-recovery.cjs
+	node minigame/tools/test-audio-native.cjs
 	node minigame/tools/test-audio-assets.cjs
 	node minigame/tools/test-soundscape.cjs
 	AUDIO_AUTOPLAY=blocked node minigame/tools/test-soundscape.cjs
