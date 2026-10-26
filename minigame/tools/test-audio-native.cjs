@@ -96,7 +96,12 @@ function compile(filename, requireModule, timers, text = fs.readFileSync(filenam
   return mod.exports;
 }
 
-async function scenario({ polyfill, failFirstGame }) {
+async function scenario({
+  polyfill,
+  failFirstGame,
+  briefFirstGame = false,
+  briefEveryGame = false,
+}) {
   const timers = new Timers();
   const natives = [];
   let gameContextCount = 0;
@@ -116,6 +121,7 @@ async function scenario({ polyfill, failFirstGame }) {
     playCalls = 0;
     nativePlayEvents = 0;
     gameOrdinal = 0;
+    playedSeconds = 0;
     set src(value) {
       this.url = value;
       if (value === 'audio/music') this.gameOrdinal = ++gameContextCount;
@@ -159,6 +165,16 @@ async function scenario({ polyfill, failFirstGame }) {
     }
     advance(dt) {
       if (!this.actualPlaying || this.destroyed) return;
+      // Another startup failure: one real clock sample arrives, then output
+      // stalls while the engine continues reporting PLAYING.
+      if (
+        ((briefFirstGame && this.gameOrdinal === 1) || (briefEveryGame && this.gameOrdinal > 0)) &&
+        this.playedSeconds >= 0.02
+      ) {
+        this.actualPlaying = false;
+        return;
+      }
+      this.playedSeconds += dt;
       this.currentTime += dt;
       if (this.currentTime >= this.duration) {
         if (this.loop) this.currentTime %= this.duration;
@@ -349,6 +365,9 @@ async function scenario({ polyfill, failFirstGame }) {
   audio.configure(() => true);
   await timers.settle();
 
+  let measureGameGap = false;
+  let gap = 0;
+  let maxGap = 0;
   const advance = async (seconds) => {
     const frames = Math.ceil(seconds / 0.02);
     for (let frame = 0; frame < frames; frame++) {
@@ -358,6 +377,14 @@ async function scenario({ polyfill, failFirstGame }) {
       await timers.settle();
       audio.update(dt);
       await timers.settle();
+      if (measureGameGap) {
+        const audible = natives.some(
+          (native) =>
+            native.loop && native.actualPlaying && !native.destroyed && native.volume > 0.02,
+        );
+        gap = audible ? 0 : gap + dt;
+        maxGap = Math.max(maxGap, gap);
+      }
     }
   };
   const snapshots = [];
@@ -388,12 +415,14 @@ async function scenario({ polyfill, failFirstGame }) {
   snapshot('home_before_entry');
   audio.play('tap');
   audio.setMode('game');
+  measureGameGap = true;
   await advance(2);
   const first = snapshot('first_game_after_2s');
   await advance(13);
   snapshot('first_game_after_15s');
   await advance(45);
   const longWait = snapshot('first_game_after_60s');
+  measureGameGap = false;
   audio.play('tap');
   await advance(0.12);
   const effectsCanProgress = natives.some(
@@ -414,6 +443,9 @@ async function scenario({ polyfill, failFirstGame }) {
   return {
     polyfill,
     failFirstGame,
+    briefFirstGame,
+    briefEveryGame,
+    maxSilentGapSeconds: Number(maxGap.toFixed(3)),
     startedEvents,
     effectsCanProgress,
     snapshots,
@@ -433,9 +465,11 @@ async function scenario({ polyfill, failFirstGame }) {
     { polyfill: true, failFirstGame: false },
     { polyfill: false, failFirstGame: true },
     { polyfill: true, failFirstGame: true },
+    { polyfill: true, failFirstGame: false, briefFirstGame: true },
+    { polyfill: true, failFirstGame: false, briefEveryGame: true },
   ])
     results.push(await scenario(options));
-  const [healthy, withoutPolyfill, wechat] = results;
+  const [healthy, withoutPolyfill, wechat, briefStartup, persistentBriefStartup] = results;
   const point = (result, label) => result.snapshots.find((item) => item.label === label);
   assert.ok(point(healthy, 'first_game_after_2s').nativeCurrentTime > 0, 'healthy control works');
   assert.ok(
@@ -446,7 +480,7 @@ async function scenario({ polyfill, failFirstGame }) {
     controller: controllerPath,
     deviceTest: false,
     simulatedFailure:
-      'Only the first game native context never starts or emits native onPlay; replacement contexts work.',
+      'The first game native context either never starts or advances only 0.02s before stalling; replacement contexts work.',
     engineSources: [
       'cocos/audio/audio-source.ts',
       'pal/audio/minigame/player.js',
@@ -476,8 +510,19 @@ async function scenario({ polyfill, failFirstGame }) {
   assert.deepEqual(point(wechat, 'first_game_after_15s').audibleMusic, ['audio/music']);
   assert.deepEqual(point(wechat, 'second_game_after_2s').audibleMusic, ['audio/music']);
   assert.ok(wechat.effectsCanProgress, 'native effects remain functional during the recovery flow');
+  assert.ok(
+    briefStartup.maxSilentGapSeconds < 0.1,
+    `a brief initial clock advance must not cause a silent gap: ${briefStartup.maxSilentGapSeconds}s`,
+  );
+  assert.ok(point(briefStartup, 'first_game_after_15s').nativeCurrentTime > 0);
+  assert.equal(
+    point(persistentBriefStartup, 'first_game_after_60s').nativeGameContexts,
+    2,
+    'one small clock sample cannot authorize repeated rebuilding of a permanently failing player',
+  );
+  assert.equal(persistentBriefStartup.maxSilentGapSeconds, 0);
   console.log(
-    'PASS — real Creator WeChat adapter: cold-start false acknowledgement, missing acknowledgement and healthy playback.',
+    'PASS — real Creator WeChat adapter: false acknowledgement, missing acknowledgement, brief startup stall without a gap, and healthy playback.',
   );
 })().catch((error) => {
   console.error(error);

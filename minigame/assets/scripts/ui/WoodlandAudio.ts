@@ -33,12 +33,15 @@ const MUSIC_START_TIMEOUT = 12;
 const MUSIC_RESUME_TIMEOUT = 5;
 const MUSIC_PROGRESS_INTERVAL = 0.5;
 const MUSIC_PROGRESS_EPSILON = 0.001;
+const MUSIC_HANDOFF_CONFIRM_TIME = 1;
 interface MusicSlot {
   source: AudioSource;
   name: string;
   target: number;
   started: boolean;
   progressConfirmed: boolean;
+  progressBeganAt: number;
+  handoffReady: boolean;
   position: number;
   progressAt: number;
   sampleAt: number;
@@ -90,6 +93,8 @@ export class WoodlandAudio extends Component {
         target: 0,
         started: false,
         progressConfirmed: false,
+        progressBeganAt: -1,
+        handoffReady: false,
         position: 0,
         progressAt: 0,
         sampleAt: 0,
@@ -225,10 +230,15 @@ export class WoodlandAudio extends Component {
     }
     const gain = (this.mode === 'home' ? 0.28 : 0.22) * (this.ducking ? 0.3 : 1);
     const selected = this.musicSlots[this.activeMusic];
+    const hasOutgoing = this.musicSlots.some(
+      (slot) => slot !== selected && !!slot.name && slot.source.volume > 0.002,
+    );
     for (const slot of this.musicSlots) {
-      // A synthetic STARTED event cannot authorize retiring the audible loop.
-      const keepOutgoing = !selected?.progressConfirmed && slot.source.playing;
-      const target = (slot.target && slot.started) || keepOutgoing ? gain : 0;
+      // Keep the old song recoverable even if it is temporarily paused. The
+      // new song must advance across the confirmation window before fading in.
+      const keepOutgoing = slot !== selected && !selected?.handoffReady && !!slot.name;
+      const playIncoming = slot.target && slot.started && (!hasOutgoing || slot.handoffReady);
+      const target = playIncoming || keepOutgoing ? gain : 0;
       const volume = slot.source.volume;
       if (Math.abs(volume - target) >= VOLUME_EPSILON) {
         const next = volume + (target - volume) * (1 - Math.exp(-dt / 0.18));
@@ -251,99 +261,25 @@ export class WoodlandAudio extends Component {
     if (!clip) return;
     const current = this.musicSlots[this.activeMusic];
     if (current?.name === name && current.target === 1) {
-      // A selected loop can still be paused/stopped by the platform or audio manager.
-      // Leave blocked autoplay and active platform interruptions to Cocos;
-      // otherwise bound both the initial play and later resume requests.
-      const state = current.source.state;
-      if (state === AudioSource.AudioState.INTERRUPTED) {
-        // Give the platform time to return audio focus without counting the
-        // interruption as a stalled player or recreating audio during it.
-        current.progressAt = this.clock;
-        if (current.resumingAt >= 0) current.resumingAt = this.clock;
-        return;
-      }
-      if (current.source.playing) {
-        current.started = true;
-        current.resumePending = false;
-        if (this.clock >= current.sampleAt) {
-          current.sampleAt = this.clock + MUSIC_PROGRESS_INTERVAL;
-          const position = current.source.currentTime;
-          if (Number.isFinite(position) && position >= 0) {
-            // The clock wrapping at the end of a loop is progress too.
-            if (Math.abs(position - current.position) > MUSIC_PROGRESS_EPSILON) {
-              current.progressConfirmed = true;
-              current.progressAt = this.clock;
-              current.resumingAt = -1;
-              current.resetAttempted = false;
-              this.hasPlayedMusic = true;
-            }
-            current.position = position;
-          }
+      this.refreshMusicSlot(current, clip);
+      if (!current.handoffReady) {
+        for (const outgoing of this.musicSlots) {
+          if (outgoing === current || !outgoing.name) continue;
+          const outgoingClip = this.clips.get(outgoing.name);
+          if (outgoingClip) this.refreshMusicSlot(outgoing, outgoingClip);
         }
-      }
-      if (
-        !current.progressConfirmed &&
-        current.resumingAt < 0 &&
-        (this.unlocked || this.hasPlayedMusic || current.started)
-      ) {
-        current.resumingAt = this.clock;
-      }
-      const waitingSince =
-        current.resumingAt >= 0
-          ? current.resumingAt
-          : current.progressConfirmed
-            ? current.progressAt
-            : -1;
-      if (
-        waitingSince >= 0 &&
-        !current.resetAttempted &&
-        this.clock - waitingSince >=
-          (current.progressConfirmed ? MUSIC_RESUME_TIMEOUT : MUSIC_START_TIMEOUT)
-      ) {
-        // A missing native onPlay can wedge Cocos' operation queue. Recreate this
-        // player once; repeated resets would race slow loads of the same clip.
-        const position = current.source.currentTime;
-        const volume = current.source.volume;
-        console.info('[woodland-audio] music-progress-1 recovery', {
-          track: current.name,
-          state,
-          position,
-          progressConfirmed: current.progressConfirmed,
-        });
-        current.resetAttempted = true;
-        this.replaceMusicSource(current);
-        this.resetMusicProgress(current, position);
-        current.resumingAt = this.clock;
-        current.source.clip = clip;
-        current.source.volume = volume;
-        if (Number.isFinite(position) && position >= 0) current.source.currentTime = position;
-        current.source.play();
-        return;
-      }
-      if (
-        current.started &&
-        !current.resumePending &&
-        (state === AudioSource.AudioState.PAUSED || state === AudioSource.AudioState.STOPPED) &&
-        this.clock >= current.retryAt
-      ) {
-        current.retryAt = this.clock + 1;
-        // STARTED completes the engine request even before the next progress
-        // sample. A later pause/stop is a new interruption, but must not extend
-        // the no-progress deadline or authorize another reset by itself.
-        current.resumePending = true;
-        if (current.resumingAt < 0) current.resumingAt = this.clock;
-        current.progressAt = this.clock;
-        current.position = current.source.currentTime;
-        current.sampleAt = this.clock + MUSIC_PROGRESS_INTERVAL;
-        current.source.play();
       }
       return;
     }
-    if (current) current.target = 0;
+    if (current) {
+      current.target = 0;
+      // A cancelled candidate that never faded in is not fallback music.
+      if (current.source.volume <= 0.002) this.releaseMusic(current);
+    }
     this.activeMusic = this.activeMusic === 0 ? 1 : 0;
     const incoming = this.musicSlots[this.activeMusic];
     const reuse =
-      incoming.progressConfirmed &&
+      (incoming.progressConfirmed || incoming.source.volume > 0.002) &&
       incoming.name === name &&
       incoming.source.clip === clip &&
       incoming.source.playing;
@@ -365,10 +301,105 @@ export class WoodlandAudio extends Component {
     incoming.source.play();
   }
 
+  private refreshMusicSlot(current: MusicSlot, clip: AudioClip): void {
+    // A selected loop can still be paused/stopped by the platform or audio manager.
+    // Leave blocked autoplay and active platform interruptions to Cocos;
+    // otherwise bound both the initial play and later resume requests.
+    const state = current.source.state;
+    if (state === AudioSource.AudioState.INTERRUPTED) {
+      // Give the platform time to return audio focus without counting the
+      // interruption as a stalled player or recreating audio during it.
+      current.progressAt = this.clock;
+      if (current.resumingAt >= 0) current.resumingAt = this.clock;
+      return;
+    }
+    if (current.source.playing) {
+      current.started = true;
+      current.resumePending = false;
+      if (this.clock >= current.sampleAt) {
+        current.sampleAt = this.clock + MUSIC_PROGRESS_INTERVAL;
+        const position = current.source.currentTime;
+        if (Number.isFinite(position) && position >= 0) {
+          // The clock wrapping at the end of a loop is progress too.
+          if (Math.abs(position - current.position) > MUSIC_PROGRESS_EPSILON) {
+            current.progressConfirmed = true;
+            if (current.progressBeganAt < 0) current.progressBeganAt = this.clock;
+            if (this.clock - current.progressBeganAt >= MUSIC_HANDOFF_CONFIRM_TIME)
+              current.handoffReady = true;
+            current.progressAt = this.clock;
+            current.resumingAt = -1;
+            if (current.handoffReady) current.resetAttempted = false;
+            this.hasPlayedMusic = true;
+          }
+          current.position = position;
+        }
+      }
+    }
+    if (
+      !current.progressConfirmed &&
+      current.resumingAt < 0 &&
+      (this.unlocked || this.hasPlayedMusic || current.started)
+    ) {
+      current.resumingAt = this.clock;
+    }
+    const waitingSince =
+      current.resumingAt >= 0
+        ? current.resumingAt
+        : current.progressConfirmed
+          ? current.progressAt
+          : -1;
+    if (
+      waitingSince >= 0 &&
+      !current.resetAttempted &&
+      this.clock - waitingSince >=
+        (current.progressConfirmed ? MUSIC_RESUME_TIMEOUT : MUSIC_START_TIMEOUT)
+    ) {
+      // A missing native onPlay can wedge Cocos' operation queue. Recreate this
+      // player once; repeated resets would race slow loads of the same clip.
+      const position = current.source.currentTime;
+      const volume = current.source.volume;
+      console.info('[woodland-audio] music-progress-1 recovery', {
+        track: current.name,
+        state,
+        position,
+        progressConfirmed: current.progressConfirmed,
+        handoffReady: current.handoffReady,
+      });
+      current.resetAttempted = true;
+      this.replaceMusicSource(current);
+      this.resetMusicProgress(current, position);
+      current.resumingAt = this.clock;
+      current.source.clip = clip;
+      current.source.volume = volume;
+      if (Number.isFinite(position) && position >= 0) current.source.currentTime = position;
+      current.source.play();
+      return;
+    }
+    if (
+      current.started &&
+      !current.resumePending &&
+      (state === AudioSource.AudioState.PAUSED || state === AudioSource.AudioState.STOPPED) &&
+      this.clock >= current.retryAt
+    ) {
+      current.retryAt = this.clock + 1;
+      // STARTED completes the engine request even before the next progress
+      // sample. A later pause/stop is a new interruption, but must not extend
+      // the no-progress deadline or authorize another reset by itself.
+      current.resumePending = true;
+      if (current.resumingAt < 0) current.resumingAt = this.clock;
+      current.progressAt = this.clock;
+      current.position = current.source.currentTime;
+      current.sampleAt = this.clock + MUSIC_PROGRESS_INTERVAL;
+      current.source.play();
+    }
+  }
+
   private resetMusicProgress(slot: MusicSlot, position = 0): void {
     slot.started = false;
     slot.resumePending = false;
     slot.progressConfirmed = false;
+    slot.progressBeganAt = -1;
+    slot.handoffReady = false;
     slot.position = Number.isFinite(position) && position >= 0 ? position : 0;
     slot.progressAt = this.clock;
     slot.sampleAt = this.clock;

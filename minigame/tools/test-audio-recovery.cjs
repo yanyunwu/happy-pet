@@ -6,7 +6,12 @@ const Module = require('node:module');
 const { test } = require('node:test');
 const ts = require('C:/ProgramData/cocos/editors/Creator/3.8.8/resources/app.asar.unpacked/node_modules/typescript');
 
-function harness({ autoplay = true, floatVolume = false, stoppedStopStalls = false } = {}) {
+function harness({
+  autoplay = true,
+  floatVolume = false,
+  stoppedStopStalls = false,
+  initialSeconds = 2,
+} = {}) {
   const listeners = new Map();
   const state = { INIT: 0, PLAYING: 1, PAUSED: 2, STOPPED: 3, INTERRUPTED: 4 };
   class AudioSource {
@@ -161,7 +166,7 @@ function harness({ autoplay = true, floatVolume = false, stoppedStopStalls = fal
       elapsed += dt;
     }
   };
-  advance(2);
+  advance(initialSeconds);
   return {
     audio,
     advance,
@@ -244,6 +249,9 @@ test('music fades and speech ducking settle at their target volume', () => {
   const h = harness();
   h.audio.setMode('game');
   h.advance(0.1);
+  assert.equal(h.active().source.volume, 0, 'wait for stable progress before the crossfade');
+  assert.ok(h.audio.musicSlots.find((slot) => slot !== h.active()).source.volume > 0.2);
+  h.advance(1.1);
   assert.ok(h.active().source.volume > 0 && h.active().source.volume < 0.22);
   h.advance(2);
   assert.equal(h.active().source.volume, 0.22);
@@ -377,7 +385,7 @@ test('home music remains audible until the game loop actually starts', () => {
   assert.ok(home.source.volume > 0.18);
   assert.equal(incoming.source.playCalls, 1, 'allow the native eight-second load window');
   incoming.source.start();
-  h.advance(2);
+  h.advance(3);
   assert.equal(incoming.source.volume, 0.22);
   assert.equal(home.source.playing, false);
   assert.equal(h.audio.musicSlots.filter((slot) => slot.source.playing).length, 1);
@@ -567,4 +575,66 @@ test('a new stop immediately after pause recovery resumes without replacing the 
   h.advance(8);
   assert.equal(slot.source, source);
   assert.equal(source.playCalls, calls + 2);
+});
+
+test('a single startup clock advance cannot retire the home music before a stalled game recovers', () => {
+  const h = harness();
+  const home = h.active();
+  h.audio.setMode('game');
+  const incoming = h.active();
+  h.advance(0.02);
+  incoming.source.nativeProgressStalled = true;
+  h.advance(2);
+  assert.equal(home.source.playing, true, 'one moving sample is not a stable handoff');
+  assert.ok(home.source.volume > 0.18);
+  h.advance(6);
+  assert.equal(incoming.source.playCalls, 2, 'recover the stalled game player once');
+  assert.ok(incoming.source.currentTime > 1);
+  assert.equal(home.source.playing, false, 'retire home only after stable game playback');
+});
+
+test('home music interrupted during a pending handoff is resumed instead of discarded', () => {
+  for (const interruption of ['pause', 'stop']) {
+    const h = harness();
+    const home = h.active();
+    const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+    incoming.source.autoStart = false;
+    h.audio.setMode('game');
+    home.source[interruption]();
+    h.advance(2);
+    assert.equal(home.source.playing, true, `${interruption}: keep the fallback music recoverable`);
+    assert.ok(home.source.volume > 0.18);
+    assert.equal(incoming.source.playCalls, 1, 'do not disturb the pending game request');
+    incoming.source.autoStart = true;
+    incoming.source.start();
+    h.advance(2);
+    assert.equal(home.source.playing, false);
+    assert.equal(incoming.source.playing, true);
+  }
+});
+
+test('an early return cannot promote a silent cancelled game candidate into fallback music', () => {
+  for (const initialSeconds of [0.1, 0.7]) {
+    const h = harness({ initialSeconds });
+    const home = h.active();
+    const source = home.source;
+    const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+    incoming.source.autoStart = false;
+    h.audio.setMode('game');
+    h.advance(0.1);
+    h.audio.setMode('home');
+    for (let frame = 0; frame < 75; frame++) {
+      h.advance(0.02);
+      assert.equal(home.source, source);
+      assert.ok(
+        source.playing && source.volume > 0.04,
+        'the existing home music must stay audible',
+      );
+      assert.equal(
+        incoming.source.clip,
+        null,
+        'discard the game candidate that never became audible',
+      );
+    }
+  }
 });

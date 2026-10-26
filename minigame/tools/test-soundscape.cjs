@@ -174,14 +174,15 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
       Player.prototype.play = function (...args) {
         if (this.src === gameMusicUrl) {
           // Creator's WeChat adapter synthesizes STARTED even if the native
-          // device never begins playback. Keep the clock frozen at zero while
-          // reporting PLAYING through the real AudioSource boundary.
+          // device stalls. Let its clock advance once, then freeze: one tiny
+          // movement must not retire the still-audible home music.
           Player.prototype.play = play;
           window.stalledGamePlayer = this;
           window.gameMusicRequestedAt = audio.clock;
           Object.defineProperty(this, 'state', {
             get: () => window.homeMusicBeforeEntry.constructor.AudioState.PLAYING,
           });
+          Object.defineProperty(this, 'currentTime', { get: () => 0.02 });
           this.play = () => Promise.resolve();
           return this.play();
         }
@@ -203,7 +204,7 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
       await page.evaluate(
         () => window.homeMusicBeforeEntry.playing && window.homeMusicBeforeEntry.volume > 0.18,
       ),
-      'home music must stay audible while the game reports PLAYING without actual progress',
+      'home music must stay audible when the game clock advances once and then stalls',
     );
     await page.waitForFunction(
       () =>
@@ -518,7 +519,7 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
             '22 clips loaded',
             autoplayBlocked ? 'browser gesture fallback' : 'home music without interaction',
             'home/game music',
-            'synthetic first-game playback acknowledgement keeps home music until real progress and recovers automatically',
+            'a single initial clock advance keeps home music until sustained playback and recovers automatically',
             'three return-home and game-entry cycles retain a single healthy music loop',
             'overlapping loads of the same music clip stay isolated in both completion orders',
             'retired and destroyed music sources leave no silent looping WebAudio nodes',
