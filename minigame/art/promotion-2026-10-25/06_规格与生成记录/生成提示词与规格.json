@@ -1,0 +1,294 @@
+{
+  "game": "快乐萌宠消",
+  "date": "2026-10-25",
+  "generation": "built-in image_gen",
+  "theme": "森林木作",
+  "confirmed_from_user_screenshots": {
+    "intro_max_characters": 20,
+    "cover": {
+      "format": [
+        "JPG",
+        "JPEG"
+      ],
+      "width": 650,
+      "height": 250,
+      "max_bytes": 80000,
+      "no_game_title_or_app_icon_recommended": true
+    },
+    "detail_images": "横竖版支持多张，图片应展示游戏玩法和概念；尺寸、格式和体积限制未展示",
+    "promo_copy": "简洁有力地说明游戏亮点；字数上限未展示",
+    "video": "建议尽可能展示游戏实机画面、设计概念、游戏元素和亮点；时长、比例、格式和大小限制未展示"
+  },
+  "export_assumptions": {
+    "landscape": [
+      1280,
+      720
+    ],
+    "portrait": [
+      720,
+      1280
+    ],
+    "detail_format": "JPEG",
+    "detail_max_bytes": 200000,
+    "video": "素材展示版，720x1280，15秒，H.264 MP4 / AAC，视频目标码率1Mbps，非实机录屏；已按补充要求核验",
+    "detail_limits_status": "尺寸、格式、200KB上限及横竖各3张均已由用户补充确认"
+  },
+  "assets": [
+    {
+      "id": "cover",
+      "file": "01_通用素材封面/通用封面_650x250.jpg",
+      "width": 650,
+      "height": 250,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: a very wide 2.6:1 horizontal marketing COVER, requested canvas 2080x800, later exported as 650x250. Recompose the existing artwork across the wide canvas. Four source wooden animal mascots huddle joyfully across the left-middle, with panda tall at back, rabbit at front, ox and monkey adjoining. Right foreground clearly displays THREE identical rabbit-face square matching tiles resting side-by-side on honey wood, surrounded by a few gently floating green leaves suggesting a successful match. Keep all rabbit ears and all tile edges entirely visible. Woodland workshop background, bright inviting dappled light, soft defocused green depth; one thin tree branch frames only an outer corner. The character huddle and three tiles should fill most of the horizontal width and height with easy-to-recognize silhouettes; avoid unnecessary empty space. ABSOLUTELY NO TEXT, NO GAME TITLE, NO LOGO, NO APP ICON, NO BUTTON, NO LABEL. Do not create a frame, diptych or contact sheet.",
+      "final_source": "05_高清原图/cover.png",
+      "export_bytes": 75452
+    },
+    {
+      "id": "landscape-classic",
+      "file": "02_详细推广图_横版/01_经典三消_1280x720.jpg",
+      "width": 1280,
+      "height": 720,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/logo.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: finished landscape 16:9 promotional image, canvas 1536x864. Only ONE artwork, not multiple panels or a contact sheet.\nLayout: The left third features the existing wooden 快乐萌宠消 logo, followed by a separate elegant large wooden sign with the mode heading, and one small legible explanatory line. On the right, the source panda and rabbit lean happily beside a compact stack of matching-game tiles on a woodland tabletop. A clear front-facing seven-slot wooden tray spans the lower-right foreground; every slot is visible. Give the selected matching group dominant visual emphasis in that tray.\nMechanic illustration: The selected group in the tray is EXACTLY THREE matching rabbit tiles, each showing the same ivory rabbit head. Exactly seven tray slots total; the other four slots empty. A delicate warm glow around only the selected group, with a few small green leaf flecks, conveys an imminent match. The tile board above is a tidy stepped pile of about 12-16 tiles with different animals from the reference, some partly covered to express stacking. Do not align the whole board into a flat match-3 swap grid.\nTypography: preserve brand logo's exact Chinese text 快乐萌宠消 and source colors. Mode heading EXACTLY \"经典三消\", in large cream Chinese characters carved on dark wood, with restrained fresh sage green accents. Supporting text EXACTLY \"集齐三个相同萌宠\", in clear dark-brown Chinese rounded type on a pale wood strip. No extra labels, numbers, badges or calls to action. All text large, clean and correctly spelled; never merge lettering into animal shapes.\nAtmosphere: charming sunlit woodland workshop, gently blurred foliage, good foreground contrast, cheerful relaxed composition, strongest visual attention on the mode heading and matching tiles. Preserve existing game's modest warm craft character; do not imply extra game mechanics.",
+      "final_source": "05_高清原图/landscape-classic.png",
+      "export_bytes": 198648
+    },
+    {
+      "id": "portrait-classic",
+      "file": "03_详细推广图_竖版/01_经典三消_720x1280.jpg",
+      "width": 720,
+      "height": 1280,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/logo.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: finished portrait 9:16 promotional image, canvas 864x1536. Only ONE artwork, not multiple panels or a contact sheet.\nLayout: Place the existing wooden 快乐萌宠消 logo in the upper 18% with comfortable margins. Below, a prominent beautiful wooden sign bears the mode heading and one readable explanatory line. In the middle, a compact layered stack of ivory animal tiles sits on a warm wood shelf with the source panda and rabbit peeking from the sides; keep characters secondary to the tiles. Lower-middle foreground: a single clean seven-slot horizontal wood tray. All seven slots clearly visible. Give the selected matching group dominant emphasis in that tray. Leave an airy margin below the tray with wood surface and a few leaves, no buttons.\nMechanic illustration: The selected group in the tray is EXACTLY THREE matching rabbit tiles, each showing the same ivory rabbit head. Exactly seven tray slots total; the other four slots empty. A delicate warm glow around only the selected group, with a few small green leaf flecks, conveys an imminent match. The tile board above is a tidy stepped pile of about 12-16 tiles with different animals from the reference, some partly covered to express stacking. Do not align the whole board into a flat match-3 swap grid.\nTypography: preserve brand logo's exact Chinese text 快乐萌宠消 and source colors. Mode heading EXACTLY \"经典三消\", in large cream Chinese characters carved on dark wood, with restrained fresh sage green accents. Supporting text EXACTLY \"集齐三个相同萌宠\", in clear dark-brown Chinese rounded type on a pale wood strip. No extra labels, numbers, badges or calls to action. All text large, clean and correctly spelled; never merge lettering into animal shapes.\nAtmosphere: charming sunlit woodland workshop, gently blurred foliage, good foreground contrast, cheerful relaxed composition, strongest visual attention on the mode heading and matching tiles. Preserve existing game's modest warm craft character; do not imply extra game mechanics.",
+      "final_source": "05_高清原图/portrait-classic.png",
+      "export_bytes": 197806
+    },
+    {
+      "id": "landscape-four",
+      "file": "02_详细推广图_横版/02_极限四消_1280x720.jpg",
+      "width": 1280,
+      "height": 720,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/logo.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: finished landscape 16:9 promotional image, canvas 1536x864. Only ONE artwork, not multiple panels or a contact sheet.\nLayout: The left third features the existing wooden 快乐萌宠消 logo, followed by a separate elegant large wooden sign with the mode heading, and one small legible explanatory line. On the right, the source panda and rabbit lean happily beside a compact stack of matching-game tiles on a woodland tabletop. A clear front-facing seven-slot wooden tray spans the lower-right foreground; every slot is visible. Give the selected matching group dominant visual emphasis in that tray.\nMechanic illustration: The selected group in the tray is EXACTLY FOUR matching tiger tiles, each showing the same golden tiger head. Exactly seven tray slots total; the other three slots empty. A delicate warm glow around only the selected group, with a few small green leaf flecks, conveys an imminent match. The tile board above is a tidy stepped pile of about 12-16 tiles with different animals from the reference, some partly covered to express stacking. Do not align the whole board into a flat match-3 swap grid.\nTypography: preserve brand logo's exact Chinese text 快乐萌宠消 and source colors. Mode heading EXACTLY \"极限四消\", in large cream Chinese characters carved on dark wood, with restrained warm burnt orange accents. Supporting text EXACTLY \"集齐四个相同萌宠\", in clear dark-brown Chinese rounded type on a pale wood strip. No extra labels, numbers, badges or calls to action. All text large, clean and correctly spelled; never merge lettering into animal shapes.\nAtmosphere: charming sunlit woodland workshop, gently blurred foliage, good foreground contrast, cheerful relaxed composition, strongest visual attention on the mode heading and matching tiles. Preserve existing game's modest warm craft character; do not imply extra game mechanics.",
+      "final_source": "05_高清原图/landscape-four.png",
+      "export_bytes": 194916
+    },
+    {
+      "id": "portrait-four",
+      "file": "03_详细推广图_竖版/02_极限四消_720x1280.jpg",
+      "width": 720,
+      "height": 1280,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/logo.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: finished portrait 9:16 promotional image, canvas 864x1536. Only ONE artwork, not multiple panels or a contact sheet.\nLayout: Place the existing wooden 快乐萌宠消 logo in the upper 18% with comfortable margins. Below, a prominent beautiful wooden sign bears the mode heading and one readable explanatory line. In the middle, a compact layered stack of ivory animal tiles sits on a warm wood shelf with the source panda and rabbit peeking from the sides; keep characters secondary to the tiles. Lower-middle foreground: a single clean seven-slot horizontal wood tray. All seven slots clearly visible. Give the selected matching group dominant emphasis in that tray. Leave an airy margin below the tray with wood surface and a few leaves, no buttons.\nMechanic illustration: The selected group in the tray is EXACTLY FOUR matching tiger tiles, each showing the same golden tiger head. Exactly seven tray slots total; the other three slots empty. A delicate warm glow around only the selected group, with a few small green leaf flecks, conveys an imminent match. The tile board above is a tidy stepped pile of about 12-16 tiles with different animals from the reference, some partly covered to express stacking. Do not align the whole board into a flat match-3 swap grid.\nTypography: preserve brand logo's exact Chinese text 快乐萌宠消 and source colors. Mode heading EXACTLY \"极限四消\", in large cream Chinese characters carved on dark wood, with restrained warm burnt orange accents. Supporting text EXACTLY \"集齐四个相同萌宠\", in clear dark-brown Chinese rounded type on a pale wood strip. No extra labels, numbers, badges or calls to action. All text large, clean and correctly spelled; never merge lettering into animal shapes.\nAtmosphere: charming sunlit woodland workshop, gently blurred foliage, good foreground contrast, cheerful relaxed composition, strongest visual attention on the mode heading and matching tiles. Preserve existing game's modest warm craft character; do not imply extra game mechanics.",
+      "final_source": "05_高清原图/portrait-four.png",
+      "export_bytes": 189989
+    },
+    {
+      "id": "landscape-pairs",
+      "file": "02_详细推广图_横版/03_趣味规则消_1280x720.jpg",
+      "width": 1280,
+      "height": 720,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/logo.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: finished landscape 16:9 promotional image, canvas 1536x864. Only ONE artwork, not multiple panels or a contact sheet.\nLayout: The left third features the existing wooden 快乐萌宠消 logo, followed by a separate elegant large wooden sign with the mode heading, and one small legible explanatory line. On the right, the source panda and rabbit lean happily beside a compact stack of matching-game tiles on a woodland tabletop. A clear front-facing seven-slot wooden tray spans the lower-right foreground; every slot is visible. Give the selected matching group dominant visual emphasis in that tray.\nMechanic illustration: The selected group in the tray is EXACTLY FOUR selected tiles ordered CAT, CAT, PANDA, PANDA: two identical gray-and-ivory cats and two identical ivory-and-charcoal pandas, visually arranged as two pairs. Exactly seven tray slots total; the other three slots empty. A delicate warm glow around only the selected group, with a few small green leaf flecks, conveys an imminent match. The tile board above is a tidy stepped pile of about 12-16 tiles with different animals from the reference, some partly covered to express stacking. Do not align the whole board into a flat match-3 swap grid.\nTypography: preserve brand logo's exact Chinese text 快乐萌宠消 and source colors. Mode heading EXACTLY \"趣味规则消\", in large cream Chinese characters carved on dark wood, with restrained gentle sky blue accents. Supporting text EXACTLY \"两对萌宠一起消除\", in clear dark-brown Chinese rounded type on a pale wood strip. No extra labels, numbers, badges or calls to action. All text large, clean and correctly spelled; never merge lettering into animal shapes.\nAtmosphere: charming sunlit woodland workshop, gently blurred foliage, good foreground contrast, cheerful relaxed composition, strongest visual attention on the mode heading and matching tiles. Preserve existing game's modest warm craft character; do not imply extra game mechanics.",
+      "final_source": "05_高清原图/landscape-pairs.png",
+      "export_bytes": 187592
+    },
+    {
+      "id": "portrait-pairs",
+      "file": "03_详细推广图_竖版/03_趣味规则消_720x1280.jpg",
+      "width": 720,
+      "height": 1280,
+      "references": [
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/home.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/pets.png",
+        "D:/program/cocos/xiaochu/minigame/art/source-woodland/logo.png"
+      ],
+      "prompt": "Use case: ads-marketing / compositing. Edit and adapt the provided existing game artwork into a finished promotional artwork for the user's game 快乐萌宠消.\nInput roles: image 1 is the existing woodland character/background artwork to adapt; image 2 is the existing animal-head artwork to reuse faithfully; image 3, when supplied, is the exact existing logo design to preserve.\nPreserve the recognizable character identities: warm ivory rabbit with long pink-inner ears and closed happy eyes, ivory/charcoal panda with black round eyes, honey maple ox with dark horns and bell, walnut monkey with cream face and pink cheeks. Preserve the source natural hand-carved wood grain, rounded sanded bevels, walnut and honey maple, ivory inlay, sage-green woodland, soft warm daylight. Premium tactile wooden miniature aesthetic, polished friendly game marketing illustration, crisp large forms readable at mobile thumbnail size. Fully opaque artwork, edge-to-edge composition. No plastic or plush textures.\nGame is a STACKED TILE SELECTION game with carved animal faces on thick ivory rounded square tiles with honey wood sides, matched in a seven-slot horizontal wooden tray. NOT a swap-grid or path-connecting game. Tiles must remain anatomically clean with one face each. No arrows suggesting swaps. No coins, cash, prizes, discounts, ranking claims, phones, store badges, QR codes, watermarks or fake app interface. Keep important text, faces and tiles at least 7% away from canvas edges. No text beyond the exact requested copy.\nAsset: finished portrait 9:16 promotional image, canvas 864x1536. Only ONE artwork, not multiple panels or a contact sheet.\nLayout: Place the existing wooden 快乐萌宠消 logo in the upper 18% with comfortable margins. Below, a prominent beautiful wooden sign bears the mode heading and one readable explanatory line. In the middle, a compact layered stack of ivory animal tiles sits on a warm wood shelf with the source panda and rabbit peeking from the sides; keep characters secondary to the tiles. Lower-middle foreground: a single clean seven-slot horizontal wood tray. All seven slots clearly visible. Give the selected matching group dominant emphasis in that tray. Leave an airy margin below the tray with wood surface and a few leaves, no buttons.\nMechanic illustration: The selected group in the tray is EXACTLY FOUR selected tiles ordered CAT, CAT, PANDA, PANDA: two identical gray-and-ivory cats and two identical ivory-and-charcoal pandas, visually arranged as two pairs. Exactly seven tray slots total; the other three slots empty. A delicate warm glow around only the selected group, with a few small green leaf flecks, conveys an imminent match. The tile board above is a tidy stepped pile of about 12-16 tiles with different animals from the reference, some partly covered to express stacking. Do not align the whole board into a flat match-3 swap grid.\nTypography: preserve brand logo's exact Chinese text 快乐萌宠消 and source colors. Mode heading EXACTLY \"趣味规则消\", in large cream Chinese characters carved on dark wood, with restrained gentle sky blue accents. Supporting text EXACTLY \"两对萌宠一起消除\", in clear dark-brown Chinese rounded type on a pale wood strip. No extra labels, numbers, badges or calls to action. All text large, clean and correctly spelled; never merge lettering into animal shapes.\nAtmosphere: charming sunlit woodland workshop, gently blurred foliage, good foreground contrast, cheerful relaxed composition, strongest visual attention on the mode heading and matching tiles. Preserve existing game's modest warm craft character; do not imply extra game mechanics.",
+      "final_source": "05_高清原图/portrait-pairs.png",
+      "export_bytes": 195359
+    }
+  ],
+  "intro_options": [
+    {
+      "text": "点击萌宠入槽，三种规则巧消除",
+      "characters": 14
+    },
+    {
+      "text": "木雕萌宠消除，三种玩法轻松闯关",
+      "characters": 15
+    },
+    {
+      "text": "经典三消、极限四消、趣味两对消",
+      "characters": 15
+    },
+    {
+      "text": "森林木作萌宠，动脑搭配巧消除",
+      "characters": 14
+    },
+    {
+      "text": "叠层选牌巧消除，和萌宠一起闯关",
+      "characters": 15
+    },
+    {
+      "text": "集齐相同萌宠，挑战三种消除规则",
+      "characters": 15
+    }
+  ],
+  "corrections": [
+    {
+      "id": "landscape-four",
+      "reason": "初次生成的横版四消图收纳槽为八格，改为四个老虎牌加三个空位，共七格；其他构图和文字保留。",
+      "prompt": "Use case: precise-object-edit. This input image is the edit target. Keep the whole promotional image unchanged except correcting the foreground wooden tray. Preserve ALL Chinese text exactly as visible: 快乐萌宠消, 极限四消, 集齐四个相同萌宠. Preserve logo, characters, stacked board, warm woodland background, colors, materials, lighting and 16:9 framing.\nThe current tray incorrectly has eight slots. Replace ONLY that foreground tray with a tray of EXACTLY SEVEN slots total. There must be EXACTLY FOUR matching tiger tiles filling the first four wells on the left, then EXACTLY THREE empty wells on the right. Slot sequence: [TIGER] [TIGER] [TIGER] [TIGER] [EMPTY] [EMPTY] [EMPTY]. Count seven total, not eight. No extra well anywhere. Keep the four tiger faces, delicate golden matching glow, and all three empty slots clearly visible. Adjust the widths of the seven wells within the existing tray footprint naturally. Same premium honey wood, smooth ivory tiles, correct perspective. Do not change any other artwork or add any text, labels or symbols. Output one landscape 16:9 image.",
+      "final_source": "05_高清原图/landscape-four.png"
+    }
+  ],
+  "confirmed_from_user_followup": {
+    "portrait": {
+      "formats": [
+        "JPEG",
+        "JPG",
+        "PNG"
+      ],
+      "width": 720,
+      "height": 1280,
+      "count": 3,
+      "max_bytes": 200000,
+      "source": "用户补充的竖版上传要求"
+    },
+    "landscape": {
+      "formats": [
+        "JPEG",
+        "JPG",
+        "PNG"
+      ],
+      "width": 1280,
+      "height": 720,
+      "count": 3,
+      "max_bytes": 200000,
+      "source": "用户补充的横版上传弹窗截图"
+    },
+    "video": {
+      "material_type": "通用",
+      "orientation": "竖版视频",
+      "duration_seconds": [
+        10,
+        20
+      ],
+      "minimum_size": [
+        720,
+        1280
+      ],
+      "aspect_ratio": "9:16",
+      "target_video_bitrate": "约1Mbps",
+      "container": "MP4",
+      "video_codec": "H.264",
+      "audio_codec": "AAC",
+      "max_bytes": 100000000,
+      "cover": {
+        "formats": [
+          "JPEG",
+          "JPG",
+          "GIF",
+          "PNG"
+        ],
+        "aspect_ratio": "9:16",
+        "recommended_size": [
+          720,
+          1280
+        ],
+        "max_bytes": 200000
+      },
+      "promotional_copy_max_characters": 20,
+      "source": "用户提供的视频上传弹窗截图"
+    }
+  },
+  "video_upload_bundle": {
+    "video": "04_推广视频/快乐萌宠消_图文宣传_15秒_720x1280.mp4",
+    "cover": {
+      "file": "04_推广视频/视频封面_720x1280_200KB以内.jpg",
+      "width": 720,
+      "height": 1280,
+      "format": "jpeg",
+      "bytes": 197806,
+      "max_bytes": 200000,
+      "source": "03_详细推广图_竖版/01_经典三消_720x1280.jpg",
+      "passed": true
+    },
+    "copy": {
+      "text": "三消四消两对消，木雕萌宠等你挑战",
+      "characters": 16,
+      "max_characters": 20,
+      "passed": true
+    },
+    "actual_video_bitrate_mbps": 0.965864,
+    "actual_video_bytes": 2009582
+  },
+  "share_images": {
+    "record": "06_规格与生成记录/分享图生成记录.json",
+    "export_choices": {
+      "width": 500,
+      "height": 400,
+      "ratio": "5:4",
+      "format": "JPG",
+      "max_bytes": 200000,
+      "count": 3,
+      "status": "本次制作选择；截图未展示上传硬性限制，以后台上传弹窗为准"
+    },
+    "assets": [
+      {
+        "id": "share-classic",
+        "file": "07_分享图片/01_经典三消_分享图_500x400.jpg",
+        "width": 500,
+        "height": 400,
+        "format": "jpeg",
+        "bytes": 92046,
+        "title": "来试试萌宠三消，你会先选哪张？",
+        "source_file": "05_高清原图/share-classic.png"
+      },
+      {
+        "id": "share-four",
+        "file": "07_分享图片/02_极限四消_分享图_500x400.jpg",
+        "width": 500,
+        "height": 400,
+        "format": "jpeg",
+        "bytes": 97093,
+        "title": "四个相同才消除，敢来挑战吗？",
+        "source_file": "05_高清原图/share-four.png"
+      },
+      {
+        "id": "share-pairs",
+        "file": "07_分享图片/03_趣味规则消_分享图_500x400.jpg",
+        "width": 500,
+        "height": 400,
+        "format": "jpeg",
+        "bytes": 93941,
+        "title": "两对萌宠一起消，换个玩法试试！",
+        "source_file": "05_高清原图/share-pairs.png"
+      }
+    ]
+  }
+}

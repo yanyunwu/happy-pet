@@ -1,0 +1,72 @@
+{
+  "game": "快乐萌宠消",
+  "date": "2026-10-25",
+  "generator": "built-in image_gen",
+  "purpose": "会话分享卡片",
+  "confirmed_from_screenshot": [
+    "根据游戏内触发场景设计有吸引力和互动感的分享图片",
+    "上传后可通过转发方法传入图片编号与地址使用素材"
+  ],
+  "export_choices": {
+    "width": 500,
+    "height": 400,
+    "ratio": "5:4",
+    "format": "JPG",
+    "max_bytes": 200000,
+    "count": 3,
+    "status": "本次制作选择；截图未展示上传硬性限制，以后台上传弹窗为准"
+  },
+  "assets": [
+    {
+      "id": "share-classic",
+      "file": "07_分享图片/01_经典三消_分享图_500x400.jpg",
+      "width": 500,
+      "height": 400,
+      "format": "jpeg",
+      "bytes": 92046,
+      "max_bytes": 200000,
+      "jpeg_quality": 95,
+      "source_file": "05_高清原图/share-classic.png",
+      "title": "来试试萌宠三消，你会先选哪张？",
+      "title_characters": 15,
+      "headline": "一起玩三消",
+      "file_checks_passed": true,
+      "reference_image": "D:/program/cocos/xiaochu/minigame/art/promotion-2026-10-25/05_高清原图/landscape-classic.png",
+      "prompt": "Use case: ads-marketing / compositing. The input is the existing game promotional artwork and exact visual identity reference. Adapt and recompose this existing artwork into a compact 5:4 landscape WeChat chat-share card illustration. Requested canvas 1600x1280, later exported to 500x400, so excellent thumbnail readability is crucial. One image only, not a grid or a sheet.\nPreserve the existing recognizable happy rabbit and panda wooden mascots, animal tile faces, ivory painted wood with delicate grain, honey maple beveled tile edges, warm walnut signs, soft sunlit green forest, and premium rounded wooden toy aesthetic. Do not change the game's visual identity.\nComposition: one short wooden sign across the upper quarter bearing the exact simplified Chinese headline \"一起玩三消\". This is the ONLY text. Remove the previous brand-logo plaque, old mode heading and subtitle; the sharing card UI already shows the app name outside this artwork. Headline in very large readable cream-colored rounded carved lettering, with restrained fresh sage green leaf accents. No other logo, text, numbers, app icon, watermark or UI.\nMiddle: rabbit and panda peek happily around a compact stepped pile of only 6-9 thick ivory animal-face tiles from the reference. Keep three-dimensional overlap clearly visible, representing a stacked tile-selection game, NOT a swapping match-3 grid. Use an intimate friendly close-up composition with large faces, clear wood grain and generous simple shapes. Avoid busy scenery.\nLower quarter: the full horizontal wooden tray must have EXACTLY SEVEN clearly separated equal-sized wells total, all visible inside the canvas. EXACTLY THREE matching ivory rabbit tiles in slots 1, 2 and 3, with slots 4, 5, 6 and 7 empty. The tray sequence is [RABBIT][RABBIT][RABBIT][EMPTY][EMPTY][EMPTY][EMPTY]. A subtle warm golden rim glow on selected tiles and a few floating leaves imply a successful combination. All tile faces must be recognizable, correct, and fully visible. The number of selected tiles and empty wells is a hard requirement. No second tray, extra selected group, or separate eighth well.\nKeep all headline lettering, mascots' faces, and the complete tray within a 6% safe margin. Slightly blurred woodland workshop behind, good light-dark contrast and rich but gentle warm colors. This is a delightful gameplay invitation that truthfully illustrates the real matching rule. No arrows, pointers, fake play buttons, puzzle completion claims, winnings, coins, rewards, fake notifications, leaderboards, competitive multiplayer or misleading urgency. Finish as a polished standalone marketing illustration suitable for a small chat card."
+    },
+    {
+      "id": "share-four",
+      "file": "07_分享图片/02_极限四消_分享图_500x400.jpg",
+      "width": 500,
+      "height": 400,
+      "format": "jpeg",
+      "bytes": 97093,
+      "max_bytes": 200000,
+      "jpeg_quality": 95,
+      "source_file": "05_高清原图/share-four.png",
+      "title": "四个相同才消除，敢来挑战吗？",
+      "title_characters": 14,
+      "headline": "来挑战四消",
+      "file_checks_passed": true,
+      "reference_image": "D:/program/cocos/xiaochu/minigame/art/promotion-2026-10-25/05_高清原图/landscape-four.png",
+      "prompt": "Use case: ads-marketing / compositing. The input is the existing game promotional artwork and exact visual identity reference. Adapt and recompose this existing artwork into a compact 5:4 landscape WeChat chat-share card illustration. Requested canvas 1600x1280, later exported to 500x400, so excellent thumbnail readability is crucial. One image only, not a grid or a sheet.\nPreserve the existing recognizable happy rabbit and panda wooden mascots, animal tile faces, ivory painted wood with delicate grain, honey maple beveled tile edges, warm walnut signs, soft sunlit green forest, and premium rounded wooden toy aesthetic. Do not change the game's visual identity.\nComposition: one short wooden sign across the upper quarter bearing the exact simplified Chinese headline \"来挑战四消\". This is the ONLY text. Remove the previous brand-logo plaque, old mode heading and subtitle; the sharing card UI already shows the app name outside this artwork. Headline in very large readable cream-colored rounded carved lettering, with restrained warm orange leaf accents. No other logo, text, numbers, app icon, watermark or UI.\nMiddle: rabbit and panda peek happily around a compact stepped pile of only 6-9 thick ivory animal-face tiles from the reference. Keep three-dimensional overlap clearly visible, representing a stacked tile-selection game, NOT a swapping match-3 grid. Use an intimate friendly close-up composition with large faces, clear wood grain and generous simple shapes. Avoid busy scenery.\nLower quarter: the full horizontal wooden tray must have EXACTLY SEVEN clearly separated equal-sized wells total, all visible inside the canvas. EXACTLY FOUR identical golden tiger tiles in slots 1, 2, 3 and 4, with ONLY THREE empty slots 5, 6 and 7. The tray sequence is [TIGER][TIGER][TIGER][TIGER][EMPTY][EMPTY][EMPTY]. Exactly seven slots, never eight. A subtle warm golden rim glow on selected tiles and a few floating leaves imply a successful combination. All tile faces must be recognizable, correct, and fully visible. The number of selected tiles and empty wells is a hard requirement. No second tray, extra selected group, or separate eighth well.\nKeep all headline lettering, mascots' faces, and the complete tray within a 6% safe margin. Slightly blurred woodland workshop behind, good light-dark contrast and rich but gentle warm colors. This is a delightful gameplay invitation that truthfully illustrates the real matching rule. No arrows, pointers, fake play buttons, puzzle completion claims, winnings, coins, rewards, fake notifications, leaderboards, competitive multiplayer or misleading urgency. Finish as a polished standalone marketing illustration suitable for a small chat card."
+    },
+    {
+      "id": "share-pairs",
+      "file": "07_分享图片/03_趣味规则消_分享图_500x400.jpg",
+      "width": 500,
+      "height": 400,
+      "format": "jpeg",
+      "bytes": 93941,
+      "max_bytes": 200000,
+      "jpeg_quality": 95,
+      "source_file": "05_高清原图/share-pairs.png",
+      "title": "两对萌宠一起消，换个玩法试试！",
+      "title_characters": 15,
+      "headline": "两对一起消",
+      "file_checks_passed": true,
+      "reference_image": "D:/program/cocos/xiaochu/minigame/art/promotion-2026-10-25/05_高清原图/landscape-pairs.png",
+      "prompt": "Use case: ads-marketing / compositing. The input is the existing game promotional artwork and exact visual identity reference. Adapt and recompose this existing artwork into a compact 5:4 landscape WeChat chat-share card illustration. Requested canvas 1600x1280, later exported to 500x400, so excellent thumbnail readability is crucial. One image only, not a grid or a sheet.\nPreserve the existing recognizable happy rabbit and panda wooden mascots, animal tile faces, ivory painted wood with delicate grain, honey maple beveled tile edges, warm walnut signs, soft sunlit green forest, and premium rounded wooden toy aesthetic. Do not change the game's visual identity.\nComposition: one short wooden sign across the upper quarter bearing the exact simplified Chinese headline \"两对一起消\". This is the ONLY text. Remove the previous brand-logo plaque, old mode heading and subtitle; the sharing card UI already shows the app name outside this artwork. Headline in very large readable cream-colored rounded carved lettering, with restrained gentle sky blue leaf accents. No other logo, text, numbers, app icon, watermark or UI.\nMiddle: rabbit and panda peek happily around a compact stepped pile of only 6-9 thick ivory animal-face tiles from the reference. Keep three-dimensional overlap clearly visible, representing a stacked tile-selection game, NOT a swapping match-3 grid. Use an intimate friendly close-up composition with large faces, clear wood grain and generous simple shapes. Avoid busy scenery.\nLower quarter: the full horizontal wooden tray must have EXACTLY SEVEN clearly separated equal-sized wells total, all visible inside the canvas. EXACTLY FOUR selected tiles in slots 1 to 4: two identical gray-and-ivory cats followed by two identical ivory-and-charcoal pandas. Then ONLY THREE empty slots 5, 6, 7. The tray sequence is [CAT][CAT][PANDA][PANDA][EMPTY][EMPTY][EMPTY]. Exactly seven slots, never eight. A subtle warm golden rim glow on selected tiles and a few floating leaves imply a successful combination. All tile faces must be recognizable, correct, and fully visible. The number of selected tiles and empty wells is a hard requirement. No second tray, extra selected group, or separate eighth well.\nKeep all headline lettering, mascots' faces, and the complete tray within a 6% safe margin. Slightly blurred woodland workshop behind, good light-dark contrast and rich but gentle warm colors. This is a delightful gameplay invitation that truthfully illustrates the real matching rule. No arrows, pointers, fake play buttons, puzzle completion claims, winnings, coins, rewards, fake notifications, leaderboards, competitive multiplayer or misleading urgency. Finish as a polished standalone marketing illustration suitable for a small chat card."
+    }
+  ]
+}

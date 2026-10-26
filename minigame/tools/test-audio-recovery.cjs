@@ -6,7 +6,7 @@ const Module = require('node:module');
 const { test } = require('node:test');
 const ts = require('C:/ProgramData/cocos/editors/Creator/3.8.8/resources/app.asar.unpacked/node_modules/typescript');
 
-function harness({ autoplay = true, floatVolume = false } = {}) {
+function harness({ autoplay = true, floatVolume = false, stoppedStopStalls = false } = {}) {
   const listeners = new Map();
   const state = { INIT: 0, PLAYING: 1, PAUSED: 2, STOPPED: 3, INTERRUPTED: 4 };
   class AudioSource {
@@ -23,12 +23,27 @@ function harness({ autoplay = true, floatVolume = false } = {}) {
       return this.gain;
     }
     state = state.INIT;
-    playCalls = 0;
-    autoStart = autoplay;
+    // Track channel-level attempts and platform availability across replacement
+    // components, while each component still owns an independent native queue.
+    get playCalls() {
+      return this.node.playCalls || 0;
+    }
+    set playCalls(value) {
+      this.node.playCalls = value;
+    }
+    get autoStart() {
+      return this.node.autoStart ?? autoplay;
+    }
+    set autoStart(value) {
+      this.node.autoStart = value;
+    }
     stallNextPlay = false;
     nativeStalled = false;
     currentTime = 0;
+    asset = null;
     set clip(value) {
+      // Creator does not recreate its native player for an identical clip.
+      if (value === this.asset) return;
       this.asset = value;
       this.state = state.INIT;
       this.currentTime = 0;
@@ -50,14 +65,21 @@ function harness({ autoplay = true, floatVolume = false } = {}) {
     }
     start() {
       this.state = state.PLAYING;
-      this.node.emit(AudioSource.EventType.STARTED);
+      this.node.emit(AudioSource.EventType.STARTED, this);
     }
     stop() {
+      // Some native contexts do not acknowledge stop when already stopped;
+      // Creator waits for that callback before running the queued play.
+      if (stoppedStopStalls && this.state === state.STOPPED) this.nativeStalled = true;
       this.state = state.STOPPED;
       this.currentTime = 0;
     }
     pause() {
       this.state = state.PAUSED;
+    }
+    destroy() {
+      this.clip = null;
+      this.isValid = false;
     }
   }
   class Node {
@@ -68,10 +90,10 @@ function harness({ autoplay = true, floatVolume = false } = {}) {
       return source;
     }
     on(name, fn, target) {
-      this.callbacks.set(name, () => fn.call(target));
+      this.callbacks.set(name, (...args) => fn.call(target, ...args));
     }
-    emit(name) {
-      this.callbacks.get(name)?.();
+    emit(name, ...args) {
+      this.callbacks.get(name)?.(...args);
     }
   }
   const file = path.resolve(__dirname, '../assets/scripts/ui/WoodlandAudio.ts');
@@ -325,4 +347,134 @@ test('a long audio focus loss does not continually recreate native players', () 
   slot.source.pause();
   h.advance(2);
   assert.equal(slot.source.playing, true, 'a later interruption can still recover');
+});
+
+test('home music remains audible until the game loop actually starts', () => {
+  const h = harness();
+  const home = h.active();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+  incoming.source.autoStart = false;
+  h.audio.play('tap');
+  h.audio.setMode('game');
+  h.advance(10);
+  assert.equal(home.source.playing, true, 'a slow game player must not leave silence');
+  assert.ok(home.source.volume > 0.18);
+  assert.equal(incoming.source.playCalls, 1, 'allow the native eight-second load window');
+  incoming.source.start();
+  h.advance(2);
+  assert.equal(incoming.source.volume, 0.22);
+  assert.equal(home.source.playing, false);
+  assert.equal(h.audio.musicSlots.filter((slot) => slot.source.playing).length, 1);
+});
+
+test('the first game play that never acknowledges startup recovers once', () => {
+  const h = harness();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== h.active());
+  incoming.source.stallNextPlay = true;
+  h.audio.play('tap');
+  h.audio.setMode('game');
+  h.advance(15);
+  assert.equal(incoming.source.playing, true, 'first-play failure also needs recovery');
+  assert.equal(incoming.source.playCalls, 2);
+  assert.equal(incoming.source.volume, 0.22);
+  h.advance(60);
+  assert.equal(incoming.source.playCalls, 2, 'healthy music must stay continuous');
+});
+
+test('re-entering the same game track cannot queue stop on an already stopped player', () => {
+  const h = harness({ stoppedStopStalls: true });
+  for (let cycle = 0; cycle < 3; cycle++) {
+    for (const mode of ['game', 'home']) {
+      h.audio.setMode(mode);
+      h.advance(2);
+      assert.equal(h.active().source.playing, true, `${mode} must start in cycle ${cycle}`);
+      assert.equal(h.audio.musicSlots.filter((slot) => slot.source.playing).length, 1);
+    }
+  }
+});
+
+test('returning home before the game player starts preserves the playing home loop', () => {
+  const h = harness();
+  const home = h.active();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+  incoming.source.autoStart = false;
+  h.audio.setMode('game');
+  h.advance(0.1);
+  home.source.currentTime = 17;
+  const calls = home.source.playCalls;
+  h.audio.setMode('home');
+  h.advance(2);
+  assert.equal(h.active(), home);
+  assert.equal(home.source.currentTime, 17, 'reversing the fade must not restart the old song');
+  assert.equal(home.source.playCalls, calls);
+  assert.equal(incoming.source.clip, null, 'cancel the abandoned load/play queue');
+});
+
+test('a permanently unavailable game loop is reset once while home music continues', () => {
+  const h = harness();
+  const home = h.active();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+  incoming.source.autoStart = false;
+  h.audio.setMode('game');
+  h.advance(60);
+  assert.equal(incoming.source.playCalls, 2, 'one initial attempt and one recovery only');
+  assert.equal(home.source.playing, true);
+  assert.ok(home.source.volume > 0.18);
+});
+
+test('a late STARTED from a cancelled load cannot confirm the replacement game player', () => {
+  const h = harness();
+  const home = h.active();
+  const incoming = h.audio.musicSlots.find((slot) => slot !== home);
+  incoming.source.autoStart = false;
+  h.audio.setMode('game');
+  const abandoned = incoming.source;
+  h.audio.setMode('home');
+  h.advance(0.1);
+  h.audio.setMode('game');
+  abandoned.start();
+  h.advance(2);
+  assert.equal(
+    incoming.source.playing,
+    false,
+    'a stale event must not stand in for the new player',
+  );
+  assert.equal(home.source.playing, true, 'keep home music until the current request succeeds');
+  incoming.source.start();
+  h.advance(2);
+  assert.equal(home.source.playing, false);
+  assert.equal(incoming.source.playing, true);
+});
+
+test('pending initial autoplay waits for user activation without rebuilding the player', () => {
+  const h = harness({ autoplay: false });
+  const slot = h.active();
+  const calls = slot.source.playCalls;
+  h.advance(60);
+  assert.equal(slot.source.playCalls, calls);
+  h.audio.play('tap');
+  h.advance(15);
+  assert.equal(slot.source.playCalls, calls + 1, 'recovery is allowed after a user interaction');
+  h.advance(60);
+  assert.equal(slot.source.playCalls, calls + 1);
+});
+
+test('mute and background discard pending music so a late startup cannot revive it', () => {
+  for (const cancel of ['mute', 'hide']) {
+    const h = harness();
+    const incoming = h.audio.musicSlots.find((slot) => slot !== h.active());
+    incoming.source.stallNextPlay = true;
+    h.audio.setMode('game');
+    h.advance(0.1);
+    if (cancel === 'mute') h.mute();
+    else h.emit('hide');
+    h.advance(30);
+    assert.ok(h.audio.musicSlots.every((slot) => slot.source.clip === null));
+    assert.ok(h.audio.musicSlots.every((slot) => !slot.source.playing));
+    if (cancel === 'mute') h.unmute();
+    else h.emit('show');
+    h.advance(2);
+    assert.equal(h.active().name, 'music');
+    assert.equal(h.active().source.playing, true);
+  }
 });

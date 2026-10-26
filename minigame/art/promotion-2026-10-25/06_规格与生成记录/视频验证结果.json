@@ -1,0 +1,59 @@
+{
+  "programs": [],
+  "stream_groups": [],
+  "streams": [
+    {
+      "codec_name": "h264",
+      "profile": "High",
+      "codec_type": "video",
+      "width": 720,
+      "height": 1280,
+      "r_frame_rate": "30/1",
+      "bit_rate": "965864",
+      "nb_frames": "450"
+    },
+    {
+      "codec_name": "aac",
+      "profile": "LC",
+      "codec_type": "audio",
+      "sample_rate": "48000",
+      "channels": 1,
+      "r_frame_rate": "0/0",
+      "bit_rate": "96255",
+      "nb_frames": "705"
+    }
+  ],
+  "format": {
+    "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+    "duration": "15.018000",
+    "size": "2009582",
+    "bit_rate": "1070492"
+  },
+  "uploaded": false,
+  "local_validation": {
+    "passed": true,
+    "decode_passed": true,
+    "duration_seconds": 15.018,
+    "video_bitrate_mbps": 0.965864,
+    "audio_codec": "aac",
+    "width": 720,
+    "height": 1280,
+    "bytes": 2009582
+  },
+  "cover": {
+    "file": "04_推广视频/视频封面_720x1280_200KB以内.jpg",
+    "width": 720,
+    "height": 1280,
+    "format": "jpeg",
+    "bytes": 197806,
+    "max_bytes": 200000,
+    "source": "03_详细推广图_竖版/01_经典三消_720x1280.jpg",
+    "passed": true
+  },
+  "promotional_copy": {
+    "text": "三消四消两对消，木雕萌宠等你挑战",
+    "characters": 16,
+    "max_characters": 20,
+    "passed": true
+  }
+}

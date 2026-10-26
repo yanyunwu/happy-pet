@@ -28,6 +28,9 @@ const CLIPS = [
 type MusicMode = 'home' | 'game';
 type VoiceCue = 'start' | 'next' | 'win' | 'lose';
 const VOLUME_EPSILON = 0.0001;
+// Creator's native player may wait eight seconds for canplay before starting.
+const MUSIC_START_TIMEOUT = 12;
+const MUSIC_RESUME_TIMEOUT = 5;
 interface MusicSlot {
   source: AudioSource;
   name: string;
@@ -47,6 +50,7 @@ export class WoodlandAudio extends Component {
   private voice!: AudioSource;
   private mode: MusicMode = 'home';
   private unlocked = false;
+  private hasPlayedMusic = false;
   private ducking = false;
   private loadedCount = 0;
   private hidden = false;
@@ -84,8 +88,10 @@ export class WoodlandAudio extends Component {
       };
       slot.source.node.on(
         AudioSource.EventType.STARTED,
-        () => {
+        (source: AudioSource) => {
+          if (source !== slot.source || !slot.name || !source.playing) return;
           slot.started = true;
+          this.hasPlayedMusic = true;
           slot.resumingAt = -1;
           slot.resetAttempted = false;
         },
@@ -206,8 +212,11 @@ export class WoodlandAudio extends Component {
       }
     }
     const gain = (this.mode === 'home' ? 0.28 : 0.22) * (this.ducking ? 0.3 : 1);
+    const selected = this.musicSlots[this.activeMusic];
     for (const slot of this.musicSlots) {
-      const target = slot.target * gain;
+      // Keep the outgoing loop audible until the next player confirms playback.
+      const keepOutgoing = !selected?.started && slot.source.playing;
+      const target = (slot.target && slot.started) || keepOutgoing ? gain : 0;
       const volume = slot.source.volume;
       if (Math.abs(volume - target) >= VOLUME_EPSILON) {
         const next = volume + (target - volume) * (1 - Math.exp(-dt / 0.18));
@@ -216,10 +225,8 @@ export class WoodlandAudio extends Component {
         // so steady music needs no writes.
         slot.source.volume = Math.abs(next - target) < VOLUME_EPSILON ? target : next;
       }
-      if (!slot.target && slot.name && slot.source.volume < 0.002) {
-        slot.source.stop();
-        slot.source.volume = 0;
-        slot.name = '';
+      if (!slot.target && !keepOutgoing && slot.name && slot.source.volume < 0.002) {
+        this.releaseMusic(slot);
       }
     }
   }
@@ -233,26 +240,38 @@ export class WoodlandAudio extends Component {
     const current = this.musicSlots[this.activeMusic];
     if (current?.name === name && current.target === 1) {
       // A selected loop can still be paused/stopped by the platform or audio manager.
-      // Leave initial loading/autoplay and active platform interruptions to Cocos;
-      // otherwise resume the same source without resetting its position or fade.
+      // Leave blocked autoplay and active platform interruptions to Cocos;
+      // otherwise bound both the initial play and later resume requests.
       const state = current.source.state;
       if (current.source.playing) {
+        current.started = true;
+        this.hasPlayedMusic = true;
         current.resumingAt = -1;
         current.resetAttempted = false;
       }
       if (
-        current.started &&
+        !current.started &&
+        current.resumingAt < 0 &&
+        (this.unlocked || this.hasPlayedMusic) &&
+        state !== AudioSource.AudioState.INTERRUPTED
+      ) {
+        current.resumingAt = this.clock;
+      }
+      if (
         current.resumingAt >= 0 &&
         !current.resetAttempted &&
         state !== AudioSource.AudioState.INTERRUPTED &&
-        this.clock - current.resumingAt >= 5
+        this.clock - current.resumingAt >=
+          (current.started ? MUSIC_RESUME_TIMEOUT : MUSIC_START_TIMEOUT)
       ) {
         // A missing native onPlay can wedge Cocos' operation queue. Recreate this
         // player once; repeated resets would race slow loads of the same clip.
         const position = current.source.currentTime;
+        const volume = current.source.volume;
         current.resetAttempted = true;
-        current.source.clip = null;
+        this.replaceMusicSource(current);
         current.source.clip = clip;
+        current.source.volume = volume;
         if (Number.isFinite(position) && position >= 0) current.source.currentTime = position;
         current.source.play();
         return;
@@ -272,36 +291,70 @@ export class WoodlandAudio extends Component {
     if (current) current.target = 0;
     this.activeMusic = this.activeMusic === 0 ? 1 : 0;
     const incoming = this.musicSlots[this.activeMusic];
-    incoming.source.stop();
-    incoming.source.clip = clip;
-    incoming.source.volume = 0;
+    const reuse =
+      incoming.name === name && incoming.source.clip === clip && incoming.source.playing;
     incoming.name = name;
     incoming.target = 1;
-    incoming.started = false;
+    incoming.started = reuse;
     incoming.retryAt = this.clock + 1;
     incoming.resumingAt = -1;
     incoming.resetAttempted = false;
+    // A quick reversal can reuse the still-playing outgoing song. Otherwise
+    // discard any old operation queue instead of queuing stop before play:
+    // native stop on an already stopped player may never acknowledge completion.
+    if (reuse) return;
+    if (incoming.source.clip) this.replaceMusicSource(incoming);
+    incoming.source.volume = 0;
+    incoming.source.clip = clip;
     incoming.source.play();
   }
 
-  private stopAll(): void {
-    for (const source of [
-      ...this.effects,
-      ...this.musicSlots.map((slot) => slot.source),
-      this.voice,
-    ].filter(Boolean)) {
+  private replaceMusicSource(slot: MusicSlot): void {
+    const previous = slot.source;
+    const node = previous.node;
+    previous.volume = 0;
+    // WebAudio destruction does not stop its looping BufferSource. Stop only
+    // active playback, never enqueue another stop on an already stopped player.
+    if (previous.playing) previous.stop();
+    previous.clip = null;
+    previous.destroy();
+    // Creator identifies in-flight loads only by clip identity. A new component
+    // prevents a late load of the same clip from replacing a newer player and
+    // consuming its queued PLAY. The channel node and its listener stay stable.
+    const source = node.addComponent(AudioSource);
+    source.playOnAwake = false;
+    source.loop = true;
+    source.volume = 0;
+    slot.source = source;
+  }
+
+  private releaseMusic(slot: MusicSlot, replaceSource = true): void {
+    if (slot.source.isValid) {
+      slot.source.volume = 0;
+      // Destroy the player so an abandoned load/play cannot resume later.
+      if (slot.source.clip) {
+        if (replaceSource) this.replaceMusicSource(slot);
+        else {
+          if (slot.source.playing) slot.source.stop();
+          slot.source.clip = null;
+        }
+      }
+    }
+    slot.name = '';
+    slot.target = 0;
+    slot.started = false;
+    slot.resumingAt = -1;
+    slot.resetAttempted = false;
+  }
+
+  private stopAll(replaceMusicSources = true): void {
+    for (const source of [...this.effects, this.voice].filter(Boolean)) {
       if (source.isValid) {
         source.volume = 0;
         source.stop();
       }
     }
-    for (const slot of this.musicSlots) {
-      slot.name = '';
-      slot.target = 0;
-      slot.started = false;
-      slot.resumingAt = -1;
-      slot.resetAttempted = false;
-    }
+    for (const slot of this.musicSlots) this.releaseMusic(slot, replaceMusicSources);
     this.activeMusic = -1;
     this.ducking = false;
     this.voiceRemaining = 0;
@@ -317,6 +370,6 @@ export class WoodlandAudio extends Component {
   onDestroy(): void {
     game.off(Game.EVENT_HIDE, this.hide, this);
     game.off(Game.EVENT_SHOW, this.show, this);
-    this.stopAll();
+    this.stopAll(false);
   }
 }

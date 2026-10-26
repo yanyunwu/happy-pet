@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-25",
+  "images": [
+    {
+      "id": "cover",
+      "file": "01_通用素材封面/通用封面_650x250.jpg",
+      "format": "jpeg",
+      "width": 650,
+      "height": 250,
+      "bytes": 75452,
+      "limitBytes": 80000,
+      "jpegQuality": 95,
+      "sourceFile": "05_高清原图/cover.png",
+      "sourceWidth": 2022,
+      "sourceHeight": 778,
+      "checksPassed": true
+    },
+    {
+      "id": "landscape-classic",
+      "file": "02_详细推广图_横版/01_经典三消_1280x720.jpg",
+      "format": "jpeg",
+      "width": 1280,
+      "height": 720,
+      "bytes": 198648,
+      "limitBytes": 200000,
+      "jpegQuality": 85,
+      "sourceFile": "05_高清原图/landscape-classic.png",
+      "sourceWidth": 1672,
+      "sourceHeight": 941,
+      "checksPassed": true
+    },
+    {
+      "id": "portrait-classic",
+      "file": "03_详细推广图_竖版/01_经典三消_720x1280.jpg",
+      "format": "jpeg",
+      "width": 720,
+      "height": 1280,
+      "bytes": 197806,
+      "limitBytes": 200000,
+      "jpegQuality": 85,
+      "sourceFile": "05_高清原图/portrait-classic.png",
+      "sourceWidth": 941,
+      "sourceHeight": 1672,
+      "checksPassed": true
+    },
+    {
+      "id": "landscape-four",
+      "file": "02_详细推广图_横版/02_极限四消_1280x720.jpg",
+      "format": "jpeg",
+      "width": 1280,
+      "height": 720,
+      "bytes": 194916,
+      "limitBytes": 200000,
+      "jpegQuality": 85,
+      "sourceFile": "05_高清原图/landscape-four.png",
+      "sourceWidth": 1672,
+      "sourceHeight": 941,
+      "checksPassed": true
+    },
+    {
+      "id": "portrait-four",
+      "file": "03_详细推广图_竖版/02_极限四消_720x1280.jpg",
+      "format": "jpeg",
+      "width": 720,
+      "height": 1280,
+      "bytes": 189989,
+      "limitBytes": 200000,
+      "jpegQuality": 83,
+      "sourceFile": "05_高清原图/portrait-four.png",
+      "sourceWidth": 941,
+      "sourceHeight": 1672,
+      "checksPassed": true
+    },
+    {
+      "id": "landscape-pairs",
+      "file": "02_详细推广图_横版/03_趣味规则消_1280x720.jpg",
+      "format": "jpeg",
+      "width": 1280,
+      "height": 720,
+      "bytes": 187592,
+      "limitBytes": 200000,
+      "jpegQuality": 83,
+      "sourceFile": "05_高清原图/landscape-pairs.png",
+      "sourceWidth": 1672,
+      "sourceHeight": 941,
+      "checksPassed": true
+    },
+    {
+      "id": "portrait-pairs",
+      "file": "03_详细推广图_竖版/03_趣味规则消_720x1280.jpg",
+      "format": "jpeg",
+      "width": 720,
+      "height": 1280,
+      "bytes": 195359,
+      "limitBytes": 200000,
+      "jpegQuality": 85,
+      "sourceFile": "05_高清原图/portrait-pairs.png",
+      "sourceWidth": 941,
+      "sourceHeight": 1672,
+      "checksPassed": true
+    }
+  ]
+}

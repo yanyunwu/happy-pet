@@ -19,6 +19,28 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
     viewport: { width: 432, height: 936 },
     deviceScaleFactor: 1,
   });
+  await page.addInitScript(() => {
+    window.liveMusicNodes = new Set();
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const create = AudioContext.prototype.createBufferSource;
+    AudioContext.prototype.createBufferSource = function (...args) {
+      const source = create.apply(this, args);
+      const start = source.start;
+      const stop = source.stop;
+      source.start = function (...args) {
+        const result = start.apply(this, args);
+        if (this.loop) window.liveMusicNodes.add(this);
+        return result;
+      };
+      source.stop = function (...args) {
+        const result = stop.apply(this, args);
+        window.liveMusicNodes.delete(this);
+        return result;
+      };
+      source.addEventListener('ended', () => window.liveMusicNodes.delete(source));
+      return source;
+    };
+  });
   const session = await page.context().newCDPSession(page);
   // Playwright evaluate/waitForFunction grant user activation. Startup probes must not.
   const inspect = async (fn) => {
@@ -143,11 +165,58 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
     assert.equal(await page.evaluate(() => window.audioApp.soundscape.mode), 'home');
     await page.evaluate(() => window.audioApp.closeModal());
     await page.waitForFunction(() => !window.audioApp.modal);
+    await page.evaluate(() => {
+      const audio = window.audioApp.soundscape;
+      window.homeMusicBeforeEntry = audio.musicSlots.find((slot) => slot.target === 1).source;
+      const Player = window.homeMusicBeforeEntry._player.constructor;
+      const play = Player.prototype.play;
+      const gameMusicUrl = audio.clips.get('music')._nativeAsset.url;
+      Player.prototype.play = function (...args) {
+        if (this.src === gameMusicUrl) {
+          // Fail the new game player's very first request, below the real
+          // AudioSource, as when native onPlay never arrives on WeChat.
+          Player.prototype.play = play;
+          window.stalledGamePlayer = this;
+          window.gameMusicRequestedAt = audio.clock;
+          this.play = () => new Promise(() => {});
+          return this.play();
+        }
+        return play.apply(this, args);
+      };
+    });
     await page.mouse.click(185 * 0.6, 1220 * 0.6);
     await page.waitForFunction(
       () =>
         window.audioApp.modal?.name === 'Rules' &&
         Math.abs(window.audioApp.modal.scale.x - 1) < 0.001,
+    );
+    await page.waitForFunction(
+      () =>
+        window.stalledGamePlayer &&
+        window.audioApp.soundscape.clock > window.gameMusicRequestedAt + 2,
+    );
+    assert(
+      await page.evaluate(
+        () => window.homeMusicBeforeEntry.playing && window.homeMusicBeforeEntry.volume > 0.18,
+      ),
+      'home music must stay audible while the first game play is unacknowledged',
+    );
+    await page.waitForFunction(
+      () =>
+        window.audioApp.soundscape.musicSlots.some(
+          (slot) =>
+            slot.target === 1 &&
+            slot.name === 'music' &&
+            slot.source.playing &&
+            slot.source._player !== window.stalledGamePlayer,
+        ) && !window.homeMusicBeforeEntry.playing,
+      null,
+      { timeout: 20000 },
+    );
+    assert.equal(
+      await page.evaluate(() => window.liveMusicNodes.size),
+      1,
+      'the outgoing loop must stop its real WebAudio node, not just become silent',
     );
     await page.mouse.click(360 * 0.6, 1203 * 0.6);
     await page.waitForFunction(
@@ -173,9 +242,10 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
       ),
     );
     await page.evaluate(() => {
-      window.interruptedMusic = window.audioApp.soundscape.musicSlots.find(
+      window.interruptedMusicSlot = window.audioApp.soundscape.musicSlots.find(
         (slot) => slot.target === 1,
-      ).source;
+      );
+      window.interruptedMusic = window.interruptedMusicSlot.source;
       window.musicResumes = 0;
       window.interruptedMusic.node.on(
         window.interruptedMusic.constructor.EventType.STARTED,
@@ -217,14 +287,14 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
     });
     await page.waitForFunction(
       () =>
-        window.interruptedMusic.playing &&
+        window.interruptedMusicSlot.source.playing &&
         window.musicResumes === 3 &&
-        window.interruptedMusic._player !== window.stalledAudioPlayer,
+        window.interruptedMusicSlot.source._player !== window.stalledAudioPlayer,
       null,
       { timeout: 10000 },
     );
     assert.ok(
-      await page.evaluate(() => window.interruptedMusic.currentTime >= 8),
+      await page.evaluate(() => window.interruptedMusicSlot.source.currentTime >= 8),
       'stalled-player fallback preserves the music position',
     );
     const ids = await page.evaluate(() => {
@@ -294,6 +364,105 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
     await page.waitForFunction(
       () => window.audioApp.currentScreen === 'home' && window.audioApp.soundscape.mode === 'home',
     );
+    for (let cycle = 0; cycle < 3; cycle++) {
+      await page.waitForFunction(
+        () =>
+          window.audioApp.soundscape.musicSlots.filter((slot) => slot.source.playing).length ===
+            1 &&
+          window.audioApp.soundscape.musicSlots.some(
+            (slot) => slot.name === 'music-home' && slot.source.playing && slot.source.volume > 0.2,
+          ),
+      );
+      await page.mouse.click(185 * 0.6, 1220 * 0.6);
+      await page.waitForFunction(
+        () =>
+          window.audioApp.currentScreen === 'game' &&
+          window.audioApp.soundscape.musicSlots.filter((slot) => slot.source.playing).length ===
+            1 &&
+          window.audioApp.soundscape.musicSlots.some(
+            (slot) => slot.name === 'music' && slot.source.playing && slot.source.volume > 0.18,
+          ),
+      );
+      await page.evaluate(() => window.audioApp.home());
+      await page.waitForFunction(() => window.audioApp.currentScreen === 'home');
+    }
+    // Exercise real AudioSource loading, not a synchronous clip setter mock:
+    // two loads of the same clip must not consume one another's pending PLAY.
+    for (const order of [
+      [0, 1],
+      [1, 0],
+    ]) {
+      await page.waitForFunction(
+        () =>
+          window.audioApp.soundscape.musicSlots.filter((slot) => slot.source.playing).length ===
+            1 &&
+          window.audioApp.soundscape.musicSlots.some(
+            (slot) => slot.name === 'music-home' && slot.source.playing && slot.source.volume > 0.2,
+          ),
+      );
+      await page.evaluate(() => {
+        const audio = window.audioApp.soundscape;
+        const Player = audio.musicSlots.find((slot) => slot.target === 1).source._player
+          .constructor;
+        const load = Player.load;
+        const gameMusicUrl = audio.clips.get('music')._nativeAsset.url;
+        window.pendingGameLoads = [];
+        Player.load = function (url, options) {
+          const result = load.call(this, url, options);
+          if (url !== gameMusicUrl) return result;
+          return result.then(
+            (player) =>
+              new Promise((resolve) => {
+                window.pendingGameLoads.push({ player, resolve: () => resolve(player) });
+                if (window.pendingGameLoads.length === 2) Player.load = load;
+              }),
+          );
+        };
+      });
+      for (let entry = 0; entry < 2; entry++) {
+        await page.mouse.click(185 * 0.6, 1220 * 0.6);
+        await page.waitForFunction(
+          (count) =>
+            window.pendingGameLoads.length === count && window.audioApp.modal?.name === 'Rules',
+          entry + 1,
+        );
+        if (entry === 0) {
+          await page.evaluate(() => window.audioApp.home());
+          await page.waitForFunction(() => window.audioApp.currentScreen === 'home');
+        }
+      }
+      for (const index of order) {
+        await page.evaluate((index) => {
+          window.pendingGameLoads[index].resolve();
+          window.musicLoadReleasedAt = window.audioApp.soundscape.clock;
+        }, index);
+        await page.waitForFunction(
+          () => window.audioApp.soundscape.clock > window.musicLoadReleasedAt + 0.3,
+        );
+      }
+      await page.waitForFunction(
+        () => {
+          const slot = window.audioApp.soundscape.musicSlots.find((slot) => slot.target === 1);
+          return slot.source.playing && slot.source._player === window.pendingGameLoads[1].player;
+        },
+        null,
+        { timeout: 3000 },
+      );
+      await page.evaluate(() => window.audioApp.home());
+      await page.waitForFunction(() => window.audioApp.currentScreen === 'home');
+    }
+    await page.waitForFunction(
+      () =>
+        window.audioApp.soundscape.musicSlots.filter((slot) => slot.source.playing).length === 1,
+    );
+    assert.equal(await page.evaluate(() => window.liveMusicNodes.size), 1);
+    await page.evaluate(() => window.audioApp.soundscape.destroy());
+    await page.waitForFunction(() => !window.audioApp.soundscape.isValid);
+    assert.equal(
+      await page.evaluate(() => window.liveMusicNodes.size),
+      0,
+      'destroying the music controller must stop every native loop',
+    );
     const mutedPage = await browser.newPage();
     try {
       mutedPage.on('pageerror', (error) => errors.push(error.message));
@@ -345,6 +514,10 @@ const origin = process.env.GAME_PREVIEW_URL || 'http://127.0.0.1:7457';
             '22 clips loaded',
             autoplayBlocked ? 'browser gesture fallback' : 'home music without interaction',
             'home/game music',
+            'first game play without acknowledgement keeps home music and recovers automatically',
+            'three return-home and game-entry cycles retain a single healthy music loop',
+            'overlapping loads of the same music clip stay isolated in both completion orders',
+            'retired and destroyed music sources leave no silent looping WebAudio nodes',
             'voice ducking and recovery',
             'steady music and inactive channels stop writing native volume',
             'unexpected pause/stop resumes the same music source without repeatedly restarting',
