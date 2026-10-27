@@ -714,6 +714,7 @@ export class StarIsle extends Component {
       this.slotAdEpoch === epoch;
     this.slotAdPending = true;
     this.updateControls();
+    const resumeAudio = this.soundscape.suspendForAd();
     try {
       const completed = await this.slotAd.watch(this.slotAdUnitId);
       if (current() && completed && round.unlockExtraSlot()) {
@@ -724,6 +725,9 @@ export class StarIsle extends Component {
     } catch (error) {
       if (current()) this.toast(error instanceof Error ? error.message : '广告暂不可用');
     } finally {
+      // Release even if the round changed while the ad was open. The audio
+      // controller restores the current mode and ignores destroyed components.
+      resumeAudio();
       if (current()) {
         this.slotAdPending = false;
         this.updateControls();

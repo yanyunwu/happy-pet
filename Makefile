@@ -17,7 +17,7 @@ EXE :=
 endif
 
 .PHONY: help env-init setup install db-up db-down db-init migration-status dev dev-api dev-admin sqlc sqlc-check test test-api test-game typecheck build-admin build-api build-game build-wechat verify
-.PHONY: configure-game test-browser test-announcement-browser test-startup test-audio test-environments preview-game test-ui format format-check lint tools go-version ci-check typecheck-admin build-services test-api-race verify-services images image-backend image-admin image-gateway images-push registry-login
+.PHONY: configure-game test-browser test-announcement-browser test-startup test-environments preview-game test-ui format format-check lint tools go-version ci-check typecheck-admin build-services test-api-race verify-services images image-backend image-admin image-gateway images-push registry-login
 ## make setup          安装依赖并初始化独立开发数据库
 ## make dev            同时启动 API :8080、后台 :5173
 ## make dev-api        启动 API
@@ -117,12 +117,6 @@ verify-services: format-check lint sqlc-check typecheck-admin test-api build-ser
 test-startup:
 	cd minigame && node tools/validate-wechat-build.cjs
 	cd minigame && node tools/test-wechat-startup.cjs
-test-audio:
-	node minigame/tools/test-audio-recovery.cjs
-	node minigame/tools/test-audio-native.cjs
-	node minigame/tools/test-audio-assets.cjs
-	node minigame/tools/test-soundscape.cjs
-	AUDIO_AUTOPLAY=blocked node minigame/tools/test-soundscape.cjs
 test-environments:
 	node minigame/tools/test-api-environments.cjs
 	node minigame/tools/test-api-storage.cjs

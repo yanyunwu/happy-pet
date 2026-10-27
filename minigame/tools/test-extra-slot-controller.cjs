@@ -39,6 +39,7 @@ function harness() {
     slotAdPending: false,
     slotAdUnitId: 'adunit-slot',
     levelTransition: { active: false },
+    soundscape: { suspendForAd: () => () => {} },
     game: {
       status: 'playing',
       extraSlotUnlocked: false,

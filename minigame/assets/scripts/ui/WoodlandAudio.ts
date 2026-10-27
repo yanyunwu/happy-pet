@@ -65,6 +65,7 @@ export class WoodlandAudio extends Component {
   private loadedCount = 0;
   private hidden = false;
   private suspended = false;
+  private adSuspensions = 0;
   private soundEnabled: () => boolean = () => false;
   private clock = 0;
   private effectIndex = 0;
@@ -162,10 +163,30 @@ export class WoodlandAudio extends Component {
     this.refreshMusic();
   }
 
+  suspendForAd(): () => void {
+    this.adSuspensions++;
+    if (this.adSuspensions === 1) {
+      // Retire the music players before WeChat takes audio focus. A video can
+      // leave them INTERRUPTED or falsely PLAYING without a matching show event.
+      this.stopAll();
+      this.suspended = true;
+    }
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.adSuspensions--;
+      if (!this.isValid || this.adSuspensions > 0) return;
+      this.suspended = false;
+      // Refresh the current mode, respecting mute and real background state.
+      this.refreshMusic();
+    };
+  }
+
   play(name: string): void {
     this.unlocked = true;
     this.refreshMusic();
-    if (!this.soundEnabled() || this.hidden) return;
+    if (!this.soundEnabled() || this.hidden || this.adSuspensions > 0) return;
     const clip = this.clips.get(name);
     if (!clip) return;
     const interval =
@@ -192,7 +213,7 @@ export class WoodlandAudio extends Component {
   }
 
   speak(name: VoiceCue): void {
-    if (!this.soundEnabled() || this.hidden || !this.unlocked) return;
+    if (!this.soundEnabled() || this.hidden || this.adSuspensions > 0 || !this.unlocked) return;
     const clip = this.clips.get(`voice-${name}`);
     if (
       !clip ||
@@ -212,7 +233,7 @@ export class WoodlandAudio extends Component {
 
   update(dt: number): void {
     this.clock += dt;
-    if (!this.soundEnabled() || this.hidden) {
+    if (!this.soundEnabled() || this.hidden || this.adSuspensions > 0) {
       if (!this.suspended) this.stopAll();
       this.suspended = true;
       return;
@@ -236,7 +257,10 @@ export class WoodlandAudio extends Component {
     for (const slot of this.musicSlots) {
       // Keep the old song recoverable even if it is temporarily paused. The
       // new song must advance across the confirmation window before fading in.
-      const keepOutgoing = slot !== selected && !selected?.handoffReady && !!slot.name;
+      // Only a song still carrying audible gain can bridge this handoff. A
+      // retained, silent candidate must not turn into fallback on a reversal.
+      const keepOutgoing =
+        slot !== selected && !selected?.handoffReady && slot.source.volume > 0.002;
       const playIncoming = slot.target && slot.started && (!hasOutgoing || slot.handoffReady);
       const target = playIncoming || keepOutgoing ? gain : 0;
       const volume = slot.source.volume;
@@ -247,15 +271,17 @@ export class WoodlandAudio extends Component {
         // so steady music needs no writes.
         slot.source.volume = Math.abs(next - target) < VOLUME_EPSILON ? target : next;
       }
-      if (!slot.target && !keepOutgoing && slot.name && slot.source.volume < 0.002) {
-        this.releaseMusic(slot);
-      }
+      // Keep the two BGM contexts alive at zero gain between visits. On the
+      // PLK110 trace the incoming native clock froze immediately after retiring
+      // the outgoing context (stop/seek/destroy), then recovered on replacement.
+      // Normal transitions must not run that teardown alongside another loop.
     }
   }
 
   private refreshMusic(): void {
     // Start when ready; Cocos resumes a blocked browser AudioContext on the first gesture.
-    if (!this.soundEnabled() || this.hidden || !this.musicSlots.length) return;
+    if (!this.soundEnabled() || this.hidden || this.adSuspensions > 0 || !this.musicSlots.length)
+      return;
     const name = this.mode === 'home' ? 'music-home' : 'music';
     const clip = this.clips.get(name);
     if (!clip) return;
@@ -264,36 +290,38 @@ export class WoodlandAudio extends Component {
       this.refreshMusicSlot(current, clip);
       if (!current.handoffReady) {
         for (const outgoing of this.musicSlots) {
-          if (outgoing === current || !outgoing.name) continue;
+          if (outgoing === current || !outgoing.name || outgoing.source.volume <= 0.002) continue;
           const outgoingClip = this.clips.get(outgoing.name);
           if (outgoingClip) this.refreshMusicSlot(outgoing, outgoingClip);
         }
       }
       return;
     }
-    if (current) {
-      current.target = 0;
-      // A cancelled candidate that never faded in is not fallback music.
-      if (current.source.volume <= 0.002) this.releaseMusic(current);
-    }
+    if (current) current.target = 0;
     this.activeMusic = this.activeMusic === 0 ? 1 : 0;
     const incoming = this.musicSlots[this.activeMusic];
-    const reuse =
-      (incoming.progressConfirmed || incoming.source.volume > 0.002) &&
-      incoming.name === name &&
-      incoming.source.clip === clip &&
-      incoming.source.playing;
-    incoming.name = name;
     incoming.target = 1;
-    incoming.started = reuse;
+    if (incoming.name === name && incoming.source.clip === clip) {
+      // Reuse both an established loop and its pending initial load. Do not
+      // enqueue another PLAY (Creator restarts a playing source) or load the
+      // same clip again. Observations made before the silent interval are stale.
+      incoming.progressAt = this.clock;
+      incoming.sampleAt = this.clock;
+      incoming.position = incoming.source.currentTime;
+      incoming.progressBeganAt = -1;
+      incoming.handoffReady = false;
+      if (incoming.resumingAt >= 0) incoming.resumingAt = this.clock;
+      this.refreshMusicSlot(incoming, clip);
+      return;
+    }
+    incoming.name = name;
+    incoming.started = false;
     incoming.retryAt = this.clock + 1;
     incoming.resumingAt = -1;
     incoming.resetAttempted = false;
     incoming.progressAt = this.clock;
-    // A quick reversal can reuse the still-playing outgoing song. Otherwise
-    // discard any old operation queue instead of queuing stop before play:
+    // A fresh channel must not inherit an unrelated old operation queue:
     // native stop on an already stopped player may never acknowledge completion.
-    if (reuse) return;
     if (incoming.source.clip) this.replaceMusicSource(incoming);
     this.resetMusicProgress(incoming);
     incoming.source.volume = 0;
@@ -358,13 +386,6 @@ export class WoodlandAudio extends Component {
       // player once; repeated resets would race slow loads of the same clip.
       const position = current.source.currentTime;
       const volume = current.source.volume;
-      console.info('[woodland-audio] music-progress-1 recovery', {
-        track: current.name,
-        state,
-        position,
-        progressConfirmed: current.progressConfirmed,
-        handoffReady: current.handoffReady,
-      });
       current.resetAttempted = true;
       this.replaceMusicSource(current);
       this.resetMusicProgress(current, position);
