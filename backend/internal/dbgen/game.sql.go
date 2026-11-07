@@ -1005,6 +1005,18 @@ func (q *Queries) RecordClear(ctx context.Context, arg RecordClearParams) (int64
 	return result.RowsAffected()
 }
 
+const reopenLostSession = `-- name: ReopenLostSession :execrows
+UPDATE game_sessions SET settled=false,ended_at=NULL,reward_coins=0 WHERE id=$1 AND status='lost' AND settled=true
+`
+
+func (q *Queries) ReopenLostSession(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, reopenLostSession, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const saveDraft = `-- name: SaveDraft :one
 UPDATE levels SET title=$2,draft=$3,draft_version=draft_version+1,updated_at=now() WHERE id=$1 AND draft_version=$4 RETURNING id, mode, ordinal, title, draft, draft_version, published_revision, enabled, updated_at, entry
 `

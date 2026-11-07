@@ -236,7 +236,7 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 			}
 			continue
 		}
-		if session.Settled || act.Seq != int(session.LastSeq)+1 || act.At < lastAt {
+		if (session.Settled && !(act.Type == "revive" && state.Status == "lost")) || act.Seq != int(session.LastSeq)+1 || act.At < lastAt {
 			return EventResult{}, conflict("对局已结算或操作顺序不连续")
 		}
 		if act.Type == "hint" {
@@ -244,6 +244,16 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 		}
 		if act.Type == "pick" {
 			e = state.Pick(act.TileID)
+		} else if act.Type == "revive" {
+			e = state.Revive()
+			if e == nil && session.Settled {
+				var reopened int64
+				reopened, e = q.ReopenLostSession(ctx, session.ID)
+				if e == nil && reopened != 1 {
+					return EventResult{}, conflict("对局状态已改变")
+				}
+				session.Settled = false
+			}
 		} else if act.Type == "unlock_slot" {
 			e = state.UnlockExtraSlot()
 		} else if act.Type == "share_tool" {
@@ -279,6 +289,14 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 	if e = q.UpdateSession(ctx, dbgen.UpdateSessionParams{ID: id, State: raw(state), LastSeq: session.LastSeq, Status: state.Status}); e != nil {
 		return EventResult{}, e
 	}
+	// Loss must be settled in the same transaction as the losing action, so a
+	// concurrent revive cannot race a later Finish("lost") call.
+	if state.Status == "lost" && !session.Settled {
+		if e = q.SettleSession(ctx, dbgen.SettleSessionParams{ID: id, RewardCoins: 0, Status: "lost"}); e != nil {
+			return EventResult{}, e
+		}
+		session.Settled = true
+	}
 	if e = saveAssets(ctx, q, a); e != nil {
 		return EventResult{}, e
 	}
@@ -288,7 +306,7 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 	result := EventResult{state.Public(), session.LastSeq, assets(a)}
 	// A terminal action also settles the round: closing WeChat during the last
 	// animation must not leave a verified win without its reward.
-	if state.Status == "won" || state.Status == "lost" {
+	if state.Status == "won" {
 		settled, err := s.Finish(ctx, user, id, state.Status)
 		if err != nil {
 			return EventResult{}, err

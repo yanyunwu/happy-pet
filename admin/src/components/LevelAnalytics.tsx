@@ -253,7 +253,7 @@ export default function LevelAnalytics({ level, onClose }: { level: Level; onClo
           )}
           <section className="analytics-panel" aria-label="道具使用情况">
             <div className="analytics-section-heading">
-              <Typography.Title level={5}>道具与额外槽位</Typography.Title>
+              <Typography.Title level={5}>道具、额外槽位与复活</Typography.Title>
               <Typography.Text type="secondary">统计已验证操作，包含免费与背包道具</Typography.Text>
             </div>
             <Table
@@ -266,11 +266,13 @@ export default function LevelAnalytics({ level, onClose }: { level: Level; onClo
                   title: '操作',
                   dataIndex: 'type',
                   render: (type: string) =>
-                    type === 'unlock_slot'
-                      ? '额外槽位解锁'
-                      : type === 'draw'
-                        ? '抽卡'
-                        : toolNames[type],
+                    type === 'revive'
+                      ? '广告复活'
+                      : type === 'unlock_slot'
+                        ? '额外槽位解锁'
+                        : type === 'draw'
+                          ? '抽卡'
+                          : toolNames[type],
                 },
                 { title: '使用次数', dataIndex: 'uses', align: 'right', render: count },
                 { title: '使用对局数', dataIndex: 'sessions', align: 'right', render: count },

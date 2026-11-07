@@ -93,6 +93,10 @@ const server = http.createServer((request, response) => {
       .getByRole('row')
       .filter({ has: page.getByRole('cell', { name: '抽卡', exact: true }) });
     assert.deepEqual(await draws.getByRole('cell').allTextContents(), ['抽卡', '3', '2']);
+    const revives = drawer
+      .getByRole('row')
+      .filter({ has: page.getByRole('cell', { name: '广告复活', exact: true }) });
+    assert.deepEqual(await revives.getByRole('cell').allTextContents(), ['广告复活', '1', '1']);
     const response = await page.request.get(
       origin + '/api/v1/admin/levels/standard-classic-1/analytics',
     );
@@ -110,6 +114,14 @@ const server = http.createServer((request, response) => {
         type: 'draw',
         uses: 3,
         sessions: 2,
+      },
+    );
+    assert.deepEqual(
+      actual.tools.find((tool) => tool.type === 'revive'),
+      {
+        type: 'revive',
+        uses: 1,
+        sessions: 1,
       },
     );
     await page.screenshot({
