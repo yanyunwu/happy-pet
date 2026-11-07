@@ -93,10 +93,10 @@ function fixture(id, range, revisionId) {
           publishedAt: stamp,
           current: version === 2,
         })),
-    tools: ['undo', 'shovel', 'hint', 'shuffle', 'unlock_slot'].map((type) => ({
+    tools: ['undo', 'shovel', 'hint', 'draw', 'shuffle', 'unlock_slot'].map((type) => ({
       type,
-      uses: !empty && type === 'hint' ? 3 : 0,
-      sessions: !empty && type === 'hint' ? 2 : 0,
+      uses: !empty && (type === 'hint' || type === 'draw') ? 3 : 0,
+      sessions: !empty && (type === 'hint' || type === 'draw') ? 2 : 0,
     })),
   };
 }
@@ -177,6 +177,12 @@ const server = http.createServer((req, res) => {
     await drawer.getByText('森林小径', { exact: true }).waitFor();
     await drawer.getByLabel('通过率', { exact: true }).getByText('40.0%').waitFor();
     await drawer.getByText('通关次数 ÷ 开局次数', { exact: true }).waitFor();
+    assert.equal(await drawer.getByText('提示（旧记录）').count(), 0, 'legacy hints are omitted');
+    await drawer
+      .getByRole('row')
+      .filter({ hasText: '抽卡' })
+      .getByText('3', { exact: true })
+      .waitFor();
     assert.equal(requests[0].searchParams.get('range'), '30d');
     await page.screenshot({
       path: path.join(output, 'desktop.png'),

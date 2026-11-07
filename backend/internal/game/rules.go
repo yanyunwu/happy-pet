@@ -380,10 +380,6 @@ func (s *State) Tool(kind string, seed uint32) error {
 		s.Reserve = append(s.Reserve, s.Tray...)
 		s.Tray = []int{}
 		s.History = nil
-	case "hint":
-		if s.remaining() == 0 {
-			return fmt.Errorf("没有可提示的方块")
-		}
 	case "draw":
 		coveredTiles := []int{}
 		for _, tile := range s.Tiles {

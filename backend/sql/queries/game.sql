@@ -65,10 +65,13 @@ UPDATE game_sessions SET settled=true,reward_coins=$2,ended_at=now(),status=$3 W
 INSERT INTO game_events(session_id,seq,action,state) VALUES($1,$2,$3,$4);
 -- name: GetEvent :one
 SELECT * FROM game_events WHERE session_id=$1 AND seq=$2;
+-- name: LastEventAtOrBefore :one
+SELECT * FROM game_events WHERE session_id=$1 AND seq<=$2 ORDER BY seq DESC LIMIT 1;
 -- name: ListEvents :many
 SELECT * FROM game_events WHERE session_id=$1 ORDER BY seq;
 -- name: ListSessions :many
 SELECT s.id,s.user_id,s.entry,s.mode,s.ordinal,s.revision_id,s.status,s.settled,s.last_seq,s.reward_coins,s.started_at,
+ (SELECT count(*) FROM game_events e WHERE e.session_id=s.id AND e.action->>'type' IS DISTINCT FROM 'hint') AS steps,
  (s.state->>'moves')::int AS moves,(s.state->>'cleared')::int AS cleared,jsonb_array_length(s.state->'tiles') AS total,
  u.nickname,s.title FROM game_sessions s JOIN users u ON u.id=s.user_id
 WHERE (sqlc.arg(user_id)::text='' OR s.user_id=sqlc.arg(user_id)) AND (sqlc.arg(mode)::text='' OR s.mode=sqlc.arg(mode))

@@ -260,7 +260,7 @@ export default function LevelAnalytics({ level, onClose }: { level: Level; onClo
               rowKey="type"
               size="small"
               pagination={false}
-              dataSource={data.tools}
+              dataSource={data.tools.filter(({ type }) => type !== 'hint')}
               columns={[
                 {
                   title: '操作',
@@ -268,11 +268,9 @@ export default function LevelAnalytics({ level, onClose }: { level: Level; onClo
                   render: (type: string) =>
                     type === 'unlock_slot'
                       ? '额外槽位解锁'
-                      : type === 'hint'
-                        ? '提示（旧记录）'
-                        : type === 'draw'
-                          ? '抽卡'
-                          : toolNames[type],
+                      : type === 'draw'
+                        ? '抽卡'
+                        : toolNames[type],
                 },
                 { title: '使用次数', dataIndex: 'uses', align: 'right', render: count },
                 { title: '使用对局数', dataIndex: 'sessions', align: 'right', render: count },

@@ -288,7 +288,7 @@ func TestToolsAndFailure(t *testing.T) {
 		t.Fatal(e)
 	}
 	_, route, _ := game.NewBoard(game.DefaultConfig("classic", 1), uint32(session.Seed))
-	events := []game.Action{{Seq: 1, Type: "pick", TileID: route[0]}, {Seq: 2, Type: "undo"}, {Seq: 3, Type: "pick", TileID: route[0]}, {Seq: 4, Type: "shovel"}, {Seq: 5, Type: "pick", TileID: route[0]}, {Seq: 6, Type: "hint"}, {Seq: 7, Type: "shuffle"}}
+	events := []game.Action{{Seq: 1, Type: "pick", TileID: route[0]}, {Seq: 2, Type: "undo"}, {Seq: 3, Type: "pick", TileID: route[0]}, {Seq: 4, Type: "shovel"}, {Seq: 5, Type: "pick", TileID: route[0]}, {Seq: 6, Type: "draw"}, {Seq: 7, Type: "shuffle"}}
 	result, e := h.games.Events(ctx, a.User.ID, session.ID, events)
 	if e != nil {
 		t.Fatal(e)

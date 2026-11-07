@@ -88,10 +88,11 @@ const server = http.createServer((request, response) => {
     await metric('平均通关耗时', '1分30秒');
     await metric('平均通关步数', '12.0');
     await drawer.getByText('已结束对局通过率 50.0%', { exact: true }).waitFor();
-    const hints = drawer
+    assert.equal(await drawer.getByText('提示（旧记录）').count(), 0);
+    const draws = drawer
       .getByRole('row')
-      .filter({ has: page.getByRole('cell', { name: '提示', exact: true }) });
-    assert.deepEqual(await hints.getByRole('cell').allTextContents(), ['提示', '3', '2']);
+      .filter({ has: page.getByRole('cell', { name: '抽卡', exact: true }) });
+    assert.deepEqual(await draws.getByRole('cell').allTextContents(), ['抽卡', '3', '2']);
     const response = await page.request.get(
       origin + '/api/v1/admin/levels/standard-classic-1/analytics',
     );
@@ -99,6 +100,18 @@ const server = http.createServer((request, response) => {
     const actual = await response.json();
     assert.equal(actual.summary.attempts, 5);
     assert.equal(actual.summary.unfinished, 1);
+    assert.equal(
+      actual.tools.some((tool) => tool.type === 'hint'),
+      false,
+    );
+    assert.deepEqual(
+      actual.tools.find((tool) => tool.type === 'draw'),
+      {
+        type: 'draw',
+        uses: 3,
+        sessions: 2,
+      },
+    );
     await page.screenshot({
       path: path.join(output, 'desktop.png'),
       fullPage: true,
