@@ -17,6 +17,10 @@ export interface CloudAssets {
   signInCount: number;
   signedOn: string;
 }
+export type CloudCampaignProgress = Record<
+  ModeId,
+  { current: number; position: number; total: number; completed: number }
+>;
 export type EntryId = 'standard' | 'campaign';
 export interface CloudState {
   tiles: Tile[];
@@ -59,7 +63,7 @@ export interface CloudSession {
 }
 export interface CloudAction {
   seq: number;
-  type: 'pick' | 'unlock_slot' | 'share_tool' | ToolId;
+  type: 'pick' | 'draw' | 'unlock_slot' | 'share_tool' | ToolId;
   tileId?: number;
   tool?: ToolId;
   at: number;
@@ -293,6 +297,15 @@ export class OnlineClient {
   }
   async refreshAssets(): Promise<void> {
     this.onAssets(await this.request<CloudAssets>('/user/assets'));
+  }
+  async campaignProgress(): Promise<CloudCampaignProgress> {
+    await this.ready();
+    const owner = this.userId,
+      generation = this.identityGeneration;
+    const progress = await this.request<CloudCampaignProgress>('/user/campaign-progress');
+    if (this.userId !== owner || this.identityGeneration !== generation)
+      throw new OnlineError('登录账号已变化，请重新查看闯关进度', 0, 'PROFILE_ACCOUNT_CHANGED');
+    return progress;
   }
   async signIn(): Promise<void> {
     await this.recover();

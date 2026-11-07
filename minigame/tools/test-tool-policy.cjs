@@ -244,6 +244,27 @@ test('online shuffle cannot bypass the challenge allowance, while campaign still
   }
 });
 
+test('online draw records one server-selected draw and restores its undo history', async () => {
+  const h = harness('standard', 'classic', 1);
+  const calls = [];
+  const state = { history: [{ tiles: [], tray: [], reserve: [] }] };
+  h.app.practice = false;
+  h.app.currentScreen = 'game';
+  h.app.isValid = true;
+  h.app.online = {
+    active: { id: 'round-1' },
+    recover: async () => calls.push('recover'),
+    record: (kind) => calls.push(kind),
+    syncState: async () => calls.push('sync'),
+    reconcile: async () => ({ state }),
+  };
+  h.game.applyCloud = (value) => assert.equal(value, state);
+  h.app.presentDraw = () => calls.push('present');
+  h.app.draw();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, ['recover', 'draw', 'sync', 'present']);
+});
+
 test('sharing selects the approved image for the current game mode', async () => {
   for (const mode of ['classic', 'quartet', 'fun']) {
     const h = harness('standard', mode);

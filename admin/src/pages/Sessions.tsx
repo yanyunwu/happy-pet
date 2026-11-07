@@ -276,9 +276,13 @@ export default function Sessions() {
                       ? `收集 ${petNames[state.tiles[action.tileId ?? 0].kind]} · 方块 ${action.tileId ?? 0}`
                       : action.type === 'unlock_slot'
                         ? '广告奖励：解锁本关额外收纳槽'
-                        : action.type === 'share_tool'
-                          ? `分享领取：${toolNames[action.tool || ''] || action.tool || '道具'}`
-                          : toolNames[action.type] || action.type}
+                        : action.type === 'hint'
+                          ? '提示（旧记录）'
+                          : action.type === 'draw'
+                            ? '抽卡'
+                            : action.type === 'share_tool'
+                              ? `分享领取：${toolNames[action.tool || ''] || action.tool || '道具'}`
+                              : toolNames[action.type] || action.type}
                 </Typography.Paragraph>
                 <Space wrap>
                   <Button
@@ -337,9 +341,9 @@ export default function Sessions() {
                   description="重排、撤回、铲出均保存实际结果；后续修改关卡不会改变历史回放。"
                 />
                 <div className="replay-tools">
-                  {Object.entries(toolNames).map(([id, name]) => (
+                  {['undo', 'shovel', 'hint', 'shuffle'].map((id) => (
                     <Tag key={id}>
-                      {name}免费 {state.tools[id]}
+                      {toolNames[id]}免费 {state.tools[id]}
                     </Tag>
                   ))}
                 </div>

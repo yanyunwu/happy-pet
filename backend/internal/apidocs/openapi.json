@@ -3201,6 +3201,52 @@
         ]
       }
     },
+    "/api/v1/user/campaign-progress": {
+      "get": {
+        "tags": ["游戏对局"],
+        "summary": "查询三种玩法的闯关进度",
+        "operationId": "getCampaignProgress",
+        "description": "仅计已上架、已发布的闯关关卡；按玩法独立统计当前玩家的进度。current 是首个未通关的实际关卡序号，position 是其在可玩关卡中的位置，total 是可玩关卡数，completed 是其中已通关数。全部通关时 current 和 position 指最后一关；没有可玩关卡时均为 0。玩家 Bearer JWT；或管理员 Bearer Token 加 X-User-ID。",
+        "security": [{ "PlayerToken": [] }, { "AdminToken": [] }],
+        "parameters": [
+          {
+            "name": "X-User-ID",
+            "in": "header",
+            "required": false,
+            "description": "管理员访问 Token 必须指定合法玩家 ID；玩家 JWT 只能指定本人。",
+            "schema": { "type": "string", "pattern": "^[a-f0-9]{32}$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按 classic、quartet、fun 返回各自的闯关进度。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["classic", "quartet", "fun"],
+                  "properties": {
+                    "classic": { "$ref": "#/components/schemas/CampaignProgress" },
+                    "quartet": { "$ref": "#/components/schemas/CampaignProgress" },
+                    "fun": { "$ref": "#/components/schemas/CampaignProgress" }
+                  }
+                },
+                "example": {
+                  "classic": { "current": 8, "position": 2, "total": 3, "completed": 1 },
+                  "quartet": { "current": 2, "position": 2, "total": 2, "completed": 2 },
+                  "fun": { "current": 0, "position": 0, "total": 0, "completed": 0 }
+                }
+              }
+            }
+          },
+          "400": { "description": "管理员 Token 缺少合法 X-User-ID。" },
+          "401": { "description": "凭证无效或过期。" },
+          "403": { "description": "玩家试图指定其他账号。" },
+          "404": { "description": "指定玩家不存在或不可用。" },
+          "500": { "description": "服务异常。" }
+        }
+      }
+    },
     "/api/v1/user/levels": {
       "get": {
         "tags": ["游戏对局"],
@@ -3675,7 +3721,7 @@
         "tags": ["游戏对局"],
         "summary": "提交按序游戏动作",
         "operationId": "submitEvents",
-        "description": "每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。只可选择未被覆盖或位于 reserve 的有效方块。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。普通微信转发无法验证是否发送，取消也可能得到次数；share_tool 为客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。\n\n玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。",
+        "description": "每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。pick 只可选择未被覆盖或位于 reserve 的有效方块；draw 不带 tileId，由服务端从被覆盖方块中确定性随机抽取并进入槽位，使用 hint 道具额度；hint 为兼容历史的旧提示动作。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。普通微信转发无法验证是否发送，取消也可能得到次数；share_tool 为客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。\n\n玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。",
         "security": [
           {
             "PlayerToken": []
@@ -6125,6 +6171,11 @@
                       "sessions": 2
                     },
                     {
+                      "type": "draw",
+                      "uses": 1,
+                      "sessions": 1
+                    },
+                    {
                       "type": "shuffle",
                       "uses": 0,
                       "sessions": 0
@@ -6204,6 +6255,28 @@
       }
     },
     "schemas": {
+      "CampaignProgress": {
+        "type": "object",
+        "required": ["current", "position", "total", "completed"],
+        "properties": {
+          "current": { "type": "integer", "minimum": 0, "description": "当前可玩关卡的原始序号。" },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "当前关卡在可玩列表中的位置，从 1 开始。"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "已上架且已发布的闯关关卡数。"
+          },
+          "completed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "其中玩家已通关的关卡数。"
+          }
+        }
+      },
       "Error": {
         "type": "object",
         "description": "",
@@ -7234,7 +7307,7 @@
           },
           "moves": {
             "type": "integer",
-            "description": "pick 步数。"
+            "description": "pick 和 draw 步数；撤回会回退。"
           },
           "status": {
             "type": "string",
@@ -7291,12 +7364,21 @@
           },
           "type": {
             "type": "string",
-            "description": "pick 选牌；四种道具；share_tool 追加次数；unlock_slot 增加一格。",
-            "enum": ["pick", "undo", "shovel", "hint", "shuffle", "share_tool", "unlock_slot"]
+            "description": "pick 选牌；draw 从被覆盖的方块中随机抽一张进入槽位，消耗 hint 道具额度；hint 为旧版提示动作，继续兼容；share_tool 追加次数；unlock_slot 增加一格。",
+            "enum": [
+              "pick",
+              "undo",
+              "shovel",
+              "hint",
+              "draw",
+              "shuffle",
+              "share_tool",
+              "unlock_slot"
+            ]
           },
           "tool": {
             "type": "string",
-            "description": "仅 share_tool 使用，指定追加次数的道具。",
+            "description": "仅 share_tool 使用，指定追加次数的道具；抽卡对应 hint。",
             "enum": ["undo", "shovel", "hint", "shuffle"]
           },
           "tileId": {
@@ -8037,7 +8119,7 @@
           },
           "moves": {
             "type": "integer",
-            "description": "pick 步数。"
+            "description": "pick 和 draw 步数；撤回会回退。"
           },
           "status": {
             "type": "string",
@@ -8982,7 +9064,7 @@
             "format": "double",
             "nullable": true,
             "minimum": 0,
-            "description": "通关对局最终state.moves的平均值，仅点选计数、撤回会回退；不是包括道具在内的总事件数。缺失样本时null。"
+            "description": "通关对局最终state.moves的平均值，点选和抽卡计数、撤回会回退；不是全部事件数。缺失样本时null。"
           }
         }
       },
@@ -9073,8 +9155,8 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["undo", "shovel", "hint", "shuffle", "unlock_slot"],
-            "description": "道具或额外槽位解锁；不能由unlock_slot推断广告实际播放完成。"
+            "enum": ["undo", "shovel", "hint", "draw", "shuffle", "unlock_slot"],
+            "description": "道具或额外槽位解锁；draw 是新抽卡，hint 为历史提示；不能由 unlock_slot 推断广告实际播放完成。"
           },
           "uses": {
             "type": "integer",

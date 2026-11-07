@@ -266,7 +266,13 @@ export default function LevelAnalytics({ level, onClose }: { level: Level; onClo
                   title: '操作',
                   dataIndex: 'type',
                   render: (type: string) =>
-                    type === 'unlock_slot' ? '额外槽位解锁' : toolNames[type],
+                    type === 'unlock_slot'
+                      ? '额外槽位解锁'
+                      : type === 'hint'
+                        ? '提示（旧记录）'
+                        : type === 'draw'
+                          ? '抽卡'
+                          : toolNames[type],
                 },
                 { title: '使用次数', dataIndex: 'uses', align: 'right', render: count },
                 { title: '使用对局数', dataIndex: 'sessions', align: 'right', render: count },

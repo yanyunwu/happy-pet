@@ -254,7 +254,8 @@ curl -sS "$BASE/api/v1/user/assets" \
 | pick        | 方块进入 tray，触发规则匹配，增加 moves                   | 对局 playing，tileId 当前可选；不消耗道具。                        |
 | undo        | 回到最近一次 pick 前的棋盘帧                              | 存在撤回历史；最多保留 64 帧；不退还已经消耗的道具。               |
 | shovel      | 把 tray 放入 reserve，清空 tray                           | tray 非空，tray+reserve 不超过 7；清空撤回历史。                   |
-| hint        | 记录一次提示使用                                          | 还有剩余方块；响应不包含“推荐方块 ID”，客户端自行呈现提示。        |
+| draw        | 从被覆盖的方块随机抽一张进入槽位并参与消除                | playing 且存在被覆盖方块；消耗原 `hint` 道具次数；无需 tileId。    |
+| hint        | 记录一次旧版提示使用                                      | 兼容历史客户端，仍消耗 `hint` 道具次数；不执行抽卡。               |
 | shuffle     | 将未消除方块重新布局/分配，并清空 tray、reserve、撤回历史 | playing；使用服务端 seed 与 seq 派生的确定性随机值。               |
 | share_tool  | 为指定 `tool` 追加 1 次使用机会                           | playing；该道具免费及当前可用背包额度耗尽；每种道具每局一次。      |
 | unlock_slot | 将 capacity 从 7 改为 8                                   | 每局仅一次，playing 且当前为 7；不占四种道具次数、不扣背包或金币。 |
@@ -1533,6 +1534,22 @@ curl -sS -X POST "$BASE/api/v1/admin/users/$PLAYER_ID/assets" \
 
 ### 游戏对局
 
+#### 闯关进度
+
+`GET /api/v1/user/campaign-progress`
+
+**认证：** 玩家 Bearer JWT；或管理员 Bearer 访问 Token + 合法的 `X-User-ID`。无请求体、无查询参数。
+
+返回 `classic`、`quartet`、`fun` 三种玩法各自的闯关进度，仅统计已上架、已发布的关卡。`current` 是首个未通关的实际关卡序号；`position` 是它在当前可玩关卡列表中的位置（从 1 开始）；`total` 是当前可玩关卡数；`completed` 是其中已通关的关卡数。全部完成时 `current` 和 `position` 对应最后一关；没有可玩关卡时四个字段均为 0。关卡下架后不会计入总数，但已有通关记录会保留。
+
+```json
+{
+  "classic": { "current": 8, "position": 2, "total": 3, "completed": 1 },
+  "quartet": { "current": 2, "position": 2, "total": 2, "completed": 2 },
+  "fun": { "current": 0, "position": 0, "total": 0, "completed": 0 }
+}
+```
+
 #### 37. 已发布可玩关卡目录
 
 `GET /api/v1/user/levels`
@@ -1720,7 +1737,7 @@ curl -sS -X GET "$BASE/api/v1/user/sessions/$SESSION_ID" \
 
 **认证：** 玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。
 
-每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。只可选择未被覆盖或位于 reserve 的有效方块。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。share_tool 是客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。
+每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。pick 只可选择未被覆盖或位于 reserve 的有效方块；draw 不带 tileId，由服务端从被覆盖方块中确定性随机抽取并进入槽位，使用 hint 道具额度；hint 为兼容历史的旧提示动作。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。share_tool 是客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。
 
 | 参数        | 位置   | 必填 | 说明                                                                                                                                |
 | ----------- | ------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -2857,27 +2874,27 @@ PATCH 仍需提交完整 nickname 和 status。remark 省略等同空字符串�
 
 ### Frame
 
-| 字段      | 类型                                      | 必填 | 说明                |
-| --------- | ----------------------------------------- | ---- | ------------------- |
-| `tiles`   | array&lt;[Tile](#schema-tile)&gt;         | 是   | 完整方块数组。      |
-| `tray`    | array&lt;integer&gt;                      | 是   | 收纳槽方块 ID。     |
-| `reserve` | array&lt;integer&gt;                      | 是   | 铲子暂存区方块 ID。 |
-| `matches` | integer                                   | 是   | 已触发消除次数。    |
-| `cleared` | integer                                   | 是   | 累计已消除方块数。  |
-| `moves`   | integer                                   | 是   | pick 步数。         |
-| `status`  | string = `"playing"` / `"won"` / `"lost"` | 是   | 棋盘状态。          |
+| 字段      | 类型                                      | 必填 | 说明                            |
+| --------- | ----------------------------------------- | ---- | ------------------------------- |
+| `tiles`   | array&lt;[Tile](#schema-tile)&gt;         | 是   | 完整方块数组。                  |
+| `tray`    | array&lt;integer&gt;                      | 是   | 收纳槽方块 ID。                 |
+| `reserve` | array&lt;integer&gt;                      | 是   | 铲子暂存区方块 ID。             |
+| `matches` | integer                                   | 是   | 已触发消除次数。                |
+| `cleared` | integer                                   | 是   | 累计已消除方块数。              |
+| `moves`   | integer                                   | 是   | pick 和 draw 步数；撤回会回退。 |
+| `status`  | string = `"playing"` / `"won"` / `"lost"` | 是   | 棋盘状态。                      |
 
 <a id="schema-action"></a>
 
 ### Action
 
-| 字段     | 类型                                                                                                  | 必填 | 说明                                                                                               |
-| -------- | ----------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------- |
-| `seq`    | integer                                                                                               | 是   | 从 1 开始连续递增，最大 10000。；最小 1；最大 10000                                                |
-| `type`   | string = `"pick"` / `"undo"` / `"shovel"` / `"hint"` / `"shuffle"` / `"share_tool"` / `"unlock_slot"` | 是   | pick 选牌；四种道具；share_tool 追加次数；unlock_slot 增加一格。                                   |
-| `tool`   | string = `"undo"` / `"shovel"` / `"hint"` / `"shuffle"`                                               | 否   | 仅 share_tool 使用，指定追加次数的道具。                                                           |
-| `tileId` | integer                                                                                               | 否   | 仅 pick 使用的方块 ID；ID 0 是合法值，其他动作省略。；最小 0                                       |
-| `at`     | integer                                                                                               | 是   | 对局开始后的相对毫秒；非递减，0..604800000。不是 Unix 时间戳。；最小 0；最大 604800000；格式 int64 |
+| 字段     | 类型                                                                                                             | 必填 | 说明                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------- |
+| `seq`    | integer                                                                                                          | 是   | 从 1 开始连续递增，最大 10000。；最小 1；最大 10000                                                |
+| `type`   | string = `"pick"` / `"undo"` / `"shovel"` / `"hint"` / `"draw"` / `"shuffle"` / `"share_tool"` / `"unlock_slot"` | 是   | draw 为新抽卡，hint 为旧提示动作；share_tool 追加次数；unlock_slot 增加一格。                      |
+| `tool`   | string = `"undo"` / `"shovel"` / `"hint"` / `"shuffle"`                                                          | 否   | 仅 share_tool 使用，指定追加次数的道具；抽卡使用 hint。                                            |
+| `tileId` | integer                                                                                                          | 否   | 仅 pick 使用的方块 ID；ID 0 是合法值，其他动作省略。；最小 0                                       |
+| `at`     | integer                                                                                                          | 是   | 对局开始后的相对毫秒；非递减，0..604800000。不是 Unix 时间戳。；最小 0；最大 604800000；格式 int64 |
 
 <a id="schema-eventsinput"></a>
 
@@ -3054,7 +3071,7 @@ PATCH 仍需提交完整 nickname 和 status。remark 省略等同空字符串�
 | `reserve`      | array&lt;integer&gt;                                                 | 是   | 铲子暂存区方块 ID。                                                                                                 |
 | `matches`      | integer                                                              | 是   | 已触发消除次数。                                                                                                    |
 | `cleared`      | integer                                                              | 是   | 累计已消除方块数。                                                                                                  |
-| `moves`        | integer                                                              | 是   | pick 步数。                                                                                                         |
+| `moves`        | integer                                                              | 是   | pick 和 draw 步数；撤回会回退。                                                                                     |
 | `status`       | string = `"playing"` / `"won"` / `"lost"`                            | 是   | 棋盘状态。                                                                                                          |
 | `mode`         | string = `"classic"` / `"quartet"` / `"fun"`                         | 是   | 规则目录：classic 经典三消、quartet 四消、fun 趣味双对；实际匹配依据 config.rules。                                 |
 | `capacity`     | integer = `7` / `8`                                                  | 是   | 当前容量 7 或解锁后的 8。                                                                                           |
@@ -3205,8 +3222,8 @@ curl --get "$BASE/api/v1/admin/levels/$LEVEL_ID/analytics" \
 - `won/lost/abandoned/unfinished` 分别对应通关、失败、主动退出、未结束，合计等于 attempts。未结束可能包含断线或未上报结果，绝不视为失败。
 - `winRate = won / attempts × 100`；`finishedWinRate = won / (won + lost + abandoned) × 100`。分母为0时返回 null，不是假设0%。
 - `avgWinDurationSeconds` 只取通关且 `ended_at >= started_at` 的有效服务端开始/结束时差，包含切后台/闲置时间；`winDurationSamples` 为有效样本数，无样本均值为null。
-- `avgWinMoves` 为通关对局最终 `state.moves` 的平均值，仅点选计数、撤回会回退；不等于包含道具的全部事件数。
-- `tools` 恒含 `undo/shovel/hint/shuffle/unlock_slot` 五类，`uses` 是接受的事件次数，`sessions` 是使用过的对局数。包括免费、背包和分享追加次数使用的道具；重复上报同一序号不会重复统计。`unlock_slot` 仅代表解锁行为，不能推断广告实际播放完成。
+- `avgWinMoves` 为通关对局最终 `state.moves` 的平均值，点选和抽卡均计数、撤回会回退；不等于包含道具的全部事件数。
+- `tools` 恒含 `undo/shovel/hint/draw/shuffle/unlock_slot` 六类，`draw` 是新抽卡，`hint` 代表旧版提示记录。`uses` 是接受的事件次数，`sessions` 是使用过的对局数。包括免费、背包和分享追加次数使用的道具；重复上报同一序号不会重复统计。`unlock_slot` 仅代表解锁行为，不能推断广告实际播放完成。
 - `from/to/generatedAt` 为RFC3339，`from=null` 表示全部历史；`to` 是不包含的上界。`trendFrom` 为趋势首日，`timezone` 固定 `Asia/Shanghai`。多个统计查询在同一个只读可重复读快照内完成。
 
 成功返回示例：
@@ -3337,6 +3354,11 @@ curl --get "$BASE/api/v1/admin/levels/$LEVEL_ID/analytics" \
       "type": "hint",
       "uses": 3,
       "sessions": 2
+    },
+    {
+      "type": "draw",
+      "uses": 1,
+      "sessions": 1
     },
     {
       "type": "shuffle",

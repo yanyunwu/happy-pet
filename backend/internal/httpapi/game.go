@@ -29,6 +29,10 @@ func (s *Server) registerGame(router *gin.Engine, admin, user *gin.RouterGroup) 
 		s.result(c, v, e)
 	})
 	user.GET("/levels", func(c *gin.Context) { v, e := service.Levels(c.Request.Context(), true); s.result(c, v, e) })
+	user.GET("/campaign-progress", func(c *gin.Context) {
+		v, e := service.CampaignProgress(c.Request.Context(), currentUser(c).ID)
+		s.result(c, v, e)
+	})
 	user.POST("/sessions", func(c *gin.Context) {
 		var in game.StartInput
 		if e := bind(c, &in); e != nil {

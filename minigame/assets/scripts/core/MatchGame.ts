@@ -682,7 +682,18 @@ export class MatchGame {
     );
   }
   pick(id: number): PickResult | null {
-    if (this.status !== 'playing' || !this.isAvailable(id)) return null;
+    return this.collect(id, false);
+  }
+  draw(): PickResult | null {
+    if (this.status !== 'playing' || this.hintLeft < 1) return null;
+    const covered = this.tiles.filter((tile) => !tile.removed && !this.isAvailable(tile.id));
+    if (!covered.length) return null;
+    const result = this.collect(covered[Math.floor(this.rng() * covered.length)].id, true);
+    if (result) this.hintLeft--;
+    return result;
+  }
+  private collect(id: number, coveredAllowed: boolean): PickResult | null {
+    if (this.status !== 'playing' || (!coveredAllowed && !this.isAvailable(id))) return null;
     this.history.push({
       tiles: this.tiles.map((t) => ({ ...t })),
       tray: this.tray.slice(),

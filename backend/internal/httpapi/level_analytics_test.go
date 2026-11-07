@@ -103,10 +103,10 @@ func TestLevelAnalyticsEmptyDraft(t *testing.T) {
 			t.Fatal("empty day invents data", day)
 		}
 	}
-	if len(result.Tools) != 5 {
+	if len(result.Tools) != 6 {
 		t.Fatal("missing zero-use tools", result.Tools)
 	}
-	for i, kind := range []string{"undo", "shovel", "hint", "shuffle", "unlock_slot"} {
+	for i, kind := range []string{"undo", "shovel", "hint", "draw", "shuffle", "unlock_slot"} {
 		if result.Tools[i].Type != kind || result.Tools[i].Uses != 0 || result.Tools[i].Sessions != 0 {
 			t.Fatal("wrong empty tool result", result.Tools[i])
 		}
@@ -257,13 +257,13 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	events := []game.Action{{Seq: 1, Type: "pick", TileID: route[0]}, {Seq: 2, Type: "undo"}, {Seq: 3, Type: "pick", TileID: route[0]}, {Seq: 4, Type: "shovel"}, {Seq: 5, Type: "hint"}, {Seq: 6, Type: "hint"}, {Seq: 7, Type: "shuffle"}, {Seq: 8, Type: "unlock_slot"}}
+	events := []game.Action{{Seq: 1, Type: "pick", TileID: route[0]}, {Seq: 2, Type: "undo"}, {Seq: 3, Type: "pick", TileID: route[0]}, {Seq: 4, Type: "shovel"}, {Seq: 5, Type: "hint"}, {Seq: 6, Type: "hint"}, {Seq: 7, Type: "shuffle"}, {Seq: 8, Type: "draw"}, {Seq: 9, Type: "unlock_slot"}}
 	for range 2 {
 		if _, err = h.games.Events(ctx, player.User.ID, session.ID, events); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err = h.games.Events(ctx, player.User.ID, session.ID, []game.Action{{Seq: 9, Type: "shuffle"}}); err == nil {
+	if _, err = h.games.Events(ctx, player.User.ID, session.ID, []game.Action{{Seq: 10, Type: "shuffle"}}); err == nil {
 		t.Fatal("invalid tool use unexpectedly accepted")
 	}
 	other, err := h.games.Start(ctx, player.User.ID, game.StartInput{Mode: "classic", RequestID: "qa-analytics-tools-0002"})
@@ -281,7 +281,7 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := decode[analyticsTestResult](t, h.call("GET", "/api/v1/admin/levels/"+session.LevelID+"/analytics", nil, "admin"), 200)
-	if len(result.Tools) != 5 {
+	if len(result.Tools) != 6 {
 		t.Fatal("missing tool categories", result.Tools)
 	}
 	for _, tool := range result.Tools {
