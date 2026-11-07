@@ -29,7 +29,7 @@ export const petNames = [
 export const toolNames: Record<string, string> = {
   undo: '撤回',
   shovel: '铲出',
-  hint: '提示',
+  hint: '抽卡',
   shuffle: '重排',
 };
 export interface Assets {

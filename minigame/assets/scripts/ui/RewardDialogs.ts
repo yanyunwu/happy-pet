@@ -12,6 +12,7 @@ export interface RewardTool {
 interface RewardArt {
   coin: SpriteFrame;
   tools: SpriteFrame[];
+  pet?: SpriteFrame;
 }
 
 const C = P.PALETTE;
@@ -95,7 +96,10 @@ export function paintSignIn(
       statusStamp(gift, state, 181, -39, 110);
       P.sprite(gift, 'Coin', art.coin, -180, 18, 66, 66);
       P.text(gift, 'Coins', `+${entry.coins}`, -87, 18, 37, '#A65D22', 116, true);
-      P.sprite(gift, 'ToolIcon', art.tools[item.icon], 47, 16, 67, 67);
+      if (item.id === 'hint' && art.pet) {
+        const icon = P.skin(gift, 'ToolIcon', 'tile', 47, 16, 67, 67);
+        P.sprite(icon, 'DrawPet', art.pet, 0, -2, 48, 48);
+      } else P.sprite(gift, 'ToolIcon', art.tools[item.icon], 47, 16, 67, 67);
       P.text(gift, 'Tool', `${item.name} ×${entry.count}`, 156, 17, 28, C.deep, 150, true);
     }
   });
@@ -141,7 +145,11 @@ export function paintBag(
     const card = P.skin(parent, `Bag-${tool.id}`, 'tile', x, y, 254, 276);
     P.skin(card, 'QuantityBadge', 'pill-dark', 61, -106, 111, 45);
     P.text(card, 'Quantity', `×${count}`, 61, -109, 25, count ? '#FFF0B7' : '#E0CFB2', 100, true);
-    const icon = P.sprite(card, 'ToolIcon', art.tools[tool.icon], -4, -46, 110, 110);
+    const icon =
+      tool.id === 'hint' && art.pet
+        ? P.skin(card, 'ToolIcon', 'tile', -4, -46, 110, 110)
+        : P.sprite(card, 'ToolIcon', art.tools[tool.icon], -4, -46, 110, 110);
+    if (tool.id === 'hint' && art.pet) P.sprite(icon, 'DrawPet', art.pet, 0, -4, 78, 78);
     if (!count) P.opacity(icon, 170);
     P.text(card, 'ToolName', tool.name, 0, 28, 32, C.deep, 218, true);
     const detail = P.text(card, 'ToolDetail', tool.detail, 0, 77, 21, C.muted, 215);
@@ -153,7 +161,7 @@ export function paintBag(
   P.text(
     parent,
     'FreeTools',
-    online ? '挑战不消耗背包道具' : '挑战免费：撤回1 · 铲出1 · 提示3 · 重排1',
+    online ? '挑战不消耗背包道具' : '挑战免费：撤回1 · 铲出1 · 抽卡3 · 重排1',
     360,
     1087,
     22,

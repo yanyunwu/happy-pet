@@ -71,6 +71,9 @@ test-game:
 	node minigame/tools/test-single-rule.cjs
 	node minigame/tools/test-win-probability.cjs
 	node minigame/tools/test-tool-policy.cjs
+	node minigame/tools/test-draw.cjs
+	node minigame/tools/test-idle-hint.cjs
+	node minigame/tools/test-campaign-progress.cjs
 	node minigame/tools/test-share-images.cjs
 	node minigame/tools/test-tool-stages.cjs
 	node minigame/tools/test-rewarded-ad.cjs
@@ -126,6 +129,7 @@ test-environments:
 preview-game:
 	node minigame/tools/serve.cjs
 test-ui:
+	cd minigame && node tools/test-draw-idle-progress-ui.cjs
 	cd minigame && node tools/test-shared-kind-ui.cjs
 	cd minigame && node tools/test-tool-policy-ui.cjs
 	cd minigame && node tools/test-extra-slot-ui.cjs

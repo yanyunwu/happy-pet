@@ -10,7 +10,6 @@ import {
   Sprite,
   SpriteFrame,
   Tween,
-  UIOpacity,
   Vec3,
   profiler,
   resources,
@@ -53,6 +52,7 @@ import { paintBag, paintSignIn } from './ui/RewardDialogs';
 import { WechatGameClubButton } from './core/WechatGameClub';
 import { WechatRewardedAd } from './core/WechatRewardedAd';
 import { toolAvailability } from './core/ToolPolicy';
+import { IdleHintClock, selectIdleHint } from './core/IdleHint';
 import { shareImageForMode } from './core/WechatShareImages';
 import { ExtraSlotView } from './ui/ExtraSlotView';
 import { WoodlandAudio } from './ui/WoodlandAudio';
@@ -71,7 +71,7 @@ const SAVE_KEY = 'star-isle-v1';
 const TOOL_INFO: { id: ToolId; name: string; icon: number; detail: string }[] = [
   { id: 'undo', name: '撤回', icon: 2, detail: '收回上一步\n恢复消除前的萌宠' },
   { id: 'shovel', name: '铲出', icon: 5, detail: '槽内萌宠移到上方\n点击可放回' },
-  { id: 'hint', name: '提示', icon: 4, detail: '点亮可优先收集\n的小伙伴' },
+  { id: 'hint', name: '抽卡', icon: 4, detail: '随机抽取被遮挡的\n萌宠放入收纳槽' },
   { id: 'shuffle', name: '重排', icon: 3, detail: '打乱剩余方块\n重新安排位置' },
 ];
 declare const wx:
@@ -121,6 +121,8 @@ export class StarIsle extends Component {
   }
   private toasts!: ToastPresenter;
   private tileNodes = new Map<number, Node>();
+  private idleHintClock = new IdleHintClock(10);
+  private idleBounce: { node: Node; origin: Vec3; animation: Tween<Node> } | null = null;
   private trayNodes = new Map<number, Node>();
   private reserveNodes = new Map<number, Node>();
   private trayMotions = new Map<number, number>();
@@ -176,6 +178,7 @@ export class StarIsle extends Component {
     // Sound is a device preference, including while WeChat login is still pending.
     this.cloudSave.sound = this.localSave.sound;
     this.stage = this.stageRoot;
+    this.stage.on(Node.EventType.TOUCH_START, this.resetIdleHint, this, true);
     this.modals = new ModalPresenter(this.stage, (cue) => this.play(cue));
     this.frames = this.petFrames.slice();
     P.configureSkin(this.skinFrames);
@@ -247,6 +250,37 @@ export class StarIsle extends Component {
         !this.levelTransition.active &&
         !this.appHidden,
     );
+    const idleActive =
+      this.currentScreen === 'game' &&
+      this.game?.status === 'playing' &&
+      !this.modal &&
+      !this.networkBusy &&
+      !this.slotAdPending &&
+      !this.levelTransition.active &&
+      !this.appHidden &&
+      !this.busy &&
+      !this.boardTransition;
+    if (!idleActive) this.stopIdleBounce();
+    if (this.idleHintClock.advance(dt, !!idleActive) && this.game) {
+      const id = selectIdleHint(this.game);
+      const node = id === null ? null : this.tileNodes.get(id);
+      if (node?.isValid) {
+        const origin = node.position.clone();
+        const animation = tween(node)
+          .repeatForever(
+            tween<Node>()
+              .to(
+                0.24,
+                { position: new Vec3(origin.x, origin.y + 12, origin.z) },
+                { easing: 'sineOut' },
+              )
+              .to(0.24, { position: origin }, { easing: 'sineIn' })
+              .delay(0.45),
+          )
+          .start();
+        this.idleBounce = { node, origin, animation };
+      }
+    }
     if (
       this.currentScreen === 'game' &&
       this.game?.status === 'playing' &&
@@ -258,6 +292,7 @@ export class StarIsle extends Component {
   }
   private hideNativeEntries(): void {
     this.appHidden = true;
+    this.resetIdleHint();
     this.gameClub.setVisible(false);
   }
   private showNativeEntries(): void {
@@ -340,6 +375,7 @@ export class StarIsle extends Component {
   }
 
   private clearScreen(name: 'home' | 'game'): void {
+    this.resetIdleHint();
     this.slotAdEpoch++;
     this.slotAd.destroy();
     this.slotAdPending = false;
@@ -348,7 +384,6 @@ export class StarIsle extends Component {
     this.disposeModalContents();
     this.unscheduleAllCallbacks();
     this.toasts.reset();
-    this.clearHighlights();
     this.modals.retire();
     this.resetTrayPresentation();
     this.stage.children.slice().forEach((n) => {
@@ -458,21 +493,7 @@ export class StarIsle extends Component {
     else if (action === 'undo') this.undo();
     else if (action === 'shovel') this.shovel();
     else if (action === 'shuffle') this.reshuffle();
-    else if (action === 'hint') {
-      let ids: number[] = [];
-      this.useTool('hint', () => {
-        ids = g.hint();
-        return ids.length > 0;
-      });
-      if (ids.length) {
-        this.highlight(ids);
-        this.updateControls();
-        this.toast('优先收集发光的小伙伴吧！');
-      } else {
-        this.play('blocked');
-        this.toast('先试试撤回或重排，给口袋腾个位置');
-      }
-    }
+    else if (action === 'hint') this.draw();
   }
   private startLevel(id: number, seed?: number, mode: ModeId = this.selectedMode): void {
     if (this.modal) {
@@ -497,6 +518,10 @@ export class StarIsle extends Component {
     this.board = this.at(this.gameRoot!, 'Board');
     this.rack = this.at(this.gameRoot!, 'Tray');
     this.reserveRoot = this.at(this.gameRoot!, 'ReserveArea/ReserveTiles');
+    const drawIcon = this.at(this.gameRoot!, 'Toolbar/Tool-hint/Icon');
+    drawIcon.getComponent(Sprite)!.spriteFrame = this.skinFrames[3];
+    if (!drawIcon.getChildByName('DrawPet'))
+      P.sprite(drawIcon, 'DrawPet', this.frames[3], 0, -3, 62, 62);
     this.disposeChildren(this.board);
     this.disposeChildren(this.rack);
     this.setText(this.gameRoot!, 'TopBar/Chapter', `第 ${game.level.id} 关`);
@@ -536,7 +561,18 @@ export class StarIsle extends Component {
         34,
       );
       P.sprite(b, 'Pet', this.frames[[9, 12, 3][index]], -202, -4, 66, 66);
-      P.text(m, `Rule-${mode.id}`, mode.shortRule, 360, 642 + index * 175, 21, C.muted, 540);
+      P.text(m, `Rule-${mode.id}`, mode.shortRule, 270, 642 + index * 175, 21, C.muted, 350);
+      P.text(
+        m,
+        `Progress-${mode.id}`,
+        this.online ? '加载中…' : '联网后查看',
+        535,
+        642 + index * 175,
+        21,
+        C.ink,
+        180,
+        true,
+      );
     });
     P.text(
       m,
@@ -550,6 +586,60 @@ export class StarIsle extends Component {
       C.muted,
       570,
     );
+    const retry = P.button(
+      m,
+      'ProgressRetry',
+      '重试获取进度',
+      360,
+      1230,
+      300,
+      65,
+      () => load(),
+      false,
+      22,
+    );
+    retry.active = false;
+    const online = this.online;
+    const load = () => {
+      if (!online || this.modal !== m || this.online !== online) return;
+      retry.active = false;
+      MODES.forEach((mode) => this.setText(m, `Progress-${mode.id}`, '加载中…'));
+      void online
+        .campaignProgress()
+        .then((data) => {
+          if (
+            !this.isValid ||
+            this.currentScreen !== 'home' ||
+            this.modal !== m ||
+            this.online !== online
+          )
+            return;
+          MODES.forEach((mode) => {
+            const progress = data[mode.id];
+            let label = '暂无关卡';
+            if (progress?.total > 0)
+              label =
+                progress.completed >= progress.total
+                  ? `已通关 ${progress.total}/${progress.total}`
+                  : progress.current === progress.position
+                    ? `第 ${progress.current}/${progress.total} 关`
+                    : `第 ${progress.current} 关 · ${progress.position}/${progress.total}`;
+            this.setText(m, `Progress-${mode.id}`, label);
+          });
+        })
+        .catch(() => {
+          if (
+            !this.isValid ||
+            this.currentScreen !== 'home' ||
+            this.modal !== m ||
+            this.online !== online
+          )
+            return;
+          MODES.forEach((mode) => this.setText(m, `Progress-${mode.id}`, '获取失败'));
+          retry.active = true;
+        });
+    };
+    load();
   }
   private async startCloud(mode: ModeId, previous = ''): Promise<void> {
     if (!this.online || this.networkBusy) return;
@@ -851,7 +941,6 @@ export class StarIsle extends Component {
     this.recordAction('pick', id);
     this.busy = true;
     this.play('tile');
-    this.clearHighlights();
     this.syncBoard();
     this.syncReserve();
     const incoming = this.makeTile(
@@ -1035,7 +1124,6 @@ export class StarIsle extends Component {
     if (!this.useTool('undo', () => this.game!.undo())) return;
     this.resultHandled = false;
     this.closeModal();
-    this.clearHighlights();
     this.disposeChildren(this.board);
     this.buildBoard();
     this.tileNodes.forEach((node, id) => {
@@ -1051,7 +1139,6 @@ export class StarIsle extends Component {
     const g = this.game!,
       moved = g.tray.slice();
     if (!this.useTool('shovel', () => g.shovel())) return;
-    this.clearHighlights();
     this.boardTransition = true;
     this.busy = true;
     this.at(this.gameRoot!, 'ReserveArea').active = true;
@@ -1086,6 +1173,69 @@ export class StarIsle extends Component {
     this.updateHud();
     this.updateControls();
     this.toast('已暂存到上方，点击萌宠可放回收纳槽');
+  }
+  private draw(): void {
+    if (this.toolUses('hint') <= 0) return;
+    const game = this.game!;
+    if (!game.tiles.some((tile) => !tile.removed && !game.isAvailable(tile.id))) {
+      this.play('blocked');
+      this.toast('没有被遮挡的萌宠可以抽取');
+      return;
+    }
+    if (this.online && !this.practice) {
+      const online = this.online,
+        sessionId = online.active?.id;
+      let submitted = false;
+      const current = () =>
+        this.isValid &&
+        this.currentScreen === 'game' &&
+        this.game === game &&
+        this.online === online &&
+        online.active?.id === sessionId;
+      const apply = async (): Promise<void> => {
+        this.networkBusy = true;
+        try {
+          if (!submitted) {
+            await online.recover();
+            if (!current()) return;
+            online.record('draw');
+            submitted = true;
+          }
+          await online.syncState();
+          if (!current()) return;
+          const session = await online.reconcile();
+          if (current()) {
+            game.applyCloud(session.state);
+            this.play('hint');
+            this.presentDraw();
+          }
+        } catch (error) {
+          if (current()) {
+            if (error instanceof OnlineError && (error.status === 400 || error.status === 409))
+              await this.reconcileCloud(error);
+            else this.connectionError(error, apply);
+          }
+        } finally {
+          if (current()) this.networkBusy = false;
+        }
+      };
+      void apply();
+      return;
+    }
+    if (!this.useTool('hint', () => !!game.draw())) {
+      this.play('blocked');
+      this.toast('没有被遮挡的萌宠可以抽取');
+      return;
+    }
+    this.presentDraw();
+  }
+  private presentDraw(): void {
+    this.disposeChildren(this.board);
+    this.buildBoard();
+    this.renderTray();
+    this.syncReserve();
+    this.updateHud();
+    this.finishPick();
   }
   private reshuffle(): void {
     if (this.toolUses('shuffle') <= 0) return;
@@ -1122,7 +1272,6 @@ export class StarIsle extends Component {
   }
   private animateShuffle(): void {
     this.play('shuffle');
-    this.clearHighlights();
     const g = this.game!,
       layer = P.layer(this.effects, 'ShuffleAnimation');
     const cards = Array.from(this.tileNodes.entries())
@@ -1375,47 +1524,6 @@ export class StarIsle extends Component {
     }
     return used;
   }
-  private highlight(ids: number[], timed = true): void {
-    this.clearHighlights();
-    ids.forEach((id) => {
-      const n = this.tileNodes.get(id) || this.reserveNodes.get(id);
-      if (!n) return;
-      const glow = P.rounded(
-        n,
-        'HintGlow',
-        0,
-        -4,
-        TILE_W + 5,
-        TILE_H - 2,
-        '#F4DA94',
-        19,
-        '#DDAE47',
-        24,
-      );
-      const alpha = P.opacity(glow, 255);
-      tween(alpha)
-        .repeatForever(
-          tween()
-            .to(0.75, { opacity: 130 }, { easing: 'sineInOut' })
-            .to(0.75, { opacity: 255 }, { easing: 'sineInOut' }),
-        )
-        .start();
-    });
-    if (timed) this.scheduleOnce(() => this.clearHighlights(), 4);
-  }
-  private clearHighlights(): void {
-    const clear = (n: Node) => {
-      const glow = n.getChildByName('HintGlow');
-      if (glow) {
-        const alpha = glow.getComponent(UIOpacity);
-        if (alpha) Tween.stopAllByTarget(alpha);
-        glow.active = false;
-        glow.destroy();
-      }
-    };
-    this.tileNodes.forEach(clear);
-    this.reserveNodes.forEach(clear);
-  }
   private burst(x: number, y: number, count: number): void {
     for (let i = 0; i < count; i++) {
       const angle = Math.PI * (0.15 + (0.7 * i) / Math.max(1, count - 1)),
@@ -1623,10 +1731,6 @@ export class StarIsle extends Component {
         this.closeModal();
         if (tutorial) {
           this.soundscape.speak('start');
-          const charges = g.hintLeft,
-            ids = g.hint();
-          g.hintLeft = charges;
-          if (ids.length) this.highlight(ids, false);
         }
       },
       true,
@@ -1644,7 +1748,7 @@ export class StarIsle extends Component {
       day,
       claimed,
       TOOL_INFO,
-      { coin: this.homeFrames[0], tools: this.utilityFrames },
+      { coin: this.homeFrames[0], tools: this.utilityFrames, pet: this.frames[3] },
       () => {
         if (claimed || this.networkBusy) return;
         if (this.online && !this.practice) {
@@ -1688,7 +1792,7 @@ export class StarIsle extends Component {
       this.save,
       !!this.online && !this.practice,
       TOOL_INFO,
-      { coin: this.homeFrames[0], tools: this.utilityFrames },
+      { coin: this.homeFrames[0], tools: this.utilityFrames, pet: this.frames[3] },
       () => this.closeModal(),
     );
   }
@@ -1977,6 +2081,17 @@ export class StarIsle extends Component {
     this.toasts.show(message);
     this.levelTransition.bringToFront();
   }
+  private resetIdleHint(): void {
+    this.idleHintClock.reset();
+    this.stopIdleBounce();
+  }
+  private stopIdleBounce(): void {
+    const bounce = this.idleBounce;
+    this.idleBounce = null;
+    if (!bounce) return;
+    bounce.animation.stop();
+    if (bounce.node.isValid) bounce.node.setPosition(bounce.origin);
+  }
   onDestroy(): void {
     this.slotAdEpoch++;
     this.slotAd.destroy();
@@ -1985,12 +2100,13 @@ export class StarIsle extends Component {
     this.gameClub.destroy();
     runtimeGame.off(Game.EVENT_HIDE, this.hideNativeEntries, this);
     runtimeGame.off(Game.EVENT_SHOW, this.showNativeEntries, this);
+    this.stage?.off(Node.EventType.TOUCH_START, this.resetIdleHint, this, true);
+    this.resetIdleHint();
     this.disposeModalContents();
     this.toasts?.reset();
     this.levelTransition?.reset();
     this.online?.detach();
     this.modals?.reset();
-    this.clearHighlights();
     this.unscheduleAllCallbacks();
   }
 }

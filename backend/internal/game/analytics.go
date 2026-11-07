@@ -200,7 +200,7 @@ func (s *Service) LevelAnalytics(ctx context.Context, levelID, rangeName, revisi
 	for _, tool := range toolRows {
 		byTool[tool.ToolType] = tool
 	}
-	for _, kind := range []string{"undo", "shovel", "hint", "shuffle", "unlock_slot"} {
+	for _, kind := range []string{"undo", "shovel", "hint", "draw", "shuffle", "unlock_slot"} {
 		tool := byTool[kind]
 		result.Tools = append(result.Tools, LevelAnalyticsTool{Type: kind, Uses: tool.Uses, Sessions: tool.Sessions})
 	}

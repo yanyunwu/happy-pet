@@ -509,6 +509,43 @@ func (q *Queries) LedgerByKey(ctx context.Context, arg LedgerByKeyParams) ([]Ass
 	return items, nil
 }
 
+const listCampaignProgressLevels = `-- name: ListCampaignProgressLevels :many
+SELECT l.mode, l.ordinal, (c.level_id IS NOT NULL)::boolean AS completed
+FROM levels l
+LEFT JOIN level_clears c ON c.level_id=l.id AND c.user_id=$1
+WHERE l.entry='campaign' AND l.enabled AND l.published_revision IS NOT NULL
+ORDER BY l.mode,l.ordinal
+`
+
+type ListCampaignProgressLevelsRow struct {
+	Mode      string
+	Ordinal   int32
+	Completed bool
+}
+
+func (q *Queries) ListCampaignProgressLevels(ctx context.Context, userID string) ([]ListCampaignProgressLevelsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCampaignProgressLevels, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCampaignProgressLevelsRow{}
+	for rows.Next() {
+		var i ListCampaignProgressLevelsRow
+		if err := rows.Scan(&i.Mode, &i.Ordinal, &i.Completed); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClears = `-- name: ListClears :many
 SELECT level_id FROM level_clears WHERE user_id=$1
 `

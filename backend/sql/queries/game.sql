@@ -16,6 +16,12 @@ SELECT * FROM asset_ledger WHERE user_id=$1 AND request_key=$2;
 SELECT * FROM asset_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100;
 -- name: ListLevels :many
 SELECT * FROM levels ORDER BY entry,mode,ordinal;
+-- name: ListCampaignProgressLevels :many
+SELECT l.mode, l.ordinal, (c.level_id IS NOT NULL)::boolean AS completed
+FROM levels l
+LEFT JOIN level_clears c ON c.level_id=l.id AND c.user_id=sqlc.arg(user_id)
+WHERE l.entry='campaign' AND l.enabled AND l.published_revision IS NOT NULL
+ORDER BY l.mode,l.ordinal;
 -- name: NextPlayableLevel :one
 SELECT l.* FROM levels l
 WHERE l.entry=sqlc.arg(entry) AND l.mode=sqlc.arg(mode) AND l.enabled AND l.published_revision IS NOT NULL

@@ -228,7 +228,7 @@ const tools = group(game, 'Toolbar');
 for (const [x, name, title, idx, count] of [
   [120, 'undo', '撤回', 5, 1],
   [280, 'shovel', '铲出', 9, 1],
-  [600, 'hint', '提示', 7, 3],
+  [600, 'hint', '抽卡', 7, 3],
   [440, 'shuffle', '重排', 6, 1],
 ]) {
   const b = s.button(tools, `Tool-${name}`, x, 1434, 132, 140, 'tool-base', 'onGameAction', name);

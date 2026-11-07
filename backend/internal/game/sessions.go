@@ -237,17 +237,21 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 		} else if act.Type == "share_tool" {
 			e = state.shareTool(session.Entry, act.Tool, assets(a).Bag[act.Tool])
 		} else {
-			source, err := state.toolSource(session.Entry, act.Type, assets(a).Bag[act.Type])
+			tool := act.Type
+			if tool == "draw" {
+				tool = "hint"
+			}
+			source, err := state.toolSource(session.Entry, tool, assets(a).Bag[tool])
 			if err != nil {
 				return EventResult{}, invalid(err)
 			}
 			e = state.Tool(act.Type, uint32(session.Seed)^uint32(act.Seq)*2654435761)
 			if e == nil {
 				if source == "bag" {
-					e = change(ctx, q, &a, act.Type, -1, fmt.Sprintf("session:%s:%d", id, act.Seq), "对局使用道具", user)
+					e = change(ctx, q, &a, tool, -1, fmt.Sprintf("session:%s:%d", id, act.Seq), "对局使用道具", user)
 				}
 				if e == nil {
-					state.consumeTool(act.Type, source)
+					state.consumeTool(tool, source)
 				}
 			}
 		}

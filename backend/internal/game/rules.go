@@ -300,6 +300,11 @@ func (s *State) Pick(id int) error {
 	if s.Status != "playing" || !s.Open(id) {
 		return fmt.Errorf("这个方块当前不可选择")
 	}
+	return s.take(id)
+}
+
+// take applies the common tray, match and history rules to a selected tile.
+func (s *State) take(id int) error {
 	rules, err := CanonicalRules(s.Mode, s.RulesVersion, s.Rules)
 	if err != nil {
 		return err
@@ -379,6 +384,18 @@ func (s *State) Tool(kind string, seed uint32) error {
 		if s.remaining() == 0 {
 			return fmt.Errorf("没有可提示的方块")
 		}
+	case "draw":
+		coveredTiles := []int{}
+		for _, tile := range s.Tiles {
+			if !tile.Removed && !s.Open(tile.ID) {
+				coveredTiles = append(coveredTiles, tile.ID)
+			}
+		}
+		if len(coveredTiles) == 0 {
+			return fmt.Errorf("没有可抽取的隐藏方块")
+		}
+		r := &rng{seed}
+		return s.take(coveredTiles[int(r.next()*float64(len(coveredTiles)))])
 	case "shuffle":
 		return s.reshuffle(seed)
 	default:
