@@ -6,7 +6,7 @@ const {
 } = require('C:/Users/kirito/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const output = path.resolve(__dirname, '../output/qa-tool-policy');
 fs.mkdirSync(output, { recursive: true });
-const toolX = { undo: 120, shovel: 280, hint: 440, shuffle: 600 };
+const toolX = { undo: 120, shovel: 280, hint: 600, shuffle: 440 };
 
 (async () => {
   const browser = await chromium.launch({
@@ -128,17 +128,17 @@ const toolX = { undo: 120, shovel: 280, hint: 440, shuffle: 600 };
     for (const tool of Object.keys(toolX)) {
       await fixture('campaign', 'classic');
       await prepare(tool);
-      assert.equal((await read()).tools[tool].count, '4');
+      assert.equal((await read()).tools[tool].count, '2');
       await click(toolX[tool], 1434);
       await settle();
       assert.equal((await read()).bag[tool], 3, 'campaign uses its free allowance before stock');
-      for (const left of [2, 1, 0]) {
+      for (const left of [2]) {
         await prepare(tool);
         await click(toolX[tool], 1434);
         await settle();
         const state = await read();
-        assert.equal(state.bag[tool], left, `${tool} can repeatedly spend bag stock`);
-        assert.equal(state.tools[tool].count, String(left));
+        assert.equal(state.bag[tool], left, `${tool} can spend one bag item`);
+        assert.equal(state.tools[tool].count, '0');
       }
       assert.equal((await read()).tools[tool].enabled, false);
     }
@@ -159,10 +159,50 @@ const toolX = { undo: 120, shovel: 280, hint: 440, shuffle: 600 };
     );
     await fixture('campaign', 'classic', 0, 9);
     assert(
-      Object.values((await read()).tools).every((tool) => tool.count === '9'),
-      'entering campaign exposes the same available inventory',
+      Object.values((await read()).tools).every((tool) => tool.count === '1'),
+      'entering campaign exposes at most one inventory item per tool',
     );
     await page.screenshot({ path: path.join(output, 'campaign-inventory.png') });
+    await fixture('standard', 'classic', 0, 3);
+    await page.evaluate(() => {
+      window.wx = {
+        shareAppMessage() {
+          window.shareInvocations = (window.shareInvocations || 0) + 1;
+        },
+      };
+      window.shareRecords = [];
+      policyApp.practice = false;
+      policyApp.online = {
+        active: { id: 'ui-test' },
+        record: (...args) => window.shareRecords.push(args),
+        syncState: async () => ({
+          bagUsed: {},
+          sharedTools: { hint: true },
+          shareUses: { hint: 1 },
+        }),
+      };
+      policyApp.updateControls();
+    });
+    assert.equal((await read()).tools.hint.count, '分享');
+    await click(toolX.hint, 1434);
+    await page.waitForFunction(() => policyApp.modal?.name === 'ToolShare');
+    await page.screenshot({ path: path.join(output, 'share-before.png') });
+    await click(360, 840);
+    await page.waitForFunction(
+      () =>
+        window.shareInvocations === 1 && policyApp.game.shareUses.hint === 1 && !policyApp.modal,
+    );
+    await page.screenshot({ path: path.join(output, 'share-return.png') });
+    assert.deepEqual(await page.evaluate(() => window.shareRecords), [
+      ['share_tool', undefined, 'hint'],
+    ]);
+    assert.equal((await read()).tools.hint.count, '1');
+    await page.evaluate(() => {
+      policyApp.practice = true;
+      policyApp.online = null;
+      delete window.wx;
+    });
+    await settle();
     await page.evaluate(() => {
       policyApp.showBag();
     });
@@ -176,11 +216,11 @@ const toolX = { undo: 120, shovel: 280, hint: 440, shuffle: 600 };
         .join('\n'),
     );
     assert(text.includes('仅限闯关模式使用'));
-    assert(text.includes('直至库存用完'));
+    assert(text.includes('每种道具每局最多用1个背包'));
     await page.screenshot({ path: path.join(output, 'bag-policy.png') });
     assert.deepEqual(errors, []);
     console.log(
-      'PASS — all three challenge modes enforce four free-only tools; campaign spends every available bag item; counts, disabled buttons, asset refresh, entry changes and bag instructions agree.',
+      'PASS — challenge uses free tools; campaign spends at most one bag item per tool; counts, disabled buttons, asset refresh, entry changes and bag instructions agree.',
     );
   } finally {
     await browser.close();

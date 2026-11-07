@@ -410,6 +410,9 @@ export class MatchGame {
   shovelLeft = 1;
   shuffleLeft = 1;
   hintLeft = 3;
+  bagUsed = { undo: false, shovel: false, hint: false, shuffle: false };
+  sharedTools = { undo: false, shovel: false, hint: false, shuffle: false };
+  shareUses = { undo: 0, shovel: 0, hint: 0, shuffle: 0 };
   /** A complete legal solution for reproducible QA, never shown to players. */
   solution: number[] = [];
   static fromCloud(session: CloudSession): MatchGame {
@@ -464,6 +467,15 @@ export class MatchGame {
     this.shovelLeft = state.tools.shovel;
     this.hintLeft = state.tools.hint;
     this.shuffleLeft = state.tools.shuffle;
+    this.bagUsed = { undo: false, shovel: false, hint: false, shuffle: false, ...state.bagUsed };
+    this.sharedTools = {
+      undo: false,
+      shovel: false,
+      hint: false,
+      shuffle: false,
+      ...state.sharedTools,
+    };
+    this.shareUses = { undo: 0, shovel: 0, hint: 0, shuffle: 0, ...state.shareUses };
   }
   private clearedCount = 0;
   private history: Snapshot[] = [];

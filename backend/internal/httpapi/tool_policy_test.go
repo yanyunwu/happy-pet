@@ -143,7 +143,7 @@ func TestToolPolicyStandardUsesOnlyFreeAllowance(t *testing.T) {
 	}
 }
 
-func TestToolPolicyCampaignContinuesUntilInventoryIsEmpty(t *testing.T) {
+func TestToolPolicyCampaignAllowsOneInventoryItem(t *testing.T) {
 	h := setup(t)
 	for _, mode := range []string{"classic", "quartet", "fun"} {
 		t.Run(mode, func(t *testing.T) {
@@ -164,7 +164,7 @@ func TestToolPolicyCampaignContinuesUntilInventoryIsEmpty(t *testing.T) {
 					if afterFree := snapshotToolPolicy(t, h, player.User.ID, session.ID); !reflect.DeepEqual(afterFree.ledger, initial.ledger) {
 						t.Fatal("campaign free use wrote an inventory ledger entry")
 					}
-					for remaining := int32(3); remaining >= 0; remaining-- {
+					for remaining := int32(3); remaining >= 3; remaining-- {
 						actions := toolPolicyActions(t, result, kind)
 						result = sendToolPolicyActions(t, h, player, session.ID, actions)
 						assets.Bag[kind] = remaining
@@ -182,7 +182,7 @@ func TestToolPolicyCampaignContinuesUntilInventoryIsEmpty(t *testing.T) {
 						if !reflect.DeepEqual(retry, result) || !reflect.DeepEqual(afterRetry.ledger, beforeRetry.ledger) || !reflect.DeepEqual(afterRetry.events, beforeRetry.events) {
 							t.Fatal("repeating the same sequence changed state or charged inventory again")
 						}
-						if remaining == 2 {
+						if remaining == 3 {
 							restarted := startToolPolicySession(t, h, player, "campaign", mode, mode+"-"+kind+"-restart")
 							persisted := decode[game.Assets](t, h.call("GET", "/api/v1/user/assets", nil, player.AccessToken), 200)
 							if !reflect.DeepEqual(restarted.State.Tools, session.State.Tools) || !reflect.DeepEqual(persisted, assets) {
@@ -193,7 +193,7 @@ func TestToolPolicyCampaignContinuesUntilInventoryIsEmpty(t *testing.T) {
 					before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
 					w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, kind)}, player.AccessToken)
 					if w.Code != 400 {
-						t.Fatalf("campaign %s with empty inventory was accepted: status %d", kind, w.Code)
+						t.Fatalf("campaign %s after its inventory allowance was accepted: status %d", kind, w.Code)
 					}
 					assertToolPolicyUnchanged(t, h, before)
 				})
@@ -260,7 +260,7 @@ func TestToolPolicyNextLevelResetsFreeAllowanceWithoutRefillingInventory(t *test
 			result := game.EventResult{State: session.State}
 			uses := session.State.Tools["hint"]
 			if entry == "campaign" {
-				uses += 2
+				uses += 1
 			}
 			for i := 0; i < uses; i++ {
 				result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
@@ -343,4 +343,111 @@ func TestToolPolicyStandardZeroFreeAllowanceRejectsImmediately(t *testing.T) {
 			t.Fatal("zero free tools prevented or charged for the independent extra-slot action")
 		}
 	})
+}
+
+func TestToolPolicyShareGrantsOneUse(t *testing.T) {
+	h := setup(t)
+	for _, entry := range []string{"standard", "campaign"} {
+		t.Run(entry, func(t *testing.T) {
+			player := login(t, h, "qa-share-"+entry)
+			grantToolPolicyStock(t, h, player, 4)
+			session := startToolPolicySession(t, h, player, entry, "classic", "share-"+entry)
+			result := game.EventResult{State: session.State}
+			uses := session.State.Tools["hint"]
+			if entry == "campaign" {
+				uses++
+			}
+			for i := 0; i < uses; i++ {
+				result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+			}
+			seq := int(result.LastSeq) + 1
+			share := map[string]any{"seq": seq, "type": "share_tool", "tool": "hint", "at": seq * 100}
+			result = decode[game.EventResult](t, h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []any{share}}, player.AccessToken), 200)
+			bag := result.Assets.Bag["hint"]
+			result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+			if result.Assets.Bag["hint"] != bag {
+				t.Fatal("share use charged inventory")
+			}
+			before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
+			w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, "hint")}, player.AccessToken)
+			if w.Code != 400 {
+				t.Fatal("use after share allowance accepted", w.Body.String())
+			}
+			assertToolPolicyUnchanged(t, h, before)
+			w = h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []any{map[string]any{"seq": int(result.LastSeq) + 1, "type": "share_tool", "tool": "hint", "at": int(result.LastSeq+1) * 100}}}, player.AccessToken)
+			if w.Code != 400 {
+				t.Fatal("second share accepted", w.Body.String())
+			}
+			assertToolPolicyUnchanged(t, h, before)
+		})
+	}
+}
+func TestToolPolicyLegacyRecoveryRestoresInventoryUse(t *testing.T) {
+	h := setup(t)
+	player := login(t, h, "qa-policy-legacy")
+	grantToolPolicyStock(t, h, player, 4)
+	session := startToolPolicySession(t, h, player, "campaign", "classic", "legacy")
+	result := game.EventResult{State: session.State}
+	for i := 0; i < session.State.Tools["hint"]+1; i++ {
+		result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+	}
+	_, err := h.db.ExecContext(context.Background(), `UPDATE game_sessions SET state = state - 'bagUsed' - 'sharedTools' - 'shareUses' WHERE id = $1`, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := h.games.Recovery(context.Background(), player.User.ID, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !recovered.State.BagUsed["hint"] {
+		t.Fatal("legacy recovery forgot prior inventory use")
+	}
+	before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
+	w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, "hint")}, player.AccessToken)
+	if w.Code != 400 {
+		t.Fatal("legacy session used inventory twice", w.Body.String())
+	}
+	assertToolPolicyUnchanged(t, h, before)
+}
+func TestToolPolicyShareRetryAndBatchRollback(t *testing.T) {
+	h := setup(t)
+	player := login(t, h, "qa-share-retry")
+	session := startToolPolicySession(t, h, player, "standard", "classic", "share-retry")
+	result := game.EventResult{State: session.State}
+	for i := 0; i < session.State.Tools["hint"]; i++ {
+		result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+	}
+	seq := int(result.LastSeq) + 1
+	share := game.Action{Seq: seq, Type: "share_tool", Tool: "hint", At: int64(seq * 100)}
+	before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
+	batch := []game.Action{share, {Seq: seq + 1, Type: "pick", TileID: -1, At: int64((seq + 1) * 100)}}
+	w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": batch}, player.AccessToken)
+	if w.Code != 400 {
+		t.Fatal("invalid batch accepted", w.Body.String())
+	}
+	assertToolPolicyUnchanged(t, h, before)
+	result = sendToolPolicyActions(t, h, player, session.ID, []game.Action{share})
+	if !result.State.SharedTools["hint"] || result.State.ShareUses["hint"] != 1 {
+		t.Fatal("share allowance not granted")
+	}
+	after := snapshotToolPolicy(t, h, player.User.ID, session.ID)
+	repeated := sendToolPolicyActions(t, h, player, session.ID, []game.Action{share})
+	if !reflect.DeepEqual(repeated, result) {
+		t.Fatal("retry changed share result")
+	}
+	postRetry := snapshotToolPolicy(t, h, player.User.ID, session.ID)
+	if !reflect.DeepEqual(postRetry.events, after.events) || !reflect.DeepEqual(postRetry.ledger, after.ledger) || postRetry.session.LastSeq != after.session.LastSeq {
+		t.Fatal("share retry changed events, assets, ledger, or sequence")
+	}
+	recovery, err := h.games.Recovery(context.Background(), player.User.ID, session.ID)
+	if err != nil || !recovery.State.SharedTools["hint"] || recovery.State.ShareUses["hint"] != 1 {
+		t.Fatal("share allowance did not survive recovery", err)
+	}
+	conflict := share
+	conflict.Tool = "undo"
+	w = h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []game.Action{conflict}}, player.AccessToken)
+	if w.Code != 409 {
+		t.Fatal("conflicting share retry accepted", w.Body.String())
+	}
+	assertToolPolicyUnchanged(t, h, postRetry)
 }

@@ -153,7 +153,7 @@ export function paintBag(
   P.text(
     parent,
     'FreeTools',
-    online ? '挑战仅用本关免费次数，不消耗背包' : '挑战免费：撤回1 · 铲出1 · 提示3 · 重排1',
+    online ? '挑战不消耗背包道具' : '挑战免费：撤回1 · 铲出1 · 提示3 · 重排1',
     360,
     1087,
     22,
@@ -164,7 +164,7 @@ export function paintBag(
   P.text(
     parent,
     'BagUsage',
-    '闯关先用免费次数，再用背包，直至库存用完',
+    '闯关先用免费次数，每种道具每局最多用1个背包',
     360,
     1124,
     21,

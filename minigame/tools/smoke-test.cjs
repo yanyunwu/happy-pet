@@ -183,9 +183,10 @@ fs.mkdirSync(output, { recursive: true });
         window.__qaApp.gameRoot
           .getChildByName('Toolbar')
           .children.filter((n) => n.name.startsWith('Tool-'))
+          .sort((a, b) => a.position.x - b.position.x)
           .map((n) => n.name),
       );
-      assert.deepEqual(toolbar, ['Tool-undo', 'Tool-shovel', 'Tool-hint', 'Tool-shuffle']);
+      assert.deepEqual(toolbar, ['Tool-undo', 'Tool-shovel', 'Tool-shuffle', 'Tool-hint']);
       assert.equal(
         await page.evaluate(() => !!window.__qaApp.gameRoot.getChildByName('HUD')),
         false,
@@ -218,7 +219,7 @@ fs.mkdirSync(output, { recursive: true });
         await pick(first[0]);
         await settle();
         const heldMoves = (await state()).game.moves;
-        await click(600, 1434);
+        await click(440, 1434);
         assert.equal((await state()).transition, true);
         await page.waitForFunction(
           () =>
@@ -245,7 +246,7 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(s.game.remaining, 108);
         await shot('09-rearranged-board');
         const bagHintsBefore = s.save.bag.hint;
-        for (let n = 0; n < 4; n++) await click(440, 1434);
+        for (let n = 0; n < 4; n++) await click(600, 1434);
         assert.equal((await state()).game.hint, 0);
         assert.equal((await state()).save.bag.hint, bagHintsBefore);
         checks.push(
@@ -302,7 +303,7 @@ fs.mkdirSync(output, { recursive: true });
     // A leaving transition cannot later resurrect the previous board.
     await homeClick('WelcomePanel/Mode-classic');
     await click(360, 1203);
-    await click(600, 1434);
+    await click(440, 1434);
     await click(664, 77);
     await click(360, 1070);
     await page.waitForTimeout(1400);

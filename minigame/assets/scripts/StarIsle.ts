@@ -52,6 +52,8 @@ import { AnnouncementDialog } from './ui/AnnouncementDialog';
 import { paintBag, paintSignIn } from './ui/RewardDialogs';
 import { WechatGameClubButton } from './core/WechatGameClub';
 import { WechatRewardedAd } from './core/WechatRewardedAd';
+import { toolAvailability } from './core/ToolPolicy';
+import { shareImageForMode } from './core/WechatShareImages';
 import { ExtraSlotView } from './ui/ExtraSlotView';
 import { WoodlandAudio } from './ui/WoodlandAudio';
 import { LeafTransition } from './ui/LeafTransition';
@@ -79,6 +81,11 @@ declare const wx:
         sessionFrom: string;
         showMessageCard: boolean;
         fail: (result: { errMsg?: string }) => void;
+      }) => void;
+      shareAppMessage?: (options: {
+        title: string;
+        imageUrlId?: string;
+        imageUrl?: string;
       }) => void;
     });
 
@@ -441,8 +448,10 @@ export class StarIsle extends Component {
     if (
       ['undo', 'shovel', 'shuffle', 'hint'].includes(action) &&
       this.toolUses(action as ToolId) <= 0
-    )
+    ) {
+      if (this.toolShareAvailable(action as ToolId)) this.showToolShare(action as ToolId);
       return;
+    }
     if (action === 'pause' || action === 'settings') this.play('tap');
     if (action === 'pause') this.showPause();
     else if (action === 'settings') this.showSettings();
@@ -683,12 +692,13 @@ export class StarIsle extends Component {
     ] as [ToolId, boolean][]) {
       const left = this.toolUses(key);
       const n = this.at(this.gameRoot!, `Toolbar/Tool-${key}`);
-      const available = enabled && left > 0 && g.status === 'playing';
+      const share = this.toolShareAvailable(key);
+      const available = ((enabled && left > 0) || share) && g.status === 'playing';
       // Short animations lock input without flashing the tool's availability appearance.
       n.getComponent(Button)!.interactable = available && !this.busy && !this.slotAdPending;
       P.opacity(n, 255);
       P.opacity(this.at(n, 'Icon'), available ? 255 : 130);
-      this.setText(n, 'Count', String(left));
+      this.setText(n, 'Count', share ? '分享' : String(left));
     }
   }
   private async watchExtraSlotAd(): Promise<void> {
@@ -1195,22 +1205,168 @@ export class StarIsle extends Component {
   }
   private toolUses(tool: ToolId): number {
     const key = `${tool}Left` as 'undoLeft' | 'shovelLeft' | 'shuffleLeft' | 'hintLeft';
-    return this.game![key] + (this.selectedEntry === 'campaign' ? this.save.bag[tool] : 0);
+    const g = this.game!;
+    return toolAvailability(
+      this.selectedEntry,
+      g[key],
+      this.save.bag[tool],
+      g.bagUsed[tool],
+      g.sharedTools[tool],
+      g.shareUses[tool],
+    ).uses;
+  }
+  private toolShareAvailable(tool: ToolId): boolean {
+    if (
+      this.practice ||
+      !this.online?.active ||
+      typeof wx === 'undefined' ||
+      typeof wx.shareAppMessage !== 'function'
+    )
+      return false;
+    const g = this.game!;
+    const key = `${tool}Left` as 'undoLeft' | 'shovelLeft' | 'shuffleLeft' | 'hintLeft';
+    return toolAvailability(
+      this.selectedEntry,
+      g[key],
+      this.save.bag[tool],
+      g.bagUsed[tool],
+      g.sharedTools[tool],
+      g.shareUses[tool],
+    ).canShare;
+  }
+
+  private showToolShare(tool: ToolId): void {
+    if (!this.toolShareAvailable(tool)) return;
+    const round = this.game!,
+      online = this.online!,
+      sessionId = online.active!.id;
+    const m = this.dialog('ToolShare', '分享获得道具', 700);
+    const name = TOOL_INFO.find((item) => item.id === tool)!.name;
+    P.text(m, 'Description', `发起分享后可领取1次${name}`, 360, 710, 25, C.ink, 535, true);
+    let launched = false,
+      claiming = false;
+    const current = () =>
+      this.isValid &&
+      this.currentScreen === 'game' &&
+      this.game === round &&
+      this.online === online &&
+      online.active?.id === sessionId &&
+      this.modal === m;
+    const button = P.button(
+      m,
+      'ShareStart',
+      '分享给朋友',
+      360,
+      840,
+      470,
+      88,
+      () => {
+        if (!current() || launched || claiming) return;
+        try {
+          wx!.shareAppMessage!({
+            title: '和萌宠一起闯关吧！',
+            ...shareImageForMode(round.mode.id),
+          });
+        } catch {
+          this.toast('暂时无法发起分享，请稍后重试');
+          return;
+        }
+        launched = true;
+        button.active = false;
+        void (async () => {
+          if (!current() || !launched || claiming || !this.toolShareAvailable(tool)) return;
+          claiming = true;
+          this.networkBusy = true;
+          const close = m.getChildByName('Close');
+          if (close) close.active = false;
+          cancel.active = false;
+          try {
+            online.record('share_tool', undefined, tool);
+          } catch {
+            claiming = false;
+            launched = false;
+            button.active = true;
+            this.networkBusy = false;
+            if (close) close.active = true;
+            cancel.active = true;
+            this.toast('领取暂时不可用，请稍后重试');
+            return;
+          }
+          let syncModal: Node | null = m;
+          const sync = async (): Promise<void> => {
+            this.networkBusy = true;
+            try {
+              const state = await online.syncState();
+              if (
+                this.isValid &&
+                this.game === round &&
+                this.online === online &&
+                online.active?.id === sessionId &&
+                this.currentScreen === 'game'
+              ) {
+                round.bagUsed[tool] = !!state.bagUsed?.[tool];
+                round.sharedTools[tool] = !!state.sharedTools?.[tool];
+                round.shareUses[tool] = state.shareUses?.[tool] || 0;
+                if (this.modal === syncModal) this.closeModal();
+                this.updateControls();
+                this.toast(`已领取1次${name}`);
+              }
+            } catch (error) {
+              if (this.isValid && this.game === round && this.currentScreen === 'game') {
+                if (error instanceof OnlineError && (error.status === 400 || error.status === 409))
+                  await this.reconcileCloud(error);
+                else {
+                  this.connectionError(error, sync);
+                  syncModal = this.modal;
+                }
+              }
+            } finally {
+              if (this.game === round && this.online === online && online.active?.id === sessionId)
+                this.networkBusy = false;
+            }
+          };
+          await sync();
+        })();
+      },
+      true,
+      28,
+    );
+    const cancel = P.button(
+      m,
+      'ShareCancel',
+      '取消',
+      360,
+      950,
+      470,
+      80,
+      () => this.closeModal(),
+      false,
+      27,
+    );
   }
   private useTool(tool: ToolId, action: () => boolean): boolean {
     if (this.toolUses(tool) <= 0) return false;
     const g = this.game!,
       key = `${tool}Left` as 'undoLeft' | 'shovelLeft' | 'shuffleLeft' | 'hintLeft';
-    const fromBag = g[key] === 0;
-    if (fromBag) {
-      if (this.save.bag[tool] === 0) return false;
+    const source = toolAvailability(
+      this.selectedEntry,
+      g[key],
+      this.save.bag[tool],
+      g.bagUsed[tool],
+      g.sharedTools[tool],
+      g.shareUses[tool],
+    ).source;
+    if (source !== 'free') {
       g[key]++;
     }
     const used = action();
-    if (fromBag) {
+    if (source !== 'free') {
       if (used) {
-        this.save.bag[tool]--;
-        this.persist();
+        if (source === 'bag') {
+          this.save.bag[tool]--;
+          g.bagUsed[tool] = true;
+          this.persist();
+        } else if (source === 'share') g.shareUses[tool]--;
       } else g[key]--;
     }
     if (used) {

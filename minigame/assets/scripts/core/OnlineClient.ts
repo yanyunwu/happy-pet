@@ -27,6 +27,9 @@ export interface CloudState {
   cleared: number;
   moves: number;
   tools: Record<ToolId, number>;
+  bagUsed?: Record<ToolId, boolean>;
+  sharedTools?: Record<ToolId, boolean>;
+  shareUses?: Record<ToolId, number>;
   capacity: number;
   mode: ModeId;
   rulesVersion: string;
@@ -56,8 +59,9 @@ export interface CloudSession {
 }
 export interface CloudAction {
   seq: number;
-  type: 'pick' | 'unlock_slot' | ToolId;
+  type: 'pick' | 'unlock_slot' | 'share_tool' | ToolId;
   tileId?: number;
+  tool?: ToolId;
   at: number;
 }
 export interface CloudFinish {
@@ -439,19 +443,30 @@ export class OnlineClient {
     this.lastAt = 0;
     return session;
   }
-  record(type: CloudAction['type'], tileId?: number): void {
+  record(type: CloudAction['type'], tileId?: number, tool?: ToolId): void {
     const s = this.session;
     if (!s) throw new OnlineError('对局尚未开始');
     let pending = this.queue.find((q) => q.sessionId === s.id && q.userId === this.userId);
+    const created = !pending;
     if (!pending) {
       pending = { userId: this.userId, sessionId: s.id, events: [] };
       this.queue.push(pending);
     }
+    const previousAt = this.lastAt;
     this.lastAt = Math.max(this.lastAt, Date.now() - this.startedAt);
     const event: CloudAction = { seq: ++this.sequence, type, at: this.lastAt };
     if (type === 'pick') event.tileId = tileId;
+    if (type === 'share_tool') event.tool = tool;
     pending.events.push(event);
-    this.save();
+    try {
+      this.save();
+    } catch (error) {
+      pending.events.pop();
+      if (created) this.queue = this.queue.filter((item) => item !== pending);
+      this.sequence--;
+      this.lastAt = previousAt;
+      throw error;
+    }
   }
   flush(): Promise<void> {
     if (this.pumping) return this.pumping;
