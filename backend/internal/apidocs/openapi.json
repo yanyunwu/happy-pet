@@ -3721,7 +3721,7 @@
         "tags": ["游戏对局"],
         "summary": "提交按序游戏动作",
         "operationId": "submitEvents",
-        "description": "每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。pick 只可选择未被覆盖或位于 reserve 的有效方块；draw 不带 tileId，由服务端从被覆盖方块中确定性随机抽取并进入槽位，使用 hint 道具额度；hint 为兼容历史的旧提示动作。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。普通微信转发无法验证是否发送，取消也可能得到次数；share_tool 为客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。\n\n玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。",
+        "description": "每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同或旧提示序号已清理时返回 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。pick 只可选择未被覆盖或位于 reserve 的有效方块；draw 不带 tileId，由服务端从被覆盖方块中确定性随机抽取并进入槽位，使用 hint 道具额度；不再接受新的旧版 hint 动作。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。普通微信转发无法验证是否发送，取消也可能得到次数；share_tool 为客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。\n\n玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。",
         "security": [
           {
             "PlayerToken": []
@@ -6166,11 +6166,6 @@
                       "sessions": 0
                     },
                     {
-                      "type": "hint",
-                      "uses": 3,
-                      "sessions": 2
-                    },
-                    {
                       "type": "draw",
                       "uses": 1,
                       "sessions": 1
@@ -7364,17 +7359,8 @@
           },
           "type": {
             "type": "string",
-            "description": "pick 选牌；draw 从被覆盖的方块中随机抽一张进入槽位，消耗 hint 道具额度；hint 为旧版提示动作，继续兼容；share_tool 追加次数；unlock_slot 增加一格。",
-            "enum": [
-              "pick",
-              "undo",
-              "shovel",
-              "hint",
-              "draw",
-              "shuffle",
-              "share_tool",
-              "unlock_slot"
-            ]
+            "description": "pick 选牌；draw 从被覆盖的方块中随机抽一张进入槽位，消耗 hint 道具额度；不再接受旧版 hint 动作；share_tool 追加次数；unlock_slot 增加一格。",
+            "enum": ["pick", "undo", "shovel", "draw", "shuffle", "share_tool", "unlock_slot"]
           },
           "tool": {
             "type": "string",
@@ -8537,7 +8523,7 @@
           },
           "steps": {
             "type": "integer",
-            "description": "已提交最后序号。"
+            "description": "保留的回放操作数量，不含旧版提示；不作为对局协议序号。"
           },
           "rewardCoins": {
             "type": "integer",
@@ -8635,7 +8621,7 @@
               "required": ["seq", "action", "state", "receivedAt"],
               "additionalProperties": false
             },
-            "description": "按 seq 升序的原始动作与动作后状态。"
+            "description": "按 seq 升序的动作与动作后状态；不含旧版提示，序号可能不连续。"
           },
           "status": {
             "type": "string",
@@ -9155,8 +9141,8 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["undo", "shovel", "hint", "draw", "shuffle", "unlock_slot"],
-            "description": "道具或额外槽位解锁；draw 是新抽卡，hint 为历史提示；不能由 unlock_slot 推断广告实际播放完成。"
+            "enum": ["undo", "shovel", "draw", "shuffle", "unlock_slot"],
+            "description": "道具或额外槽位解锁；draw 是抽卡；不能由 unlock_slot 推断广告实际播放完成。"
           },
           "uses": {
             "type": "integer",

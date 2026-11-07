@@ -50,7 +50,11 @@ func restoreToolPolicy(ctx context.Context, q *dbgen.Queries, user, id string, s
 			if json.Unmarshal(event.Action, &old) != nil {
 				continue
 			}
-			if _, ok := state.Tools[old.Type]; !ok {
+			tool := old.Type
+			if tool == "draw" {
+				tool = "hint"
+			}
+			if _, ok := state.Tools[tool]; !ok {
 				continue
 			}
 			ledger, err := q.LedgerByKey(ctx, dbgen.LedgerByKeyParams{UserID: user, RequestKey: fmt.Sprintf("session:%s:%d", id, old.Seq)})
@@ -58,7 +62,7 @@ func restoreToolPolicy(ctx context.Context, q *dbgen.Queries, user, id string, s
 				return err
 			}
 			if len(ledger) > 0 {
-				state.BagUsed[old.Type] = true
+				state.BagUsed[tool] = true
 			}
 		}
 	}
@@ -203,13 +207,15 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 	}
 	lastAt := int64(0)
 	if session.LastSeq > 0 {
-		event, err := q.GetEvent(ctx, dbgen.GetEventParams{SessionID: id, Seq: session.LastSeq})
-		if err != nil {
+		event, err := q.LastEventAtOrBefore(ctx, dbgen.LastEventAtOrBeforeParams{SessionID: id, Seq: session.LastSeq})
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return EventResult{}, err
 		}
-		var act Action
-		_ = json.Unmarshal(event.Action, &act)
-		lastAt = act.At
+		if err == nil {
+			var act Action
+			_ = json.Unmarshal(event.Action, &act)
+			lastAt = act.At
+		}
 	}
 	for _, act := range actions {
 		if act.Seq < 1 || act.Seq > 10000 || act.At < 0 || act.At > 7*24*3600000 {
@@ -217,6 +223,9 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 		}
 		if act.Seq <= int(session.LastSeq) {
 			old, err := q.GetEvent(ctx, dbgen.GetEventParams{SessionID: id, Seq: int32(act.Seq)})
+			if errors.Is(err, sql.ErrNoRows) {
+				return EventResult{}, conflict("操作记录已清理，请同步对局状态")
+			}
 			if err != nil {
 				return EventResult{}, err
 			}
@@ -229,6 +238,9 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 		}
 		if session.Settled || act.Seq != int(session.LastSeq)+1 || act.At < lastAt {
 			return EventResult{}, conflict("对局已结算或操作顺序不连续")
+		}
+		if act.Type == "hint" {
+			return EventResult{}, users.Invalid("该操作已不再支持")
 		}
 		if act.Type == "pick" {
 			e = state.Pick(act.TileID)
@@ -367,6 +379,13 @@ func (s *Service) Replay(ctx context.Context, id string) (map[string]any, error)
 	}
 	out := []map[string]any{}
 	for _, ev := range events {
+		var action Action
+		if err := json.Unmarshal(ev.Action, &action); err != nil {
+			return nil, err
+		}
+		if action.Type == "hint" {
+			continue
+		}
 		out = append(out, map[string]any{"seq": ev.Seq, "action": ev.Action, "state": ev.State, "receivedAt": ev.ReceivedAt})
 	}
 	return map[string]any{"session": sessionView(row), "userId": row.UserID, "campaignId": row.CampaignID, "initial": row.Initial, "config": rev.Config, "events": out, "status": row.Status, "startedAt": row.StartedAt}, nil
@@ -391,7 +410,7 @@ func (s *Service) Records(ctx context.Context, user, mode, status, entry string,
 	rows, e := s.Q.ListSessions(ctx, dbgen.ListSessionsParams{UserID: user, Mode: mode, Status: status, Entry: entry, PageLimit: int32(size), PageOffset: int32((page - 1) * size)})
 	out := []map[string]any{}
 	for _, r := range rows {
-		out = append(out, map[string]any{"id": r.ID, "userId": r.UserID, "nickname": r.Nickname, "entry": r.Entry, "mode": r.Mode, "ordinal": r.Ordinal, "title": r.Title, "revisionId": r.RevisionID, "status": r.Status, "settled": r.Settled, "moves": r.Moves, "cleared": r.Cleared, "total": r.Total, "steps": r.LastSeq, "rewardCoins": r.RewardCoins, "startedAt": r.StartedAt})
+		out = append(out, map[string]any{"id": r.ID, "userId": r.UserID, "nickname": r.Nickname, "entry": r.Entry, "mode": r.Mode, "ordinal": r.Ordinal, "title": r.Title, "revisionId": r.RevisionID, "status": r.Status, "settled": r.Settled, "moves": r.Moves, "cleared": r.Cleared, "total": r.Total, "steps": r.Steps, "rewardCoins": r.RewardCoins, "startedAt": r.StartedAt})
 	}
 	return map[string]any{"items": out, "total": count, "page": page, "pageSize": size}, e
 }

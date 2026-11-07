@@ -38,7 +38,8 @@ func TestLevelAnalyticsBrowserIntegration(t *testing.T) {
 		// Controlled historical fixtures exercise the real SQL/API and built UI together.
 		// Live action validation and deduplication are covered by TestLevelAnalyticsValidatedToolUsesAreCountedOnce.
 		_, err = h.db.Exec(`INSERT INTO game_events(session_id,seq,action,state) VALUES
-			($1,1,'{"type":"hint"}','{}'),($1,2,'{"type":"hint"}','{}'),($2,1,'{"type":"hint"}','{}')`, first, second)
+			($1,1,'{"type":"draw"}','{}'),($1,2,'{"type":"draw"}','{}'),($2,1,'{"type":"draw"}','{}'),
+			($1,3,'{"type":"hint"}','{}'),($2,2,'{"type":"hint"}','{}')`, first, second)
 		if err != nil {
 			t.Fatal(err)
 		}

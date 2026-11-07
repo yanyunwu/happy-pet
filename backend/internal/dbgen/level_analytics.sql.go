@@ -148,7 +148,7 @@ WHERE s.level_id=$1
  AND ($2::text='' OR s.revision_id=$2)
  AND s.started_at>=$3::timestamptz
  AND s.started_at<$4::timestamptz
- AND e.action->>'type' IN ('undo','shovel','hint','draw','shuffle','unlock_slot')
+ AND e.action->>'type' IN ('undo','shovel','draw','shuffle','unlock_slot')
 GROUP BY 1
 `
 

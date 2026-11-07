@@ -467,6 +467,28 @@ func (q *Queries) HasLedgerKey(ctx context.Context, arg HasLedgerKeyParams) (int
 	return count, err
 }
 
+const lastEventAtOrBefore = `-- name: LastEventAtOrBefore :one
+SELECT session_id, seq, action, state, received_at FROM game_events WHERE session_id=$1 AND seq<=$2 ORDER BY seq DESC LIMIT 1
+`
+
+type LastEventAtOrBeforeParams struct {
+	SessionID string
+	Seq       int32
+}
+
+func (q *Queries) LastEventAtOrBefore(ctx context.Context, arg LastEventAtOrBeforeParams) (GameEvent, error) {
+	row := q.db.QueryRowContext(ctx, lastEventAtOrBefore, arg.SessionID, arg.Seq)
+	var i GameEvent
+	err := row.Scan(
+		&i.SessionID,
+		&i.Seq,
+		&i.Action,
+		&i.State,
+		&i.ReceivedAt,
+	)
+	return i, err
+}
+
 const ledgerByKey = `-- name: LedgerByKey :many
 SELECT id, user_id, request_key, asset, delta, balance, reason, actor_id, created_at FROM asset_ledger WHERE user_id=$1 AND request_key=$2
 `
@@ -751,6 +773,7 @@ func (q *Queries) ListRevisions(ctx context.Context, levelID string) ([]LevelRev
 
 const listSessions = `-- name: ListSessions :many
 SELECT s.id,s.user_id,s.entry,s.mode,s.ordinal,s.revision_id,s.status,s.settled,s.last_seq,s.reward_coins,s.started_at,
+ (SELECT count(*) FROM game_events e WHERE e.session_id=s.id AND e.action->>'type' IS DISTINCT FROM 'hint') AS steps,
  (s.state->>'moves')::int AS moves,(s.state->>'cleared')::int AS cleared,jsonb_array_length(s.state->'tiles') AS total,
  u.nickname,s.title FROM game_sessions s JOIN users u ON u.id=s.user_id
 WHERE ($1::text='' OR s.user_id=$1) AND ($2::text='' OR s.mode=$2)
@@ -780,6 +803,7 @@ type ListSessionsRow struct {
 	LastSeq     int32
 	RewardCoins int32
 	StartedAt   time.Time
+	Steps       int64
 	Moves       int32
 	Cleared     int32
 	Total       int32
@@ -815,6 +839,7 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]L
 			&i.LastSeq,
 			&i.RewardCoins,
 			&i.StartedAt,
+			&i.Steps,
 			&i.Moves,
 			&i.Cleared,
 			&i.Total,

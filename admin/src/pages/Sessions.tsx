@@ -90,7 +90,11 @@ export default function Sessions() {
   const open = async (id: string) => {
     setOpening(id);
     try {
-      setReplay(await gameApi.replay(id));
+      const result = await gameApi.replay(id);
+      setReplay({
+        ...result,
+        events: result.events.filter(({ action }) => action.type !== 'hint'),
+      });
       setStep(0);
       setPlaying(false);
     } catch (e) {
@@ -276,13 +280,11 @@ export default function Sessions() {
                       ? `收集 ${petNames[state.tiles[action.tileId ?? 0].kind]} · 方块 ${action.tileId ?? 0}`
                       : action.type === 'unlock_slot'
                         ? '广告奖励：解锁本关额外收纳槽'
-                        : action.type === 'hint'
-                          ? '提示（旧记录）'
-                          : action.type === 'draw'
-                            ? '抽卡'
-                            : action.type === 'share_tool'
-                              ? `分享领取：${toolNames[action.tool || ''] || action.tool || '道具'}`
-                              : toolNames[action.type] || action.type}
+                        : action.type === 'draw'
+                          ? '抽卡'
+                          : action.type === 'share_tool'
+                            ? `分享领取：${toolNames[action.tool || ''] || action.tool || '道具'}`
+                            : toolNames[action.type] || action.type}
                 </Typography.Paragraph>
                 <Space wrap>
                   <Button

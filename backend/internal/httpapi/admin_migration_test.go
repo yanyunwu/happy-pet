@@ -56,7 +56,7 @@ func TestAdministratorMigrationPreservesIdentityHistoryAndInvalidatesLegacySessi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Version != 5 {
+	if result.Version != 6 {
 		t.Fatalf("admin identity migration missing: version %d", result.Version)
 	}
 	var count int
@@ -131,7 +131,7 @@ func TestAdministratorBootstrapUsesOnlyAdminAccountsAndPreservesExistingCredenti
 		t.Fatal(err)
 	}
 	opened.Close()
-	if !result.Fresh || result.Version != 5 {
+	if !result.Fresh || result.Version != 6 {
 		t.Fatal("fresh startup did not apply admin migration", result)
 	}
 	var admins, players int

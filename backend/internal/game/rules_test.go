@@ -162,7 +162,6 @@ func TestParityFixtures(t *testing.T) {
 		apply("pick", route[0])
 		apply("shovel", 0)
 		apply("pick", route[0])
-		apply("hint", 0)
 		remaining := route[1:]
 		if tc.shuffle {
 			apply("shuffle", 0)

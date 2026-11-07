@@ -102,6 +102,9 @@ func TestToolPolicyStandardUsesOnlyFreeAllowance(t *testing.T) {
 			player := login(t, h, "qa-policy-standard-"+mode)
 			grantToolPolicyStock(t, h, player, 4)
 			for _, kind := range game.Tools {
+				if kind == "hint" {
+					continue
+				}
 				t.Run(kind, func(t *testing.T) {
 					session := startToolPolicySession(t, h, player, "standard", mode, mode+"-"+kind)
 					assets := decode[game.Assets](t, h.call("GET", "/api/v1/user/assets", nil, player.AccessToken), 200)
@@ -150,6 +153,9 @@ func TestToolPolicyCampaignAllowsOneInventoryItem(t *testing.T) {
 			player := login(t, h, "qa-policy-campaign-"+mode)
 			grantToolPolicyStock(t, h, player, 4)
 			for _, kind := range game.Tools {
+				if kind == "hint" {
+					continue
+				}
 				t.Run(kind, func(t *testing.T) {
 					session := startToolPolicySession(t, h, player, "campaign", mode, mode+"-"+kind)
 					assets := decode[game.Assets](t, h.call("GET", "/api/v1/user/assets", nil, player.AccessToken), 200)
@@ -258,12 +264,12 @@ func TestToolPolicyNextLevelResetsFreeAllowanceWithoutRefillingInventory(t *test
 			grantToolPolicyStock(t, h, player, 4)
 			session := startToolPolicySession(t, h, player, entry, "classic", "next-"+entry)
 			result := game.EventResult{State: session.State}
-			uses := session.State.Tools["hint"]
+			uses := session.State.Tools["undo"]
 			if entry == "campaign" {
 				uses += 1
 			}
 			for i := 0; i < uses; i++ {
-				result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+				result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "undo"))
 			}
 			bag := result.Assets.Bag
 			_, route, err := game.NewBoard(game.DefaultConfig("classic", 1), uint32(session.Seed))
@@ -308,6 +314,9 @@ func TestToolPolicyStandardZeroFreeAllowanceRejectsImmediately(t *testing.T) {
 		publishCatalogLevel(t, h, draft)
 	}
 	for _, kind := range game.Tools {
+		if kind == "hint" {
+			continue
+		}
 		t.Run(kind, func(t *testing.T) {
 			session := startToolPolicySession(t, h, player, "standard", "classic", "zero-"+kind)
 			if session.State.Tools[kind] != 0 {
@@ -353,28 +362,28 @@ func TestToolPolicyShareGrantsOneUse(t *testing.T) {
 			grantToolPolicyStock(t, h, player, 4)
 			session := startToolPolicySession(t, h, player, entry, "classic", "share-"+entry)
 			result := game.EventResult{State: session.State}
-			uses := session.State.Tools["hint"]
+			uses := session.State.Tools["undo"]
 			if entry == "campaign" {
 				uses++
 			}
 			for i := 0; i < uses; i++ {
-				result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+				result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "undo"))
 			}
 			seq := int(result.LastSeq) + 1
-			share := map[string]any{"seq": seq, "type": "share_tool", "tool": "hint", "at": seq * 100}
+			share := map[string]any{"seq": seq, "type": "share_tool", "tool": "undo", "at": seq * 100}
 			result = decode[game.EventResult](t, h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []any{share}}, player.AccessToken), 200)
-			bag := result.Assets.Bag["hint"]
-			result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
-			if result.Assets.Bag["hint"] != bag {
+			bag := result.Assets.Bag["undo"]
+			result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "undo"))
+			if result.Assets.Bag["undo"] != bag {
 				t.Fatal("share use charged inventory")
 			}
 			before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
-			w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, "hint")}, player.AccessToken)
+			w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, "undo")}, player.AccessToken)
 			if w.Code != 400 {
 				t.Fatal("use after share allowance accepted", w.Body.String())
 			}
 			assertToolPolicyUnchanged(t, h, before)
-			w = h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []any{map[string]any{"seq": int(result.LastSeq) + 1, "type": "share_tool", "tool": "hint", "at": int(result.LastSeq+1) * 100}}}, player.AccessToken)
+			w = h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []any{map[string]any{"seq": int(result.LastSeq) + 1, "type": "share_tool", "tool": "undo", "at": int(result.LastSeq+1) * 100}}}, player.AccessToken)
 			if w.Code != 400 {
 				t.Fatal("second share accepted", w.Body.String())
 			}
@@ -388,8 +397,8 @@ func TestToolPolicyLegacyRecoveryRestoresInventoryUse(t *testing.T) {
 	grantToolPolicyStock(t, h, player, 4)
 	session := startToolPolicySession(t, h, player, "campaign", "classic", "legacy")
 	result := game.EventResult{State: session.State}
-	for i := 0; i < session.State.Tools["hint"]+1; i++ {
-		result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+	for i := 0; i < session.State.Tools["undo"]+1; i++ {
+		result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "undo"))
 	}
 	_, err := h.db.ExecContext(context.Background(), `UPDATE game_sessions SET state = state - 'bagUsed' - 'sharedTools' - 'shareUses' WHERE id = $1`, session.ID)
 	if err != nil {
@@ -399,11 +408,11 @@ func TestToolPolicyLegacyRecoveryRestoresInventoryUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !recovered.State.BagUsed["hint"] {
+	if !recovered.State.BagUsed["undo"] {
 		t.Fatal("legacy recovery forgot prior inventory use")
 	}
 	before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
-	w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, "hint")}, player.AccessToken)
+	w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": toolPolicyActions(t, result, "undo")}, player.AccessToken)
 	if w.Code != 400 {
 		t.Fatal("legacy session used inventory twice", w.Body.String())
 	}
@@ -414,11 +423,11 @@ func TestToolPolicyShareRetryAndBatchRollback(t *testing.T) {
 	player := login(t, h, "qa-share-retry")
 	session := startToolPolicySession(t, h, player, "standard", "classic", "share-retry")
 	result := game.EventResult{State: session.State}
-	for i := 0; i < session.State.Tools["hint"]; i++ {
-		result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "hint"))
+	for i := 0; i < session.State.Tools["undo"]; i++ {
+		result = sendToolPolicyActions(t, h, player, session.ID, toolPolicyActions(t, result, "undo"))
 	}
 	seq := int(result.LastSeq) + 1
-	share := game.Action{Seq: seq, Type: "share_tool", Tool: "hint", At: int64(seq * 100)}
+	share := game.Action{Seq: seq, Type: "share_tool", Tool: "undo", At: int64(seq * 100)}
 	before := snapshotToolPolicy(t, h, player.User.ID, session.ID)
 	batch := []game.Action{share, {Seq: seq + 1, Type: "pick", TileID: -1, At: int64((seq + 1) * 100)}}
 	w := h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": batch}, player.AccessToken)
@@ -427,7 +436,7 @@ func TestToolPolicyShareRetryAndBatchRollback(t *testing.T) {
 	}
 	assertToolPolicyUnchanged(t, h, before)
 	result = sendToolPolicyActions(t, h, player, session.ID, []game.Action{share})
-	if !result.State.SharedTools["hint"] || result.State.ShareUses["hint"] != 1 {
+	if !result.State.SharedTools["undo"] || result.State.ShareUses["undo"] != 1 {
 		t.Fatal("share allowance not granted")
 	}
 	after := snapshotToolPolicy(t, h, player.User.ID, session.ID)
@@ -440,11 +449,11 @@ func TestToolPolicyShareRetryAndBatchRollback(t *testing.T) {
 		t.Fatal("share retry changed events, assets, ledger, or sequence")
 	}
 	recovery, err := h.games.Recovery(context.Background(), player.User.ID, session.ID)
-	if err != nil || !recovery.State.SharedTools["hint"] || recovery.State.ShareUses["hint"] != 1 {
+	if err != nil || !recovery.State.SharedTools["undo"] || recovery.State.ShareUses["undo"] != 1 {
 		t.Fatal("share allowance did not survive recovery", err)
 	}
 	conflict := share
-	conflict.Tool = "undo"
+	conflict.Tool = "shuffle"
 	w = h.call("POST", "/api/v1/user/sessions/"+session.ID+"/events", map[string]any{"events": []game.Action{conflict}}, player.AccessToken)
 	if w.Code != 409 {
 		t.Fatal("conflicting share retry accepted", w.Body.String())

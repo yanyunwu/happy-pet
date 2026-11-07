@@ -103,10 +103,10 @@ func TestLevelAnalyticsEmptyDraft(t *testing.T) {
 			t.Fatal("empty day invents data", day)
 		}
 	}
-	if len(result.Tools) != 6 {
+	if len(result.Tools) != 5 {
 		t.Fatal("missing zero-use tools", result.Tools)
 	}
-	for i, kind := range []string{"undo", "shovel", "hint", "draw", "shuffle", "unlock_slot"} {
+	for i, kind := range []string{"undo", "shovel", "draw", "shuffle", "unlock_slot"} {
 		if result.Tools[i].Type != kind || result.Tools[i].Uses != 0 || result.Tools[i].Sessions != 0 {
 			t.Fatal("wrong empty tool result", result.Tools[i])
 		}
@@ -257,40 +257,76 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	events := []game.Action{{Seq: 1, Type: "pick", TileID: route[0]}, {Seq: 2, Type: "undo"}, {Seq: 3, Type: "pick", TileID: route[0]}, {Seq: 4, Type: "shovel"}, {Seq: 5, Type: "hint"}, {Seq: 6, Type: "hint"}, {Seq: 7, Type: "shuffle"}, {Seq: 8, Type: "draw"}, {Seq: 9, Type: "unlock_slot"}}
+	events := []game.Action{{Seq: 1, Type: "pick", TileID: route[0]}, {Seq: 2, Type: "undo"}, {Seq: 3, Type: "pick", TileID: route[0]}, {Seq: 4, Type: "shovel"}, {Seq: 5, Type: "shuffle"}, {Seq: 6, Type: "draw"}, {Seq: 7, Type: "unlock_slot"}}
 	for range 2 {
 		if _, err = h.games.Events(ctx, player.User.ID, session.ID, events); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err = h.games.Events(ctx, player.User.ID, session.ID, []game.Action{{Seq: 10, Type: "shuffle"}}); err == nil {
+	if _, err = h.games.Events(ctx, player.User.ID, session.ID, []game.Action{{Seq: 8, Type: "shuffle"}}); err == nil {
 		t.Fatal("invalid tool use unexpectedly accepted")
 	}
 	other, err := h.games.Start(ctx, player.User.ID, game.StartInput{Mode: "classic", RequestID: "qa-analytics-tools-0002"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = h.games.Events(ctx, player.User.ID, other.ID, []game.Action{{Seq: 1, Type: "hint"}}); err != nil {
-		t.Fatal(err)
-	}
 	unrelated, err := h.games.Start(ctx, player.User.ID, game.StartInput{Entry: "standard", Mode: "classic", RequestID: "qa-analytics-tools-0003"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = h.games.Events(ctx, player.User.ID, unrelated.ID, []game.Action{{Seq: 1, Type: "hint"}}); err != nil {
+	// Historical events remain readable even though new hint actions are rejected.
+	if _, err = h.db.Exec(`INSERT INTO game_events(session_id,seq,action,state) VALUES
+		($1,8,'{"type":"hint"}','{}'),($1,9,'{"type":"hint"}','{}'),
+		($2,1,'{"type":"hint"}','{}'),($3,1,'{"type":"hint"}','{}')`, session.ID, other.ID, unrelated.ID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = h.db.Exec(`UPDATE game_sessions SET last_seq=9 WHERE id=$1`, session.ID); err != nil {
+		t.Fatal(err)
+	}
+	page := decode[struct {
+		Items []struct {
+			ID    string `json:"id"`
+			Steps int    `json:"steps"`
+		} `json:"items"`
+	}](t, h.call("GET", "/api/v1/admin/sessions", nil, "admin"), 200)
+	var found bool
+	for _, item := range page.Items {
+		if item.ID == session.ID {
+			found = true
+			if item.Steps != 7 {
+				t.Fatalf("steps should exclude legacy hints: %+v", item)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("session missing from list")
+	}
 	result := decode[analyticsTestResult](t, h.call("GET", "/api/v1/admin/levels/"+session.LevelID+"/analytics", nil, "admin"), 200)
-	if len(result.Tools) != 6 {
+	if len(result.Tools) != 5 {
 		t.Fatal("missing tool categories", result.Tools)
 	}
 	for _, tool := range result.Tools {
 		uses, sessions := int64(1), int64(1)
-		if tool.Type == "hint" {
-			uses, sessions = 3, 2
-		}
 		if tool.Uses != uses || tool.Sessions != sessions {
 			t.Fatal("tool retries, invalid events, or other level leaked into counts", tool)
 		}
+	}
+	replay := decode[struct {
+		Events []struct {
+			Action game.Action `json:"action"`
+		} `json:"events"`
+	}](t, h.call("GET", "/api/v1/admin/sessions/"+session.ID+"/replay", nil, "admin"), 200)
+	if len(replay.Events) != 7 {
+		t.Fatalf("legacy hint actions must be omitted from replay: %+v", replay.Events)
+	}
+	var foundDraw bool
+	for _, event := range replay.Events {
+		if event.Action.Type == "hint" {
+			t.Fatal("legacy hint appears in replay")
+		}
+		foundDraw = foundDraw || event.Action.Type == "draw"
+	}
+	if !foundDraw {
+		t.Fatal("draw was omitted from replay")
 	}
 }
