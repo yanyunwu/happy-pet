@@ -40,7 +40,7 @@ WHERE s.level_id=sqlc.arg(level_id)
  AND (sqlc.arg(revision_id)::text='' OR s.revision_id=sqlc.arg(revision_id))
  AND s.started_at>=sqlc.arg(started_from)::timestamptz
  AND s.started_at<sqlc.arg(started_before)::timestamptz
- AND e.action->>'type' IN ('undo','shovel','draw','shuffle','unlock_slot')
+ AND e.action->>'type' IN ('undo','shovel','draw','shuffle','unlock_slot','revive')
 GROUP BY 1;
 
 -- name: ListLevelAnalyticsRevisions :many

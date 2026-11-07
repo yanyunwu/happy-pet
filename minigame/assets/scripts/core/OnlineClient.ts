@@ -30,6 +30,8 @@ export interface CloudState {
   matches: number;
   cleared: number;
   moves: number;
+  reviveUsed?: boolean;
+  reviveOutcome?: 'move';
   tools: Record<ToolId, number>;
   bagUsed?: Record<ToolId, boolean>;
   sharedTools?: Record<ToolId, boolean>;
@@ -63,7 +65,7 @@ export interface CloudSession {
 }
 export interface CloudAction {
   seq: number;
-  type: 'pick' | 'draw' | 'unlock_slot' | 'share_tool' | ToolId;
+  type: 'pick' | 'draw' | 'unlock_slot' | 'share_tool' | 'revive' | ToolId;
   tileId?: number;
   tool?: ToolId;
   at: number;

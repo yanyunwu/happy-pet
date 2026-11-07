@@ -59,6 +59,8 @@ SELECT * FROM game_sessions WHERE user_id=$1 AND request_key=$2;
 SELECT * FROM game_sessions WHERE id=$1 FOR UPDATE;
 -- name: UpdateSession :exec
 UPDATE game_sessions SET state=$2,last_seq=$3,status=$4 WHERE id=$1;
+-- name: ReopenLostSession :execrows
+UPDATE game_sessions SET settled=false,ended_at=NULL,reward_coins=0 WHERE id=$1 AND status='lost' AND settled=true;
 -- name: SettleSession :exec
 UPDATE game_sessions SET settled=true,reward_coins=$2,ended_at=now(),status=$3 WHERE id=$1;
 -- name: AddEvent :exec

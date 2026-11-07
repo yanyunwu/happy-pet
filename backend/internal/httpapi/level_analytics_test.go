@@ -103,7 +103,7 @@ func TestLevelAnalyticsEmptyDraft(t *testing.T) {
 			t.Fatal("empty day invents data", day)
 		}
 	}
-	if len(result.Tools) != 5 {
+	if len(result.Tools) != 6 {
 		t.Fatal("missing zero-use tools", result.Tools)
 	}
 	for i, kind := range []string{"undo", "shovel", "draw", "shuffle", "unlock_slot"} {
@@ -277,10 +277,11 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 	// Historical events remain readable even though new hint actions are rejected.
 	if _, err = h.db.Exec(`INSERT INTO game_events(session_id,seq,action,state) VALUES
 		($1,8,'{"type":"hint"}','{}'),($1,9,'{"type":"hint"}','{}'),
-		($2,1,'{"type":"hint"}','{}'),($3,1,'{"type":"hint"}','{}')`, session.ID, other.ID, unrelated.ID); err != nil {
+		($2,1,'{"type":"hint"}','{}'),($3,1,'{"type":"hint"}','{}'),
+		($1,10,'{"type":"revive"}','{}')`, session.ID, other.ID, unrelated.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = h.db.Exec(`UPDATE game_sessions SET last_seq=9 WHERE id=$1`, session.ID); err != nil {
+	if _, err = h.db.Exec(`UPDATE game_sessions SET last_seq=10 WHERE id=$1`, session.ID); err != nil {
 		t.Fatal(err)
 	}
 	page := decode[struct {
@@ -293,7 +294,7 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 	for _, item := range page.Items {
 		if item.ID == session.ID {
 			found = true
-			if item.Steps != 7 {
+			if item.Steps != 8 {
 				t.Fatalf("steps should exclude legacy hints: %+v", item)
 			}
 		}
@@ -302,7 +303,7 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 		t.Fatal("session missing from list")
 	}
 	result := decode[analyticsTestResult](t, h.call("GET", "/api/v1/admin/levels/"+session.LevelID+"/analytics", nil, "admin"), 200)
-	if len(result.Tools) != 5 {
+	if len(result.Tools) != 6 {
 		t.Fatal("missing tool categories", result.Tools)
 	}
 	for _, tool := range result.Tools {
@@ -316,7 +317,7 @@ func TestLevelAnalyticsValidatedToolUsesAreCountedOnce(t *testing.T) {
 			Action game.Action `json:"action"`
 		} `json:"events"`
 	}](t, h.call("GET", "/api/v1/admin/sessions/"+session.ID+"/replay", nil, "admin"), 200)
-	if len(replay.Events) != 7 {
+	if len(replay.Events) != 8 {
 		t.Fatalf("legacy hint actions must be omitted from replay: %+v", replay.Events)
 	}
 	var foundDraw bool

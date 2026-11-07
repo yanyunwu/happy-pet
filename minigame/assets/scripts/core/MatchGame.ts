@@ -403,6 +403,8 @@ export class MatchGame {
   tray: number[] = [];
   reserve: number[] = [];
   status: GameStatus = 'playing';
+  reviveUsed = false;
+  reviveOutcome: 'move' | '' = '';
   capacity = CAPACITY;
   matches = 0;
   moves = 0;
@@ -454,6 +456,8 @@ export class MatchGame {
     this.tray = state.tray.slice();
     this.reserve = state.reserve.slice();
     this.status = state.status;
+    this.reviveUsed = !!state.reviveUsed;
+    this.reviveOutcome = state.reviveOutcome || '';
     this.matches = state.matches;
     this.moves = state.moves;
     this.clearedCount = state.cleared;
@@ -653,6 +657,19 @@ export class MatchGame {
   unlockExtraSlot(): boolean {
     if (this.status !== 'playing' || this.capacity !== CAPACITY) return false;
     this.capacity = CAPACITY + 1;
+    return true;
+  }
+  revive(): boolean {
+    if (this.status !== 'lost' || this.reviveUsed) return false;
+    const count = Math.min(3, this.tray.length);
+    if (!count) return false;
+    const returnCount = Math.max(0, this.reserve.length + count - RESERVE_CAPACITY);
+    for (const id of this.reserve.splice(0, returnCount)) this.tiles[id].removed = false;
+    this.reserve.push(...this.tray.splice(0, count));
+    this.status = 'playing';
+    this.history = [];
+    this.reviveOutcome = 'move';
+    this.reviveUsed = true;
     return true;
   }
   get canUndo(): boolean {

@@ -27,6 +27,7 @@ import {
   PickResult,
   TILE_H,
   TILE_W,
+  RESERVE_CAPACITY,
   Tile,
   ruleDescription,
 } from './core/MatchGame';
@@ -130,6 +131,7 @@ export class StarIsle extends Component {
   private presentationEpoch = 0;
   private motionSerial = 0;
   private resultHandled = false;
+  private revivePending = false;
   private frames: SpriteFrame[] = [];
   private soundscape!: WoodlandAudio;
   private levelTransition!: LeafTransition;
@@ -403,6 +405,7 @@ export class StarIsle extends Component {
     this.screen = name === 'home' ? this.homeRoot! : this.gameRoot!;
     this.currentScreen = name;
     this.resultHandled = false;
+    this.revivePending = false;
     this.effects = P.layer(this.stage, 'Effects');
   }
   private home(): void {
@@ -414,7 +417,11 @@ export class StarIsle extends Component {
       this.closeModal(() => this.home());
       return;
     }
-    if (this.online?.active && !this.practice && this.game?.status === 'playing') {
+    if (
+      this.online?.active &&
+      !this.practice &&
+      (this.game?.status === 'playing' || this.revivePending)
+    ) {
       void this.online.finish('abandoned').catch(() => {
         if (this.isValid) this.toast('退出记录已暂存，联网后会继续同步');
       });
@@ -650,7 +657,8 @@ export class StarIsle extends Component {
     const online = this.online;
     let failure: unknown;
     try {
-      if (online.active && this.game?.status === 'playing') await online.finish('abandoned');
+      if (online.active && (this.game?.status === 'playing' || this.revivePending))
+        await online.finish('abandoned');
       if (!this.isValid || !this.levelTransition.isCurrent(token)) return;
       const session: CloudSession = await online.start(mode, previous, this.selectedEntry);
       if (!this.isValid || !this.levelTransition.isCurrent(token)) return;
@@ -833,6 +841,85 @@ export class StarIsle extends Component {
         this.updateControls();
       }
     }
+  }
+  private async watchReviveAd(): Promise<void> {
+    const round = this.game;
+    if (
+      !round ||
+      round.status !== 'lost' ||
+      round.reviveUsed ||
+      this.slotAdPending ||
+      this.networkBusy ||
+      this.currentScreen !== 'game'
+    )
+      return;
+    const epoch = this.slotAdEpoch,
+      modal = this.modal,
+      online = this.online;
+    const returnCount = Math.max(
+      0,
+      round.reserve.length + Math.min(3, round.tray.length) - RESERVE_CAPACITY,
+    );
+    const sessionId = online?.active?.id;
+    const current = () =>
+      this.isValid &&
+      this.game === round &&
+      this.currentScreen === 'game' &&
+      this.slotAdEpoch === epoch &&
+      (this.practice || (this.online === online && online?.active?.id === sessionId));
+    this.slotAdPending = true;
+    const resumeAudio = this.soundscape.suspendForAd();
+    try {
+      const completed = await this.slotAd.watch(this.slotAdUnitId);
+      if (!current() || this.modal !== modal || !completed) return;
+      if (this.practice || !online) {
+        if (round.revive()) this.restoreRevivedBoard(round, returnCount);
+        return;
+      }
+      // A completed video is claimed once. Network retries reuse the queued
+      // event, rather than asking the player to watch another ad.
+      let recorded = false;
+      const sync = async (): Promise<void> => {
+        if (!current()) return;
+        this.networkBusy = true;
+        try {
+          if (!recorded) {
+            await online.recover();
+            if (!current()) return;
+            online.record('revive');
+            recorded = true;
+            this.revivePending = true;
+          }
+          const state = await online.syncState();
+          if (!current()) return;
+          this.revivePending = false;
+          round.applyCloud(state);
+          this.restoreRevivedBoard(round, returnCount);
+        } catch (error) {
+          if (!current()) return;
+          if (error instanceof OnlineError && (error.status === 400 || error.status === 409)) {
+            this.revivePending = false;
+            await this.reconcileCloud(error);
+          } else this.connectionError(error, sync);
+        } finally {
+          this.networkBusy = false;
+        }
+      };
+      await sync();
+    } catch (error) {
+      if (current()) this.toast(error instanceof Error ? error.message : '广告暂不可用');
+    } finally {
+      resumeAudio();
+      if (current()) this.slotAdPending = false;
+    }
+  }
+  private restoreRevivedBoard(round: MatchGame, returnCount: number): void {
+    const elapsed = this.playTime;
+    this.mountLevel(round, false);
+    this.playTime = elapsed;
+    this.toast(
+      returnCount > 0 ? `已移出槽内萌宠，${returnCount}张暂存牌回到棋盘` : '已将槽内萌宠移入暂存区',
+    );
   }
   private buildBoard(): void {
     this.tileNodes.clear();
@@ -2009,13 +2096,26 @@ export class StarIsle extends Component {
         ? campaign
           ? '当前已开放关卡全部完成，进度已保存'
           : `${g.mode.title}挑战完成，试试其他玩法吧！`
-        : '优先凑齐槽里已有的萌宠，再收新种类。',
+        : !g.reviveUsed
+          ? '复活将槽内最多3张萌宠移入暂存区。'
+          : '优先凑齐槽里已有的萌宠，再收新种类。',
       360,
-      753,
+      !won && !g.reviveUsed ? 737 : 753,
       22,
       C.muted,
       570,
     );
+    if (!won && !g.reviveUsed)
+      P.text(
+        m,
+        'ReviveFallback',
+        '暂存区空间不足时，部分暂存牌将回到棋盘。',
+        360,
+        770,
+        20,
+        C.muted,
+        570,
+      );
     P.rounded(m, 'StatsPanel', 360, 860, 522, 125, '#F1E5CE', 22, '#D3BB91');
     const seconds = Math.floor(this.playTime),
       stats = [
@@ -2039,12 +2139,25 @@ export class StarIsle extends Component {
         540,
         true,
       );
+    if (!won && !g.reviveUsed)
+      P.button(
+        m,
+        'ResultRevive',
+        '看广告复活 · 每局一次',
+        360,
+        965,
+        510,
+        84,
+        () => void this.watchReviveAd(),
+        true,
+        27,
+      );
     P.button(
       m,
       'ResultPrimary',
       campaign ? (won ? '返回主页' : '重试 · 当前关') : '重新开始 · 第一关',
       360,
-      1020,
+      !won && !g.reviveUsed ? 1060 : 1020,
       510,
       98,
       () => (campaign && won ? this.home() : this.startLevel(1, undefined, g.mode.id)),
@@ -2052,7 +2165,18 @@ export class StarIsle extends Component {
       30,
     );
     if (!(campaign && won))
-      P.button(m, 'ResultHome', '返回主页', 360, 1140, 510, 88, () => this.home(), false, 28);
+      P.button(
+        m,
+        'ResultHome',
+        '返回主页',
+        360,
+        !won && !g.reviveUsed ? 1165 : 1140,
+        510,
+        88,
+        () => this.home(),
+        false,
+        28,
+      );
     if (won)
       for (let i = 0; i < 16; i++) {
         const x = 110 + ((i * 89) % 500),

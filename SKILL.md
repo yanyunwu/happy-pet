@@ -258,8 +258,9 @@ curl -sS "$BASE/api/v1/user/assets" \
 | shuffle     | 将未消除方块重新布局/分配，并清空 tray、reserve、撤回历史 | playing；使用服务端 seed 与 seq 派生的确定性随机值。               |
 | share_tool  | 为指定 `tool` 追加 1 次使用机会                           | playing；该道具免费及当前可用背包额度耗尽；每种道具每局一次。      |
 | unlock_slot | 将 capacity 从 7 改为 8                                   | 每局仅一次，playing 且当前为 7；不占四种道具次数、不扣背包或金币。 |
+| revive      | 失败后复活，将槽中最多 3 张移至暂存                       | lost 且本局尚未复活；不扣道具或金币。                              |
 
-四种道具分别先扣本局免费次数；闯关每种最多再扣 1 个背包，挑战不扣背包；随后每种可发起一次普通微信转发，接口正常调用后自动领取，追加 1 次。领取不依赖微信前后台事件，也不能验证是否实际发送给朋友，取消也可能领取；服务端仅记录客户端上报，无法验证分享真实性。当前额外槽接口没有广告凭证字段，不要虚构广告验证参数。满槽或无剩余可选牌但 tray 未清空会判负；全部牌、tray、reserve 清空才判胜。终局后不能用 undo 复活。放弃后的恢复视图可能 state.status 仍是 playing，但 settled=true；应以结算标志和 finish/审计记录判断。
+四种道具分别先扣本局免费次数；闯关每种最多再扣 1 个背包，挑战不扣背包；随后每种可发起一次普通微信转发，接口正常调用后自动领取，追加 1 次。领取不依赖微信前后台事件，也不能验证是否实际发送给朋友，取消也可能领取；服务端仅记录客户端上报，无法验证分享真实性。额外槽和复活均由客户端上报，服务端无法验证广告是否真实播放。满槽或无剩余可选牌但 tray 未清空会判负；全部牌、tray、reserve 清空才判胜。每局失败后可复活一次；将槽中最多 3 张移至暂存；若暂存空间不足，先将必要数量的暂存牌放回棋盘。复活保留消除进度、道具消耗和额外槽，清空撤回历史。终局后不能用 undo 复活。放弃后的恢复视图可能 state.status 仍是 playing，但 settled=true；应以结算标志和 finish/审计记录判断。
 
 ```bash
 curl -sS -X POST "$BASE/api/v1/user/sessions" \
@@ -1736,7 +1737,7 @@ curl -sS -X GET "$BASE/api/v1/user/sessions/$SESSION_ID" \
 
 **认证：** 玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。
 
-每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409；已清理的旧提示序号无法重放，返回 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。pick 只可选择未被覆盖或位于 reserve 的有效方块；draw 不带 tileId，由服务端从被覆盖方块中确定性随机抽取并进入槽位，使用 hint 道具额度；不再接受新的旧版 hint 动作。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。share_tool 是客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。
+每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409；已清理的旧提示序号无法重放，返回 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。pick 只可选择未被覆盖或位于 reserve 的有效方块；draw 不带 tileId，由服务端从被覆盖方块中确定性随机抽取并进入槽位，使用 hint 道具额度；不再接受新的旧版 hint 动作。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。share_tool 是客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。失败后可提交一次 revive 继续当前对局；复活由客户端上报，服务端无法验证广告播放，细节见动作表。
 
 | 参数        | 位置   | 必填 | 说明                                                                                                                                |
 | ----------- | ------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -2887,13 +2888,13 @@ PATCH 仍需提交完整 nickname 和 status。remark 省略等同空字符串�
 
 ### Action
 
-| 字段     | 类型                                                                                                  | 必填 | 说明                                                                                               |
-| -------- | ----------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------- |
-| `seq`    | integer                                                                                               | 是   | 从 1 开始连续递增，最大 10000。；最小 1；最大 10000                                                |
-| `type`   | string = `"pick"` / `"undo"` / `"shovel"` / `"draw"` / `"shuffle"` / `"share_tool"` / `"unlock_slot"` | 是   | draw 为抽卡；share_tool 追加次数；unlock_slot 增加一格。                                           |
-| `tool`   | string = `"undo"` / `"shovel"` / `"hint"` / `"shuffle"`                                               | 否   | 仅 share_tool 使用，指定追加次数的道具；抽卡使用 hint。                                            |
-| `tileId` | integer                                                                                               | 否   | 仅 pick 使用的方块 ID；ID 0 是合法值，其他动作省略。；最小 0                                       |
-| `at`     | integer                                                                                               | 是   | 对局开始后的相对毫秒；非递减，0..604800000。不是 Unix 时间戳。；最小 0；最大 604800000；格式 int64 |
+| 字段     | 类型                                                                                                               | 必填 | 说明                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------ | ---- | -------------------------------------------------------------------------------------------------- |
+| `seq`    | integer                                                                                                            | 是   | 从 1 开始连续递增，最大 10000。；最小 1；最大 10000                                                |
+| `type`   | string = `"pick"` / `"undo"` / `"shovel"` / `"draw"` / `"shuffle"` / `"share_tool"` / `"unlock_slot"` / `"revive"` | 是   | draw 为抽卡；share_tool 追加次数；unlock_slot 增加一格；revive 为失败后复活。                      |
+| `tool`   | string = `"undo"` / `"shovel"` / `"hint"` / `"shuffle"`                                                            | 否   | 仅 share_tool 使用，指定追加次数的道具；抽卡使用 hint。                                            |
+| `tileId` | integer                                                                                                            | 否   | 仅 pick 使用的方块 ID；ID 0 是合法值，其他动作省略。；最小 0                                       |
+| `at`     | integer                                                                                                            | 是   | 对局开始后的相对毫秒；非递减，0..604800000。不是 Unix 时间戳。；最小 0；最大 604800000；格式 int64 |
 
 <a id="schema-eventsinput"></a>
 
@@ -3063,24 +3064,26 @@ PATCH 仍需提交完整 nickname 和 status。remark 省略等同空字符串�
 
 ### State
 
-| 字段           | 类型                                                                 | 必填 | 说明                                                                                                                |
-| -------------- | -------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------- |
-| `tiles`        | array&lt;[Tile](#schema-tile)&gt;                                    | 是   | 完整方块数组。                                                                                                      |
-| `tray`         | array&lt;integer&gt;                                                 | 是   | 收纳槽方块 ID。                                                                                                     |
-| `reserve`      | array&lt;integer&gt;                                                 | 是   | 铲子暂存区方块 ID。                                                                                                 |
-| `matches`      | integer                                                              | 是   | 已触发消除次数。                                                                                                    |
-| `cleared`      | integer                                                              | 是   | 累计已消除方块数。                                                                                                  |
-| `moves`        | integer                                                              | 是   | pick 和 draw 步数；撤回会回退。                                                                                     |
-| `status`       | string = `"playing"` / `"won"` / `"lost"`                            | 是   | 棋盘状态。                                                                                                          |
-| `mode`         | string = `"classic"` / `"quartet"` / `"fun"`                         | 是   | 规则目录：classic 经典三消、quartet 四消、fun 趣味双对；实际匹配依据 config.rules。                                 |
-| `capacity`     | integer = `7` / `8`                                                  | 是   | 当前容量 7 或解锁后的 8。                                                                                           |
-| `tools`        | object {undo:integer, shovel:integer, hint:integer, shuffle:integer} | 是   | 每种道具的本局剩余免费次数。                                                                                        |
-| `bagUsed`      | object {道具名:boolean} 或 null                                      | 否   | 本局各道具是否已使用过背包额度；历史快照可能缺失或为 null。                                                         |
-| `sharedTools`  | object {道具名:boolean} 或 null                                      | 否   | 本局各道具是否已提交分享动作；历史快照可能缺失或为 null。                                                           |
-| `shareUses`    | object {道具名:integer} 或 null                                      | 否   | 本局各道具的剩余分享追加次数；历史快照可能缺失或为 null。                                                           |
-| `history`      | array&lt;[Frame](#schema-frame)&gt;                                  | 否   | 只在所有者 recovery 返回；其他响应省略。最多 64 帧。；最多项数 64                                                   |
-| `rulesVersion` | string = `"pet-rules-1"` / `"pet-rules-2"`                           | 是   | 当前写入推荐 pet-rules-2；历史快照可为 pet-rules-1。                                                                |
-| `rules`        | array&lt;[Rule](#schema-rule)&gt;                                    | 否   | 历史运行快照可有 1–6 条，按顺序匹配。新写入只允许一条。pet-rules-1 快照省略时按旧语义恢复。；最少项数 1；最多项数 6 |
+| 字段            | 类型                                                                 | 必填 | 说明                                                                                                                |
+| --------------- | -------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------- |
+| `tiles`         | array&lt;[Tile](#schema-tile)&gt;                                    | 是   | 完整方块数组。                                                                                                      |
+| `tray`          | array&lt;integer&gt;                                                 | 是   | 收纳槽方块 ID。                                                                                                     |
+| `reserve`       | array&lt;integer&gt;                                                 | 是   | 铲子暂存区方块 ID。                                                                                                 |
+| `matches`       | integer                                                              | 是   | 已触发消除次数。                                                                                                    |
+| `cleared`       | integer                                                              | 是   | 累计已消除方块数。                                                                                                  |
+| `moves`         | integer                                                              | 是   | pick 和 draw 步数；撤回会回退。                                                                                     |
+| `status`        | string = `"playing"` / `"won"` / `"lost"`                            | 是   | 棋盘状态。                                                                                                          |
+| `mode`          | string = `"classic"` / `"quartet"` / `"fun"`                         | 是   | 规则目录：classic 经典三消、quartet 四消、fun 趣味双对；实际匹配依据 config.rules。                                 |
+| `capacity`      | integer = `7` / `8`                                                  | 是   | 当前容量 7 或解锁后的 8。                                                                                           |
+| `reviveUsed`    | boolean                                                              | 否   | 本局是否已复活；旧回放快照可能缺失。                                                                                |
+| `reviveOutcome` | string = `"move"`                                                    | 否   | 复活方式：移至暂存；未复活时省略。                                                                                  |
+| `tools`         | object {undo:integer, shovel:integer, hint:integer, shuffle:integer} | 是   | 每种道具的本局剩余免费次数。                                                                                        |
+| `bagUsed`       | object {道具名:boolean} 或 null                                      | 否   | 本局各道具是否已使用过背包额度；历史快照可能缺失或为 null。                                                         |
+| `sharedTools`   | object {道具名:boolean} 或 null                                      | 否   | 本局各道具是否已提交分享动作；历史快照可能缺失或为 null。                                                           |
+| `shareUses`     | object {道具名:integer} 或 null                                      | 否   | 本局各道具的剩余分享追加次数；历史快照可能缺失或为 null。                                                           |
+| `history`       | array&lt;[Frame](#schema-frame)&gt;                                  | 否   | 只在所有者 recovery 返回；其他响应省略。最多 64 帧。；最多项数 64                                                   |
+| `rulesVersion`  | string = `"pet-rules-1"` / `"pet-rules-2"`                           | 是   | 当前写入推荐 pet-rules-2；历史快照可为 pet-rules-1。                                                                |
+| `rules`         | array&lt;[Rule](#schema-rule)&gt;                                    | 否   | 历史运行快照可有 1–6 条，按顺序匹配。新写入只允许一条。pet-rules-1 快照省略时按旧语义恢复。；最少项数 1；最多项数 6 |
 
 <a id="schema-session"></a>
 
@@ -3222,7 +3225,7 @@ curl --get "$BASE/api/v1/admin/levels/$LEVEL_ID/analytics" \
 - `winRate = won / attempts × 100`；`finishedWinRate = won / (won + lost + abandoned) × 100`。分母为0时返回 null，不是假设0%。
 - `avgWinDurationSeconds` 只取通关且 `ended_at >= started_at` 的有效服务端开始/结束时差，包含切后台/闲置时间；`winDurationSamples` 为有效样本数，无样本均值为null。
 - `avgWinMoves` 为通关对局最终 `state.moves` 的平均值，点选和抽卡均计数、撤回会回退；不等于包含道具的全部事件数。
-- `tools` 恒含 `undo/shovel/draw/shuffle/unlock_slot` 五类，`draw` 是抽卡。`uses` 是接受的事件次数，`sessions` 是使用过的对局数。包括免费、背包和分享追加次数使用的道具；重复上报同一序号不会重复统计。`unlock_slot` 仅代表解锁行为，不能推断广告实际播放完成。
+- `tools` 恒含 `undo/shovel/draw/shuffle/unlock_slot/revive` 六类，`draw` 是抽卡，`revive` 是复活。`uses` 是接受的事件次数，`sessions` 是使用过的对局数。包括免费、背包和分享追加次数使用的道具；重复上报同一序号不会重复统计。`unlock_slot` 和 `revive` 仅代表客户端上报的操作，不能推断广告实际播放完成。
 - `from/to/generatedAt` 为RFC3339，`from=null` 表示全部历史；`to` 是不包含的上界。`trendFrom` 为趋势首日，`timezone` 固定 `Asia/Shanghai`。多个统计查询在同一个只读可重复读快照内完成。
 
 成功返回示例：

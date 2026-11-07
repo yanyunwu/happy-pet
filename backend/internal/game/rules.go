@@ -57,15 +57,17 @@ type Frame struct {
 }
 type State struct {
 	Frame
-	Mode         string          `json:"mode"`
-	Capacity     int             `json:"capacity"`
-	Tools        map[string]int  `json:"tools"`
-	BagUsed      map[string]bool `json:"bagUsed"`
-	SharedTools  map[string]bool `json:"sharedTools"`
-	ShareUses    map[string]int  `json:"shareUses"`
-	History      []Frame         `json:"history,omitempty"`
-	RulesVersion string          `json:"rulesVersion"`
-	Rules        [][]int         `json:"rules,omitempty"`
+	Mode          string          `json:"mode"`
+	Capacity      int             `json:"capacity"`
+	Tools         map[string]int  `json:"tools"`
+	BagUsed       map[string]bool `json:"bagUsed"`
+	SharedTools   map[string]bool `json:"sharedTools"`
+	ShareUses     map[string]int  `json:"shareUses"`
+	History       []Frame         `json:"history,omitempty"`
+	RulesVersion  string          `json:"rulesVersion"`
+	Rules         [][]int         `json:"rules,omitempty"`
+	ReviveUsed    bool            `json:"reviveUsed"`
+	ReviveOutcome string          `json:"reviveOutcome,omitempty"`
 }
 type Action struct {
 	Seq    int    `json:"seq"`
@@ -362,6 +364,38 @@ func (s *State) UnlockExtraSlot() error {
 	s.Capacity = 8
 	return nil
 }
+
+// Revive preserves all unmatched tiles and never spends a regular tool.
+func (s *State) Revive() error {
+	if s.Status != "lost" || s.ReviveUsed {
+		return fmt.Errorf("本局无法复活")
+	}
+	candidate := *s
+	candidate.Frame = cloneFrame(s.Frame)
+	candidate.Status = "playing"
+	candidate.History = nil
+	moveCount := min(3, len(candidate.Tray))
+	if moveCount == 0 {
+		return fmt.Errorf("没有可移出的方块")
+	}
+	// Return enough existing reserve tiles to their original board positions to
+	// keep the reserve within its normal capacity. Higher tiles may cover them.
+	returnCount := max(0, len(candidate.Reserve)+moveCount-7)
+	for _, id := range candidate.Reserve[:returnCount] {
+		if id < 0 || id >= len(candidate.Tiles) {
+			return fmt.Errorf("暂存方块无效")
+		}
+		candidate.Tiles[id].Removed = false
+	}
+	candidate.Reserve = append([]int{}, candidate.Reserve[returnCount:]...)
+	candidate.Reserve = append(candidate.Reserve, candidate.Tray[:moveCount]...)
+	candidate.Tray = append([]int{}, candidate.Tray[moveCount:]...)
+	candidate.ReviveOutcome = "move"
+	candidate.ReviveUsed = true
+	*s = candidate
+	return nil
+}
+
 func (s *State) Tool(kind string, seed uint32) error {
 	if s.Status != "playing" {
 		return fmt.Errorf("对局已结束")

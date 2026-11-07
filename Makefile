@@ -68,6 +68,9 @@ test-api:
 test-api-race:
 	go -C backend test -race -count=1 -timeout=15m $(GO_TEST_FLAGS) ./...
 test-game:
+	node minigame/tools/test-revive-rules.cjs
+	node minigame/tools/test-revive-controller.cjs
+	node minigame/tools/test-revive-online.cjs
 	node minigame/tools/test-single-rule.cjs
 	node minigame/tools/test-win-probability.cjs
 	node minigame/tools/test-tool-policy.cjs
@@ -129,6 +132,7 @@ test-environments:
 preview-game:
 	node minigame/tools/serve.cjs
 test-ui:
+	cd minigame && node tools/test-revive-ui.cjs
 	cd minigame && node tools/test-draw-idle-progress-ui.cjs
 	cd minigame && node tools/test-shared-kind-ui.cjs
 	cd minigame && node tools/test-tool-policy-ui.cjs

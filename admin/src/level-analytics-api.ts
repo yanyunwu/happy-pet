@@ -50,7 +50,7 @@ export interface LevelAnalytics {
   daily: AnalyticsDay[];
   revisions: AnalyticsRevision[];
   tools: {
-    type: 'undo' | 'shovel' | 'hint' | 'draw' | 'shuffle' | 'unlock_slot';
+    type: 'undo' | 'shovel' | 'hint' | 'draw' | 'shuffle' | 'unlock_slot' | 'revive';
     uses: number;
     sessions: number;
   }[];

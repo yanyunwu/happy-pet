@@ -39,7 +39,7 @@ func TestLevelAnalyticsBrowserIntegration(t *testing.T) {
 		// Live action validation and deduplication are covered by TestLevelAnalyticsValidatedToolUsesAreCountedOnce.
 		_, err = h.db.Exec(`INSERT INTO game_events(session_id,seq,action,state) VALUES
 			($1,1,'{"type":"draw"}','{}'),($1,2,'{"type":"draw"}','{}'),($2,1,'{"type":"draw"}','{}'),
-			($1,3,'{"type":"hint"}','{}'),($2,2,'{"type":"hint"}','{}')`, first, second)
+			($1,3,'{"type":"hint"}','{}'),($2,2,'{"type":"hint"}','{}'),($1,4,'{"type":"revive"}','{}')`, first, second)
 		if err != nil {
 			t.Fatal(err)
 		}
