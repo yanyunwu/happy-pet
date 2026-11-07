@@ -57,16 +57,20 @@ type Frame struct {
 }
 type State struct {
 	Frame
-	Mode         string         `json:"mode"`
-	Capacity     int            `json:"capacity"`
-	Tools        map[string]int `json:"tools"`
-	History      []Frame        `json:"history,omitempty"`
-	RulesVersion string         `json:"rulesVersion"`
-	Rules        [][]int        `json:"rules,omitempty"`
+	Mode         string          `json:"mode"`
+	Capacity     int             `json:"capacity"`
+	Tools        map[string]int  `json:"tools"`
+	BagUsed      map[string]bool `json:"bagUsed"`
+	SharedTools  map[string]bool `json:"sharedTools"`
+	ShareUses    map[string]int  `json:"shareUses"`
+	History      []Frame         `json:"history,omitempty"`
+	RulesVersion string          `json:"rulesVersion"`
+	Rules        [][]int         `json:"rules,omitempty"`
 }
 type Action struct {
 	Seq    int    `json:"seq"`
 	Type   string `json:"type"`
+	Tool   string `json:"tool,omitempty"`
 	TileID int    `json:"tileId,omitempty"`
 	At     int64  `json:"at"`
 }
@@ -442,7 +446,7 @@ func NewBoard(c Config, seed uint32) (State, []int, error) {
 		return State{}, nil, e
 	}
 	rules, _ := CanonicalRules(c.Mode, c.RulesVersion, c.Rules)
-	s := State{Frame: Frame{Tiles: []Tile{}, Tray: []int{}, Reserve: []int{}, Status: "playing"}, Mode: c.Mode, Capacity: c.Capacity, Tools: map[string]int{}, RulesVersion: c.RulesVersion, Rules: rules}
+	s := State{Frame: Frame{Tiles: []Tile{}, Tray: []int{}, Reserve: []int{}, Status: "playing"}, Mode: c.Mode, Capacity: c.Capacity, Tools: map[string]int{}, BagUsed: map[string]bool{}, SharedTools: map[string]bool{}, ShareUses: map[string]int{}, RulesVersion: c.RulesVersion, Rules: rules}
 	for _, k := range Tools {
 		s.Tools[k] = c.FreeTools[k]
 	}

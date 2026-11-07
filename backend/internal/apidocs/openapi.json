@@ -3675,7 +3675,7 @@
         "tags": ["游戏对局"],
         "summary": "提交按序游戏动作",
         "operationId": "submitEvents",
-        "description": "每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。只可选择未被覆盖或位于 reserve 的有效方块。先扣本关免费次数；standard 免费次数用完即拒绝，campaign 再扣背包。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。\n\n玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。",
+        "description": "每批 1–64 个动作，seq 从 1 连续递增；at 为相对毫秒，0..604800000 且非递减；seq 上限 10000。同 seq 同内容可重放，内容不同为 409。一个批次内任何新动作失败都会回滚新动作和道具扣除。只可选择未被覆盖或位于 reserve 的有效方块。每种道具先扣本关免费次数；campaign 每种最多再扣 1 个背包，standard 不扣背包；随后可提交一次 share_tool 追加 1 次。普通微信转发无法验证是否发送，取消也可能得到次数；share_tool 为客户端上报，不证明实际分享成功。unlock_slot 不扣道具，只能 playing 且 capacity=7 时解锁一次到 8。最后一步产生 won/lost 时会自动结算；随后仍可调用 finish 获取结算详情。\n\n玩家 Bearer JWT；或管理员 Bearer 访问 Token + X-User-ID（32 位小写十六进制的正常未删除玩家 ID）。管理员 Cookie 不能直接作为玩家身份，玩家 JWT 不能借 X-User-ID 切换他人。",
         "security": [
           {
             "PlayerToken": []
@@ -7291,8 +7291,13 @@
           },
           "type": {
             "type": "string",
-            "description": "pick 选牌；四种道具；unlock_slot 增加一格。",
-            "enum": ["pick", "undo", "shovel", "hint", "shuffle", "unlock_slot"]
+            "description": "pick 选牌；四种道具；share_tool 追加次数；unlock_slot 增加一格。",
+            "enum": ["pick", "undo", "shovel", "hint", "shuffle", "share_tool", "unlock_slot"]
+          },
+          "tool": {
+            "type": "string",
+            "description": "仅 share_tool 使用，指定追加次数的道具。",
+            "enum": ["undo", "shovel", "hint", "shuffle"]
           },
           "tileId": {
             "type": "integer",
@@ -8051,7 +8056,7 @@
           },
           "tools": {
             "type": "object",
-            "description": "",
+            "description": "每种道具的本局剩余免费次数。",
             "properties": {
               "undo": {
                 "type": "integer",
@@ -8080,6 +8085,24 @@
             },
             "required": ["undo", "shovel", "hint", "shuffle"],
             "additionalProperties": false
+          },
+          "bagUsed": {
+            "type": "object",
+            "nullable": true,
+            "description": "本局各道具是否已使用过背包额度；历史快照可能为 null。",
+            "additionalProperties": { "type": "boolean" }
+          },
+          "sharedTools": {
+            "type": "object",
+            "nullable": true,
+            "description": "本局各道具是否已提交分享动作；历史快照可能为 null。",
+            "additionalProperties": { "type": "boolean" }
+          },
+          "shareUses": {
+            "type": "object",
+            "nullable": true,
+            "description": "本局各道具剩余分享追加次数；历史快照可能为 null。",
+            "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 1 }
           },
           "history": {
             "type": "array",

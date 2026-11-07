@@ -71,6 +71,8 @@ test-game:
 	node minigame/tools/test-single-rule.cjs
 	node minigame/tools/test-win-probability.cjs
 	node minigame/tools/test-tool-policy.cjs
+	node minigame/tools/test-share-images.cjs
+	node minigame/tools/test-tool-stages.cjs
 	node minigame/tools/test-rewarded-ad.cjs
 	node minigame/tools/test-extra-slot-controller.cjs
 	node minigame/tools/test-extra-slot-rules.cjs

@@ -598,8 +598,8 @@ export default function Levels() {
                 <Typography.Paragraph type="secondary">
                   重复通关保留记录，每关仅首次通关获得奖励。
                   {editing.entry === 'campaign'
-                    ? '闯关先用免费次数，耗尽后可继续消耗背包，直至库存用完。'
-                    : '挑战仅允许使用本关免费次数，耗尽后不可使用背包道具。'}
+                    ? '闯关每种道具先用免费次数，再最多用1个背包道具，之后可分享领取1次。'
+                    : '挑战每种道具先用免费次数，之后可分享领取1次，不消耗背包道具。'}
                 </Typography.Paragraph>
               </Col>
             </Row>

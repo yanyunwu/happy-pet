@@ -109,6 +109,7 @@ export interface BoardState {
 export interface Action {
   seq: number;
   type: string;
+  tool?: string;
   tileId?: number;
   at: number;
 }

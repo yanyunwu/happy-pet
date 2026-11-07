@@ -37,6 +37,40 @@ func sessionView(row dbgen.GameSession) SessionView {
 	_ = json.Unmarshal(row.State, &state)
 	return SessionView{row.Entry, row.ID, row.LevelID, row.RevisionID, row.Ordinal, row.Title, row.Seed, state.Public(), row.LastSeq, row.Settled, row.RewardCoins}
 }
+func restoreToolPolicy(ctx context.Context, q *dbgen.Queries, user, id string, state *State) error {
+	// Restore inventory usage for sessions started before this policy was introduced.
+	if state.BagUsed == nil {
+		state.BagUsed = map[string]bool{}
+		events, err := q.ListEvents(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, event := range events {
+			var old Action
+			if json.Unmarshal(event.Action, &old) != nil {
+				continue
+			}
+			if _, ok := state.Tools[old.Type]; !ok {
+				continue
+			}
+			ledger, err := q.LedgerByKey(ctx, dbgen.LedgerByKeyParams{UserID: user, RequestKey: fmt.Sprintf("session:%s:%d", id, old.Seq)})
+			if err != nil {
+				return err
+			}
+			if len(ledger) > 0 {
+				state.BagUsed[old.Type] = true
+			}
+		}
+	}
+	if state.SharedTools == nil {
+		state.SharedTools = map[string]bool{}
+	}
+	if state.ShareUses == nil {
+		state.ShareUses = map[string]int{}
+	}
+	return nil
+}
+
 func (s *Service) Recovery(ctx context.Context, user, id string) (SessionView, error) {
 	row, e := s.Q.GetSession(ctx, id)
 	if e != nil || row.UserID != user {
@@ -45,6 +79,9 @@ func (s *Service) Recovery(ctx context.Context, user, id string) (SessionView, e
 	view := sessionView(row)
 	// Only the owning player receives undo history when recovering a rejected action.
 	if e = json.Unmarshal(row.State, &view.State); e != nil {
+		return SessionView{}, e
+	}
+	if e = restoreToolPolicy(ctx, s.Q, user, id, &view.State); e != nil {
 		return SessionView{}, e
 	}
 	return view, nil
@@ -74,7 +111,11 @@ func (s *Service) Start(ctx context.Context, user string, in StartInput) (Sessio
 		if old.Mode != in.Mode || old.Entry != in.Entry {
 			return SessionView{}, conflict("请求标识已用于其他模式")
 		}
-		return sessionView(old), nil
+		view := sessionView(old)
+		if e = restoreToolPolicy(ctx, q, user, old.ID, &view.State); e != nil {
+			return SessionView{}, e
+		}
+		return view, nil
 	}
 	if !errors.Is(e, sql.ErrNoRows) {
 		return SessionView{}, e
@@ -157,6 +198,9 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 		return EventResult{}, conflict("该对局需要对应的规则版本")
 	}
 	state.Rules = rules
+	if e = restoreToolPolicy(ctx, q, user, id, &state); e != nil {
+		return EventResult{}, e
+	}
 	lastAt := int64(0)
 	if session.LastSeq > 0 {
 		event, err := q.GetEvent(ctx, dbgen.GetEventParams{SessionID: id, Seq: session.LastSeq})
@@ -190,20 +234,20 @@ func (s *Service) Events(ctx context.Context, user, id string, actions []Action)
 			e = state.Pick(act.TileID)
 		} else if act.Type == "unlock_slot" {
 			e = state.UnlockExtraSlot()
+		} else if act.Type == "share_tool" {
+			e = state.shareTool(session.Entry, act.Tool, assets(a).Bag[act.Tool])
 		} else {
-			_, ok := state.Tools[act.Type]
-			if !ok {
-				return EventResult{}, users.Invalid("未知道具")
-			}
-			if session.Entry == "standard" && state.Tools[act.Type] <= 0 {
-				return EventResult{}, users.Invalid("挑战模式仅可使用本关免费道具次数")
+			source, err := state.toolSource(session.Entry, act.Type, assets(a).Bag[act.Type])
+			if err != nil {
+				return EventResult{}, invalid(err)
 			}
 			e = state.Tool(act.Type, uint32(session.Seed)^uint32(act.Seq)*2654435761)
 			if e == nil {
-				if state.Tools[act.Type] > 0 {
-					state.Tools[act.Type]--
-				} else {
+				if source == "bag" {
 					e = change(ctx, q, &a, act.Type, -1, fmt.Sprintf("session:%s:%d", id, act.Seq), "对局使用道具", user)
+				}
+				if e == nil {
+					state.consumeTool(act.Type, source)
 				}
 			}
 		}
